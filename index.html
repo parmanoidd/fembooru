@@ -265,25 +265,25 @@
   }
   .music-disc {
     display: inline-block;
-    width: 16px;
-    height: 16px;
-    line-height: 16px;
+    width: 18px;
+    height: 18px;
+    line-height: 18px;
     text-align: center;
     border-radius: 50%;
     background-color: #800000;
     color: #FFFFEE;
-    font-size: 10px;
+    font-size: 11px;
     margin-right: 6px;
     vertical-align: middle;
   }
   .music-widget.is-playing .music-disc {
-    -webkit-animation: discSpin 3s linear infinite;
-    animation: discSpin 3s linear infinite;
+    -webkit-animation: discSpin 2.5s linear infinite;
+    animation: discSpin 2.5s linear infinite;
   }
   .eq-bars {
     display: inline-block;
     vertical-align: middle;
-    height: 14px;
+    height: 15px;
     margin-left: 8px;
   }
   .eq-bar {
@@ -297,20 +297,24 @@
     transition: height 0.2s ease;
   }
   .music-widget.is-playing .eq-bar-1 {
-    -webkit-animation: eqPulse 0.55s ease-in-out infinite alternate;
-    animation: eqPulse 0.55s ease-in-out infinite alternate;
+    -webkit-animation: eqPulse 0.5s ease-in-out infinite alternate;
+    animation: eqPulse 0.5s ease-in-out infinite alternate;
   }
   .music-widget.is-playing .eq-bar-2 {
-    -webkit-animation: eqPulse 0.4s ease-in-out 0.15s infinite alternate;
-    animation: eqPulse 0.4s ease-in-out 0.15s infinite alternate;
+    -webkit-animation: eqPulse 0.38s ease-in-out 0.12s infinite alternate;
+    animation: eqPulse 0.38s ease-in-out 0.12s infinite alternate;
   }
   .music-widget.is-playing .eq-bar-3 {
-    -webkit-animation: eqPulse 0.65s ease-in-out 0.25s infinite alternate;
-    animation: eqPulse 0.65s ease-in-out 0.25s infinite alternate;
+    -webkit-animation: eqPulse 0.62s ease-in-out 0.22s infinite alternate;
+    animation: eqPulse 0.62s ease-in-out 0.22s infinite alternate;
   }
   .music-widget.is-playing .eq-bar-4 {
-    -webkit-animation: eqPulse 0.48s ease-in-out 0.1s infinite alternate;
-    animation: eqPulse 0.48s ease-in-out 0.1s infinite alternate;
+    -webkit-animation: eqPulse 0.44s ease-in-out 0.08s infinite alternate;
+    animation: eqPulse 0.44s ease-in-out 0.08s infinite alternate;
+  }
+  .music-widget.is-playing .eq-bar-5 {
+    -webkit-animation: eqPulse 0.56s ease-in-out 0.18s infinite alternate;
+    animation: eqPulse 0.56s ease-in-out 0.18s infinite alternate;
   }
   .music-now-playing {
     background-color: #FFFFEE;
@@ -322,8 +326,8 @@
   }
   .music-widget.is-playing .music-marquee {
     display: inline-block;
-    -webkit-animation: trackSlide 12s linear infinite;
-    animation: trackSlide 12s linear infinite;
+    -webkit-animation: trackSlide 11s linear infinite;
+    animation: trackSlide 11s linear infinite;
   }
   .music-controls-row {
     margin-bottom: 6px;
@@ -360,21 +364,21 @@
   }
   @-webkit-keyframes eqPulse {
     0% { height: 3px; }
-    100% { height: 14px; }
+    100% { height: 15px; }
   }
   @keyframes eqPulse {
     0% { height: 3px; }
-    100% { height: 14px; }
+    100% { height: 15px; }
   }
   @-webkit-keyframes trackSlide {
-    0% { -webkit-transform: translateX(15%); }
-    50% { -webkit-transform: translateX(-15%); }
-    100% { -webkit-transform: translateX(15%); }
+    0% { -webkit-transform: translateX(18%); }
+    50% { -webkit-transform: translateX(-18%); }
+    100% { -webkit-transform: translateX(18%); }
   }
   @keyframes trackSlide {
-    0% { transform: translateX(15%); }
-    50% { transform: translateX(-15%); }
-    100% { transform: translateX(15%); }
+    0% { transform: translateX(18%); }
+    50% { transform: translateX(-18%); }
+    100% { transform: translateX(18%); }
   }
 </style>
 </head>
@@ -394,7 +398,7 @@
 
   <div id="statusBox" class="status-msg"></div>
 
-  <!-- Persistent Music Player Widget (auto-loads tracks from /music/ + local file upload) -->
+  <!-- Persistent Music Player Widget -->
   <div id="musicWidget" class="music-widget">
     <div class="music-widget-head">
       <span class="music-disc">&#9835;</span>
@@ -404,6 +408,7 @@
         <span class="eq-bar eq-bar-2"></span>
         <span class="eq-bar eq-bar-3"></span>
         <span class="eq-bar eq-bar-4"></span>
+        <span class="eq-bar eq-bar-5"></span>
       </span>
       <span style="float:right; font-weight:normal; font-size:11px;" id="musicCountLabel">0 tracks</span>
     </div>
@@ -425,7 +430,7 @@
     <div class="music-upload-row">
       <strong>Upload Audio File:</strong>
       <input type="file" id="musicFileInput" accept="audio/*" onchange="handleMusicFileUpload(this)" style="width:auto;">
-      <span class="muted">(Plays immediately; small audio clips &le; 1 MB also share to /music/ if logged in)</span>
+      <span class="muted">(Plays immediately; clips up to 1 MB also share to /music/ if logged in)</span>
     </div>
   </div>
 
@@ -485,6 +490,7 @@ var state = {
   threads: {},
   comments: {},
   polls: {},
+  users: {},
   snowEffect: null,
   user: null,
   profile: { nickname: "", bio: "", avatarUrl: "" }
@@ -563,7 +569,7 @@ function formatDbError(err, fallbackMsg) {
     detail = err.data;
   }
   if (err.status === 401) {
-    return "Session expired or invalid token. Stale session cleared; please sign in again.";
+    return "Session expired or account removed. Stale session cleared; please sign in again.";
   }
   if (err.status === 403 || detail.toLowerCase().indexOf("permission") !== -1) {
     return "Permission denied by Firebase Realtime Database rules.";
@@ -631,7 +637,7 @@ function usernameToEmail(rawInput) {
 }
 
 /* ==========================================================================
-   SESSION & STALE TOKEN AUTO-CLEAR MANAGEMENT
+   SESSION, STALE TOKEN AUTO-CLEAR & REMOVED-USER RECOVERY
    ========================================================================== */
 function saveSession() {
   if (state.user) {
@@ -707,6 +713,21 @@ function loadSession() {
   }
 }
 
+function verifyAccountStillExists(callback) {
+  if (!state.user || !state.user.idToken || !isFirebaseConfigured()) {
+    callback();
+    return;
+  }
+  var url = "https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=" + encodeURIComponent(CONFIG.firebaseApiKey);
+  httpRequest("POST", url, { idToken: state.user.idToken }, null, function(err, data) {
+    if (err || !data || !data.users || !data.users.length) {
+      // User was deleted in Firebase Authentication -> wipe stale session cleanly
+      clearStaleSession();
+    }
+    callback();
+  });
+}
+
 function ensureFreshSession(callback) {
   if (!state.user || !isFirebaseConfigured()) {
     callback();
@@ -716,11 +737,13 @@ function ensureFreshSession(callback) {
     refreshAuthToken(function(err) {
       if (err) {
         clearStaleSession();
+        callback();
+      } else {
+        verifyAccountStillExists(callback);
       }
-      callback();
     });
   } else {
-    callback();
+    verifyAccountStillExists(callback);
   }
 }
 
@@ -896,7 +919,7 @@ function refreshAuthToken(callback) {
     callback("No refresh token");
     return;
   }
-  var url = "https://securetoken.googleapis.com/token?key=" + encodeURIComponent(CONFIG.firebaseApiKey);
+  var url = "https://securetoken.googleapis.com/v1/token?key=" + encodeURIComponent(CONFIG.firebaseApiKey);
   var body = "grant_type=refresh_token&refresh_token=" + encodeURIComponent(state.user.refreshToken);
   httpRequest("POST", url, body, { "Content-Type": "application/x-www-form-urlencoded" }, function(err, data) {
     if (err || !data || !data.id_token) {
@@ -952,13 +975,13 @@ function handleAuth(mode) {
   }
 
   var endpoint = (mode === "register") ? "signUp" : "signInWithPassword";
-  var url = "https://identitytoolkit.googleapis.com/accounts:" + endpoint + "?key=" + encodeURIComponent(CONFIG.firebaseApiKey);
+  var url = "https://identitytoolkit.googleapis.com/v1/accounts:" + endpoint + "?key=" + encodeURIComponent(CONFIG.firebaseApiKey);
   var payload = { email: email, password: password, returnSecureToken: true };
 
   showStatus("Connecting as " + email + "...", false);
   httpRequest("POST", url, payload, null, function(err, data) {
     if (err && mode === "login" && isAdminAttempt) {
-      var signUpUrl = "https://identitytoolkit.googleapis.com/accounts:signUp?key=" + encodeURIComponent(CONFIG.firebaseApiKey);
+      var signUpUrl = "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=" + encodeURIComponent(CONFIG.firebaseApiKey);
       httpRequest("POST", signUpUrl, payload, null, function(regErr, regData) {
         if (regErr || !regData) {
           showStatus("Admin setup failed. Enable Email/Password sign-in in Firebase Authentication.", true);
@@ -970,12 +993,32 @@ function handleAuth(mode) {
     }
 
     if (err || !data || !data.idToken) {
-      var errMsg = (err && err.data && err.data.error && err.data.error.message) ? err.data.error.message : "Authentication failed.";
-      showStatus("Error: " + errMsg, true);
+      var rawErr = (err && err.data && err.data.error && err.data.error.message) ? err.data.error.message : "";
+      if (rawErr === "EMAIL_NOT_FOUND" || rawErr === "INVALID_LOGIN_CREDENTIALS") {
+        showStatus("Account not found or removed. Click 'Register New Account' to create '" + username + "' now.", true);
+      } else {
+        showStatus("Error: " + (rawErr || "Authentication failed."), true);
+      }
       return;
     }
 
     finalizeAuthSuccess(username, email, data, email === (ADMIN_USERNAME + "@" + CONFIG.emailDomain));
+  });
+}
+
+function purgeOrphanedUserRecords(currentUid, username, email, callback) {
+  dbGet("users", function(err, allUsers) {
+    if (allUsers && typeof allUsers === "object") {
+      for (var oldUid in allUsers) {
+        if (allUsers.hasOwnProperty(oldUid) && oldUid !== currentUid && allUsers[oldUid]) {
+          var rec = allUsers[oldUid];
+          if (rec.email === email || rec.username === username) {
+            dbWrite("DELETE", "users/" + oldUid, null, function() {});
+          }
+        }
+      }
+    }
+    if (callback) callback();
   });
 }
 
@@ -989,16 +1032,22 @@ function finalizeAuthSuccess(username, email, data, isAdmin) {
     isAdmin: isAdmin
   };
   saveSession();
-  loadUserProfile(function() {
-    var nick = state.profile.nickname || username;
-    state.profile.nickname = nick;
-    dbWrite("PATCH", "users/" + state.user.uid, {
-      username: username,
-      email: email,
-      nickname: nick
-    }, function() {});
-    showStatus("Welcome, " + username + " (" + email + ")" + (isAdmin ? " [Admin]" : "") + "!", false);
-    switchView("board");
+
+  // Remove any leftover database profile from a previously deleted account with the same name
+  purgeOrphanedUserRecords(state.user.uid, username, email, function() {
+    loadUserProfile(function() {
+      var nick = state.profile.nickname || username;
+      state.profile.nickname = nick;
+      dbWrite("PATCH", "users/" + state.user.uid, {
+        username: username,
+        email: email,
+        nickname: nick
+      }, function() {});
+      showStatus("Welcome, " + username + " (" + email + ")" + (isAdmin ? " [Admin]" : "") + "!", false);
+      refreshAllData(function() {
+        switchView("board");
+      });
+    });
   });
 }
 
@@ -1021,9 +1070,33 @@ function loadUserProfile(callback) {
         avatarUrl: data.avatarUrl || ""
       };
     } else {
+      // Recreate clean profile record if it was removed from Realtime Database
       state.profile = { nickname: state.user.username, bio: "", avatarUrl: "" };
+      dbWrite("PATCH", "users/" + state.user.uid, {
+        username: state.user.username,
+        email: state.user.email,
+        nickname: state.user.username
+      }, function() {});
     }
     if (callback) callback();
+  });
+}
+
+function adminRemoveUserRecord(targetUid) {
+  if (!state.user || !state.user.isAdmin) return;
+  if (targetUid === state.user.uid) {
+    showStatus("Cannot remove the active admin account.", true);
+    return;
+  }
+  if (!confirm("Remove this user's database record so their name can be reused cleanly?")) return;
+
+  dbWrite("DELETE", "users/" + targetUid, null, function(err) {
+    if (err) {
+      showStatus(formatDbError(err, "Failed to remove user record."), true);
+      return;
+    }
+    showStatus("User database record removed. Also delete from Firebase Authentication if needed.", false);
+    refreshAllData(renderAll);
   });
 }
 
@@ -1362,7 +1435,6 @@ function handleMusicFileUpload(input) {
   rebuildMusicPlaylist();
   musicSelectTrack(0);
 
-  // If user is logged in and file is compact (<= 1 MB), also publish it to /music/ board automatically
   if (state.user && file.size <= 1048576 && typeof FileReader !== "undefined") {
     var reader = new FileReader();
     reader.onload = function(evt) {
@@ -1545,23 +1617,27 @@ function refreshAllData(callback, isBackground) {
         state.comments = commentsData || {};
         dbGet("polls", function(errP, pollsData) {
           state.polls = pollsData || {};
-          dbGet("effects/snow", function(errS, snowData) {
-            state.snowEffect = snowData || null;
-            syncSnowState();
-            rebuildMusicPlaylist();
+          dbGet("users", function(errU, usersData) {
+            state.users = usersData || {};
+            dbGet("effects/snow", function(errS, snowData) {
+              state.snowEffect = snowData || null;
+              syncSnowState();
+              rebuildMusicPlaylist();
 
-            var newHash = JSON.stringify({
-              b: state.boards,
-              t: state.threads,
-              c: state.comments,
-              p: state.polls
+              var newHash = JSON.stringify({
+                b: state.boards,
+                t: state.threads,
+                c: state.comments,
+                p: state.polls,
+                u: state.users
+              });
+              var changed = (newHash !== lastDataHash);
+              lastDataHash = newHash;
+
+              if (callback) {
+                callback(changed);
+              }
             });
-            var changed = (newHash !== lastDataHash);
-            lastDataHash = newHash;
-
-            if (callback) {
-              callback(changed);
-            }
           });
         });
       });
@@ -2178,12 +2254,33 @@ function renderSingleThreadView() {
   return html;
 }
 
+function renderAdminUsersListHtml() {
+  var html = '<div style="margin-top:8px; border-top:1px dashed #D9BFB7; padding-top:6px;"><strong>Database User Profiles:</strong><br>';
+  var count = 0;
+  for (var uid in state.users) {
+    if (state.users.hasOwnProperty(uid) && state.users[uid]) {
+      count++;
+      var u = state.users[uid];
+      html += '<span>' + esc(u.username || u.nickname || uid) + ' (' + esc(u.email || "") + ')</span>';
+      if (state.user && uid !== state.user.uid) {
+        html += ' [<a style="color:#CC0000;" onclick="adminRemoveUserRecord(\'' + esc(uid) + '\')">Remove DB Record</a>]';
+      }
+      html += '<br>';
+    }
+  }
+  if (count === 0) {
+    html += '<span class="muted">No user profiles in database yet.</span>';
+  }
+  html += '</div>';
+  return html;
+}
+
 function renderPollsView() {
   var html = '<div class="board-banner">Community Board Polls &amp; Board Management</div>';
 
   if (state.user && state.user.isAdmin) {
     html += '<div class="box-panel">';
-    html += '<h3>Admin Panel: Create or Remove Boards Immediately</h3>';
+    html += '<h3>Admin Panel: Boards &amp; User Records</h3>';
     html += '<table class="form-table">';
     html += '<tr><td class="form-label">Board Slug</td><td><input type="text" id="adminBoardSlug" maxlength="16" placeholder="e.g. news"></td></tr>';
     html += '<tr><td class="form-label">Board Title</td><td><input type="text" id="adminBoardTitle" maxlength="40" placeholder="e.g. Regional News"></td></tr>';
@@ -2200,6 +2297,8 @@ function renderPollsView() {
     }
     customListHtml += '</div>';
     if (hasCustom) html += customListHtml;
+
+    html += '<div id="adminUsersArea">' + renderAdminUsersListHtml() + '</div>';
     html += '</div>';
   }
 
@@ -2312,7 +2411,6 @@ function renderAuthView() {
   return html;
 }
 
-/* Updates only the live feed without touching open forms or playing music */
 function updateDynamicFeed() {
   renderTopNav();
   if (state.view === "board") {
@@ -2330,6 +2428,10 @@ function updateDynamicFeed() {
     var pollsFeed = document.getElementById("pollsFeedArea");
     if (pollsFeed) {
       pollsFeed.innerHTML = renderPollsListHtml();
+    }
+    var adminUsersArea = document.getElementById("adminUsersArea");
+    if (adminUsersArea) {
+      adminUsersArea.innerHTML = renderAdminUsersListHtml();
     }
   }
 }
