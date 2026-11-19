@@ -2858,6 +2858,10 @@ function createBoardPoll() {
       return;
     }
   }
+  if (state.polls[slug] && state.polls[slug].status !== "approved") {
+    showStatus("An open poll for /" + slug + "/ already exists.", true);
+    return;
+  }
 
   var initialVotes = {};
   initialVotes[state.user.uid] = "yes";
@@ -2879,6 +2883,25 @@ function createBoardPoll() {
       return;
     }
     showStatus("Board poll for /" + slug + "/ created!", false);
+    refreshAllData(renderAll);
+  });
+}
+
+function cancelBoardPoll(slug) {
+  var poll = state.polls[slug];
+  if (!poll || !state.user) return;
+  if (poll.createdBy !== state.user.uid && !state.user.isAdmin) {
+    showStatus("You can only cancel your own board proposal.", true);
+    return;
+  }
+  if (!confirm("Cancel and remove your board proposal for /" + slug + "/?")) return;
+
+  dbWrite("DELETE", "polls/" + slug, null, function(err) {
+    if (err) {
+      showStatus(formatDbError(err, "Failed to cancel proposal."), true);
+      return;
+    }
+    showStatus("Board proposal /" + slug + "/ cancelled.", false);
     refreshAllData(renderAll);
   });
 }
@@ -3321,7 +3344,7 @@ function renderPollsView() {
 
   html += '<div class="box-panel">';
   html += '<h3>Propose a New Community Board</h3>';
-  html += '<p class="muted">If at least ' + CONFIG.pollMinVotes + ' users vote and the majority agrees, the board is automatically created without needing an admin.</p>';
+  html += '<p class="muted">If at least ' + CONFIG.pollMinVotes + ' users vote and the majority agrees, the board is automatically created without needing an admin. You can cancel your own proposal while it is open.</p>';
   if (!state.user) {
     html += '<div>Please <a onclick="switchView(\'auth\')">Log In or Register</a> to propose or vote on new boards.</div>';
   } else {
@@ -3358,6 +3381,8 @@ function renderPollsListHtml() {
         }
       }
 
+      var canCancel = state.user && (p.createdBy === state.user.uid || state.user.isAdmin);
+
       html += '<div class="poll-card">';
       html += '<strong>/' + esc(p.slug) + '/ &mdash; ' + esc(p.title) + '</strong> ';
       html += '<span class="admin-badge" style="background-color:' + (p.status === "approved" ? "#117743" : "#800000") + ';">' +
@@ -3371,6 +3396,9 @@ function renderPollsListHtml() {
         html += '<div style="margin-top:6px;">';
         html += '<button onclick="voteOnPoll(\'' + esc(p.slug) + '\', \'yes\')">Agree (' + yesCount + ')</button> ';
         html += '<button onclick="voteOnPoll(\'' + esc(p.slug) + '\', \'no\')">Disagree (' + noCount + ')</button>';
+        if (canCancel) {
+          html += ' <button type="button" style="background-color:#FFD2D2; color:#800000;" onclick="cancelBoardPoll(\'' + esc(p.slug) + '\')">Cancel Proposal</button>';
+        }
         if (userVote) {
           html += ' <span class="muted">(Your vote: ' + esc(userVote.toUpperCase()) + ')</span>';
         }
