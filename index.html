@@ -27,7 +27,7 @@
   }
   .page-wrap {
     width: 96%;
-    max-width: 1080px;
+    max-width: 1100px;
     margin: 0 auto;
     padding: 10px 0 40px 0;
     position: relative;
@@ -54,7 +54,7 @@
   }
   .left-sidebar {
     display: table-cell;
-    width: 220px;
+    width: 230px;
     vertical-align: top;
     padding-right: 12px;
   }
@@ -78,6 +78,10 @@
   }
   .logo-box {
     text-align: center;
+  }
+  .logo-link {
+    display: block;
+    text-decoration: none;
   }
   .site-logo-img {
     max-width: 100%;
@@ -412,6 +416,10 @@
     margin-top: 6px;
     font-size: 12px;
   }
+
+  /* ========================================================================
+     OVERLAY LAYERS: SNOW, SHARED SPRITES, FIREWORKS & REALTIME CURSORS
+     ======================================================================== */
   .snow-canvas {
     position: fixed;
     top: 0;
@@ -419,8 +427,105 @@
     width: 100%;
     height: 100%;
     pointer-events: none;
-    z-index: 9999;
+    z-index: 9000;
     display: none;
+  }
+  .fireworks-canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 9100;
+  }
+  .playground-layer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 9200;
+  }
+  .world-sprite {
+    position: fixed;
+    width: 68px;
+    height: 68px;
+    margin-left: -34px;
+    margin-top: -34px;
+    pointer-events: auto;
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+    z-index: 9210;
+  }
+  .world-sprite img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+    display: block;
+  }
+  .sprite-tag {
+    position: absolute;
+    bottom: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(240, 224, 214, 0.9);
+    border: 1px solid #D9BFB7;
+    color: #800000;
+    font-size: 9px;
+    padding: 0 3px;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .world-firework {
+    position: fixed;
+    width: 34px;
+    height: 54px;
+    margin-left: -17px;
+    margin-top: -27px;
+    pointer-events: auto;
+    text-align: center;
+    z-index: 9205;
+  }
+  .fw-rocket-body {
+    width: 16px;
+    height: 30px;
+    margin: 0 auto;
+    background-color: #AF0A0F;
+    border: 1px solid #800000;
+    border-top: 8px solid #EEAA88;
+    position: relative;
+  }
+  .fw-fuse-label {
+    background-color: #FFFFEE;
+    border: 1px solid #800000;
+    color: #800000;
+    font-size: 9px;
+    font-weight: bold;
+    padding: 0 2px;
+    white-space: nowrap;
+  }
+  .remote-cursor {
+    position: fixed;
+    pointer-events: none;
+    z-index: 9300;
+    margin-left: -2px;
+    margin-top: -2px;
+  }
+  .remote-cursor-label {
+    position: absolute;
+    top: -17px;
+    left: 6px;
+    background-color: #EEAA88;
+    border: 1px solid #800000;
+    color: #800000;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 0 4px;
+    white-space: nowrap;
   }
 
   @media (max-width: 720px) {
@@ -470,13 +575,16 @@
 <body>
 
 <canvas id="snowCanvas" class="snow-canvas"></canvas>
+<canvas id="fireworksCanvas" class="fireworks-canvas"></canvas>
+<div id="playgroundLayer" class="playground-layer"></div>
+<div id="cursorsLayer" class="playground-layer"></div>
 
 <div class="page-wrap">
   <!-- Top Information Bar -->
   <div class="top-bar" id="topInfoBar"></div>
 
   <div class="layout-table">
-    <!-- Left Sidebar: Site Logo, Boards List, Community Effects & Info -->
+    <!-- Left Sidebar: Site Logo, Boards List, Effects & Interactive Playground -->
     <div class="left-sidebar">
       <div class="side-box logo-box" id="leftLogoBox"></div>
 
@@ -488,6 +596,27 @@
       <div class="side-box">
         <h4>Community &amp; Account</h4>
         <div id="leftAccountLinks"></div>
+      </div>
+
+      <div class="side-box">
+        <h4>Sprites &amp; Fireworks</h4>
+        <div style="margin-bottom:6px;">
+          <div style="font-weight:bold; margin-bottom:3px;">Spawn Image / GIF Sprite:</div>
+          <input type="file" id="spriteFileInput" accept="image/*" style="font-size:11px; margin-bottom:3px;">
+          <input type="text" id="spriteUrlInput" placeholder="or paste image/GIF URL..." style="font-size:11px; margin-bottom:4px;">
+          <button type="button" onclick="spawnSharedSprite()" style="width:100%;">Spawn Sprite</button>
+        </div>
+        <div style="border-top:1px dotted #D9BFB7; padding-top:6px; margin-bottom:6px;">
+          <button type="button" onclick="spawnSharedFirework()" style="width:100%;">&#127878; Spawn Firework</button>
+        </div>
+        <div class="muted" style="line-height:1.35;">
+          &bull; Hold <strong>RMB</strong> on a sprite &amp; release to throw it across the site.<br>
+          &bull; Drag a sprite onto a <strong>Firework</strong> so it flies to the top and falls down after the explosion.<br>
+          &bull; Live cursors show online users.
+        </div>
+        <div style="margin-top:5px; text-align:center;">
+          <a style="font-size:11px; color:#CC0000;" onclick="clearAllSprites()">Clear Sprites</a>
+        </div>
       </div>
 
       <div class="side-box">
@@ -582,8 +711,11 @@ var CONFIG = {
   // 2. Firebase Realtime Database URL (no trailing slash)
   firebaseDbUrl: "https://fembooru-142a4-default-rtdb.europe-west1.firebasedatabase.app",
 
-  // 3. ImgBB API Key (used only for image, logo, tab icon & avatar uploads)
+  // 3. ImgBB API Key (used only for image, sprite, logo, tab icon & avatar uploads)
   imgbbApiKey: "120a27bcbb28d3ffd9f03bc4b32bb54f",
+
+  // Main page URL when clicking on the logo
+  mainLogoRedirectUrl: "https://parmanoidd.github.io/fembooru/",
 
   // Email domain appended to user login names (e.g. alex -> alex@fembooru.ua)
   emailDomain: "fembooru.ua",
@@ -592,7 +724,10 @@ var CONFIG = {
   pollMinVotes: 3,
 
   // Automatic message refresh interval in milliseconds
-  autoRefreshMs: 6000
+  autoRefreshMs: 5000,
+
+  // Real-time playground (cursors, sprites, fireworks) sync interval in milliseconds
+  realtimeSyncMs: 900
 };
 
 /* ==========================================================================
@@ -607,12 +742,14 @@ var DEFAULT_BOARDS = [
 ];
 
 var DEFAULT_FAVICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23EEAA88'/%3E%3Ctext x='16' y='23' font-size='20' font-weight='bold' text-anchor='middle' fill='%23800000'%3E%E2%98%98%3C/text%3E%3C/svg%3E";
+var DEFAULT_SPRITE_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='28' fill='%23EEAA88' stroke='%23800000' stroke-width='4'/%3E%3Ctext x='32' y='41' font-size='28' font-weight='bold' text-anchor='middle' fill='%23800000'%3E%E2%98%98%3C/text%3E%3C/svg%3E";
 var ADMIN_USERNAME = "admin";
 var ADMIN_PASSWORD_INIT = "@!1Abeccod20122";
 var memoryStore = {};
 var lastDataHash = "";
 var autoRefreshTimer = null;
 var tabLogoTickTimer = null;
+var myClientId = "c_" + (new Date().getTime()) + "_" + Math.floor(Math.random() * 100000);
 
 var state = {
   view: "board",
@@ -642,6 +779,23 @@ var snowState = {
   expiresAt: 0,
   flakes: [],
   animFrame: null
+};
+
+var worldState = {
+  sprites: {},
+  fireworks: {},
+  cursors: {},
+  particles: [],
+  grabbedSpriteId: null,
+  grabMode: "",
+  lastMouseX: 0,
+  lastMouseY: 0,
+  throwVx: 0,
+  throwVy: 0,
+  lastDragSyncTime: 0,
+  lastCursorSendTime: 0,
+  lastCursorXPct: -1,
+  lastCursorYPct: -1
 };
 
 /* ==========================================================================
@@ -773,6 +927,13 @@ function extractUsername(rawInput) {
 
 function usernameToEmail(rawInput) {
   return extractUsername(rawInput) + "@" + CONFIG.emailDomain;
+}
+
+function getDisplayUsername() {
+  if (state.user) {
+    return state.profile.nickname || state.user.username;
+  }
+  return "Guest_" + myClientId.slice(-4);
 }
 
 /* ==========================================================================
@@ -1015,9 +1176,9 @@ function dbWrite(method, path, payload, callback) {
         }
       }
       storeSet("ib_local_db", JSON.stringify(all));
-      callback(null, payload);
+      if (callback) callback(null, payload);
     } catch (e) {
-      callback(e, null);
+      if (callback) callback(e, null);
     }
     return;
   }
@@ -1031,19 +1192,21 @@ function dbWrite(method, path, payload, callback) {
           if (refErr) {
             clearStaleSession();
             renderChrome();
-            callback(err, null);
+            if (callback) callback(err, null);
           } else {
             var retryUrl = CONFIG.firebaseDbUrl + "/" + path + ".json?auth=" + encodeURIComponent(state.user.idToken);
-            httpRequest(method, retryUrl, payload, null, callback);
+            httpRequest(method, retryUrl, payload, null, function(rErr, rRes) {
+              if (callback) callback(rErr, rRes);
+            });
           }
         });
       } else {
         clearStaleSession();
         renderChrome();
-        callback(err, null);
+        if (callback) callback(err, null);
       }
     } else {
-      callback(err, res);
+      if (callback) callback(err, res);
     }
   });
 }
@@ -1412,7 +1575,7 @@ function saveGlobalTabLogoEffect(iconUrl) {
     iconUrl: iconUrl,
     enabledAt: now,
     expiresAt: now + 60000,
-    setBy: state.user ? (state.profile.nickname || state.user.username) : "Anonymous"
+    setBy: getDisplayUsername()
   };
   state.tabLogoEffect = payload;
   syncTabLogoState();
@@ -1460,6 +1623,495 @@ function syncTabLogoState() {
       label.innerHTML = "Default tab icon active";
     }
   }
+}
+
+/* ==========================================================================
+   SHARED IMAGE / GIF SPRITES, RMB THROWING, FIREWORKS & LIVE CURSORS
+   ========================================================================== */
+function getViewportSize() {
+  var w = window.innerWidth || document.documentElement.clientWidth || 800;
+  var h = window.innerHeight || document.documentElement.clientHeight || 600;
+  return { w: w, h: h };
+}
+
+function spawnSharedSprite() {
+  var fileInput = document.getElementById("spriteFileInput");
+  var urlInput = document.getElementById("spriteUrlInput");
+  var pastedUrl = urlInput ? safeUrl(urlInput.value) : "";
+
+  if (fileInput && fileInput.files && fileInput.files[0]) {
+    uploadImageToImgbb(fileInput, function(imgErr, uploadedUrl) {
+      if (imgErr) {
+        showStatus(imgErr, true);
+        return;
+      }
+      saveNewSpriteToWorld(uploadedUrl);
+      fileInput.value = "";
+    });
+    return;
+  }
+
+  var finalUrl = pastedUrl || DEFAULT_SPRITE_ICON;
+  if (urlInput) urlInput.value = "";
+  saveNewSpriteToWorld(finalUrl);
+}
+
+function saveNewSpriteToWorld(imgUrl) {
+  var sid = "sp_" + (new Date().getTime()) + "_" + Math.floor(Math.random() * 10000);
+  var spriteObj = {
+    id: sid,
+    url: imgUrl,
+    x: 420 + Math.floor(Math.random() * 160),
+    y: 420 + Math.floor(Math.random() * 160),
+    vx: (Math.random() - 0.5) * 6,
+    vy: -4,
+    attachedFireworkId: "",
+    spawnedBy: getDisplayUsername(),
+    updatedAt: new Date().getTime()
+  };
+  worldState.sprites[sid] = spriteObj;
+  dbWrite("PUT", "realtime/sprites/" + sid, spriteObj, function(err) {
+    if (err) {
+      showStatus("Sprite spawned locally (update Firebase rules for shared sync).", false);
+    } else {
+      showStatus("Sprite spawned for everyone! Hold RMB on it to throw, or drag onto a firework.", false);
+    }
+  });
+}
+
+function clearAllSprites() {
+  worldState.sprites = {};
+  worldState.grabbedSpriteId = null;
+  dbWrite("DELETE", "realtime/sprites", null, function() {
+    showStatus("All sprites cleared.", false);
+  });
+}
+
+function spawnSharedFirework() {
+  var fwid = "fw_" + (new Date().getTime()) + "_" + Math.floor(Math.random() * 10000);
+  var now = new Date().getTime();
+  var fwObj = {
+    id: fwid,
+    x: 260 + Math.floor(Math.random() * 480),
+    y: 880,
+    launchAt: now + 4500,
+    launched: false,
+    exploded: false,
+    spawnedBy: getDisplayUsername(),
+    updatedAt: now
+  };
+  worldState.fireworks[fwid] = fwObj;
+  dbWrite("PUT", "realtime/fireworks/" + fwid, fwObj, function(err) {
+    if (err) {
+      showStatus("Firework spawned locally!", false);
+    } else {
+      showStatus("Firework spawned! Drag any sprite onto it before launch!", false);
+    }
+  });
+}
+
+function triggerFireworkExplosionPixels(px, py) {
+  var colors = ["#FF4500", "#FFA500", "#FFD700", "#FF1493", "#00BFFF", "#32CD32"];
+  for (var i = 0; i < 48; i++) {
+    var angle = (Math.PI * 2 * i) / 48;
+    var speed = 2 + Math.random() * 6;
+    worldState.particles.push({
+      x: px,
+      y: py,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      color: colors[i % colors.length],
+      life: 36 + Math.floor(Math.random() * 14)
+    });
+  }
+}
+
+function attachSpriteToFireworkIfNear(sprite) {
+  for (var fwid in worldState.fireworks) {
+    if (!worldState.fireworks.hasOwnProperty(fwid)) continue;
+    var fw = worldState.fireworks[fwid];
+    if (!fw || fw.exploded) continue;
+    var dx = Math.abs(sprite.x - fw.x);
+    var dy = Math.abs(sprite.y - fw.y);
+    if (dx < 65 && dy < 75) {
+      sprite.attachedFireworkId = fwid;
+      sprite.x = fw.x;
+      sprite.y = fw.y - 18;
+      sprite.vx = 0;
+      sprite.vy = 0;
+      sprite.updatedAt = new Date().getTime();
+      dbWrite("PUT", "realtime/sprites/" + sprite.id, sprite, null);
+
+      if (!fw.launched) {
+        fw.launched = true;
+        fw.launchAt = new Date().getTime();
+        fw.updatedAt = fw.launchAt;
+        dbWrite("PUT", "realtime/fireworks/" + fwid, fw, null);
+      }
+      showStatus("Sprite attached to firework! Launching to the top!", false);
+      return true;
+    }
+  }
+  return false;
+}
+
+function initPlaygroundControls() {
+  document.oncontextmenu = function(e) {
+    var evt = e || window.event;
+    var target = evt.target || evt.srcElement;
+    if (worldState.grabbedSpriteId) {
+      return false;
+    }
+    while (target) {
+      if (target.className && String(target.className).indexOf("world-sprite") !== -1) {
+        return false;
+      }
+      target = target.parentNode;
+    }
+    return true;
+  };
+
+  document.onmousemove = function(e) {
+    var evt = e || window.event;
+    var vp = getViewportSize();
+    var mx = evt.clientX;
+    var my = evt.clientY;
+
+    // Broadcast live cursor position (throttled)
+    var now = new Date().getTime();
+    var xPct = Math.round((mx / vp.w) * 1000) / 10;
+    var yPct = Math.round((my / vp.h) * 1000) / 10;
+    if (now - worldState.lastCursorSendTime > 260 &&
+        (Math.abs(xPct - worldState.lastCursorXPct) > 0.3 || Math.abs(yPct - worldState.lastCursorYPct) > 0.3)) {
+      worldState.lastCursorSendTime = now;
+      worldState.lastCursorXPct = xPct;
+      worldState.lastCursorYPct = yPct;
+      dbWrite("PUT", "realtime/cursors/" + myClientId, {
+        name: getDisplayUsername(),
+        xPct: xPct,
+        yPct: yPct,
+        updatedAt: now
+      }, null);
+    }
+
+    // Handle active sprite RMB throw-hold or LMB drag
+    if (worldState.grabbedSpriteId && worldState.sprites[worldState.grabbedSpriteId]) {
+      var sp = worldState.sprites[worldState.grabbedSpriteId];
+      var normX = Math.max(20, Math.min(980, (mx / vp.w) * 1000));
+      var normY = Math.max(20, Math.min(980, (my / vp.h) * 1000));
+
+      worldState.throwVx = Math.max(-35, Math.min(35, (normX - sp.x) * 0.65));
+      worldState.throwVy = Math.max(-35, Math.min(35, (normY - sp.y) * 0.65));
+      sp.x = normX;
+      sp.y = normY;
+      sp.vx = 0;
+      sp.vy = 0;
+      sp.attachedFireworkId = "";
+      sp.updatedAt = now;
+
+      if (now - worldState.lastDragSyncTime > 160) {
+        worldState.lastDragSyncTime = now;
+        dbWrite("PUT", "realtime/sprites/" + sp.id, sp, null);
+      }
+    }
+
+    worldState.lastMouseX = mx;
+    worldState.lastMouseY = my;
+  };
+
+  document.onmouseup = function(e) {
+    if (!worldState.grabbedSpriteId) return;
+    var sp = worldState.sprites[worldState.grabbedSpriteId];
+    var mode = worldState.grabMode;
+    worldState.grabbedSpriteId = null;
+    worldState.grabMode = "";
+
+    if (!sp) return;
+
+    // Check if dropped onto a firework first
+    if (attachSpriteToFireworkIfNear(sp)) {
+      return;
+    }
+
+    // If held with RMB (or thrown with speed), launch across the whole site
+    if (mode === "rmb") {
+      sp.vx = worldState.throwVx;
+      sp.vy = worldState.throwVy;
+      if (Math.abs(sp.vx) < 1 && Math.abs(sp.vy) < 1) {
+        sp.vx = (Math.random() - 0.5) * 18;
+        sp.vy = -14;
+      }
+    } else {
+      sp.vx = worldState.throwVx * 0.4;
+      sp.vy = worldState.throwVy * 0.4;
+    }
+    sp.updatedAt = new Date().getTime();
+    dbWrite("PUT", "realtime/sprites/" + sp.id, sp, null);
+  };
+
+  window.onbeforeunload = function() {
+    dbWrite("DELETE", "realtime/cursors/" + myClientId, null, null);
+  };
+
+  // Start local 30 FPS physics & particle animation loop
+  setInterval(stepWorldPhysicsAndRender, 33);
+
+  // Start real-time Firebase sync for cursors, sprites, and fireworks
+  setInterval(syncRealtimeWorld, CONFIG.realtimeSyncMs);
+}
+
+function handleSpriteMouseDown(e, spriteId) {
+  var evt = e || window.event;
+  if (evt.preventDefault) evt.preventDefault();
+  if (evt.stopPropagation) evt.stopPropagation();
+
+  var sp = worldState.sprites[spriteId];
+  if (!sp) return;
+
+  worldState.grabbedSpriteId = spriteId;
+  worldState.grabMode = (evt.button === 2) ? "rmb" : "lmb";
+  worldState.throwVx = 0;
+  worldState.throwVy = 0;
+  sp.attachedFireworkId = "";
+}
+
+function stepWorldPhysicsAndRender() {
+  var now = new Date().getTime();
+  var vp = getViewportSize();
+
+  // 1. Update Fireworks
+  for (var fwid in worldState.fireworks) {
+    if (!worldState.fireworks.hasOwnProperty(fwid)) continue;
+    var fw = worldState.fireworks[fwid];
+    if (!fw) continue;
+
+    if (!fw.launched && now >= fw.launchAt) {
+      fw.launched = true;
+      fw.updatedAt = now;
+      dbWrite("PATCH", "realtime/fireworks/" + fwid, { launched: true, updatedAt: now }, null);
+    }
+
+    if (fw.launched && !fw.exploded) {
+      fw.y -= 13;
+      if (fw.y <= 115) {
+        fw.y = 115;
+        fw.exploded = true;
+        fw.updatedAt = now;
+        triggerFireworkExplosionPixels((fw.x / 1000) * vp.w, (fw.y / 1000) * vp.h);
+
+        // Detach any sprites riding this firework and make them fall down
+        for (var sid in worldState.sprites) {
+          if (worldState.sprites.hasOwnProperty(sid) && worldState.sprites[sid]) {
+            var sp = worldState.sprites[sid];
+            if (sp.attachedFireworkId === fwid) {
+              sp.attachedFireworkId = "";
+              sp.vx = (Math.random() - 0.5) * 10;
+              sp.vy = 2;
+              sp.updatedAt = now;
+              dbWrite("PUT", "realtime/sprites/" + sid, sp, null);
+            }
+          }
+        }
+        dbWrite("DELETE", "realtime/fireworks/" + fwid, null, null);
+        delete worldState.fireworks[fwid];
+      }
+    }
+  }
+
+  // 2. Update Sprites
+  for (var id in worldState.sprites) {
+    if (!worldState.sprites.hasOwnProperty(id)) continue;
+    var sprite = worldState.sprites[id];
+    if (!sprite) continue;
+
+    if (worldState.grabbedSpriteId === id) {
+      continue;
+    }
+
+    if (sprite.attachedFireworkId && worldState.fireworks[sprite.attachedFireworkId]) {
+      var parentFw = worldState.fireworks[sprite.attachedFireworkId];
+      sprite.x = parentFw.x;
+      sprite.y = parentFw.y - 18;
+      continue;
+    } else if (sprite.attachedFireworkId) {
+      sprite.attachedFireworkId = "";
+      sprite.vy = 2;
+    }
+
+    // Apply gravity and air drag when moving
+    if (Math.abs(sprite.vx) > 0.05 || Math.abs(sprite.vy) > 0.05 || sprite.y < 955) {
+      sprite.vy += 0.45; // gravity pulls sprite down after firework blow or high throw
+      sprite.vx *= 0.99;
+      sprite.vy *= 0.99;
+      sprite.x += sprite.vx;
+      sprite.y += sprite.vy;
+
+      // Bounce off screen borders
+      if (sprite.x < 25) {
+        sprite.x = 25;
+        sprite.vx = Math.abs(sprite.vx) * 0.75;
+      } else if (sprite.x > 975) {
+        sprite.x = 975;
+        sprite.vx = -Math.abs(sprite.vx) * 0.75;
+      }
+
+      if (sprite.y < 25) {
+        sprite.y = 25;
+        sprite.vy = Math.abs(sprite.vy) * 0.75;
+      } else if (sprite.y > 955) {
+        sprite.y = 955;
+        sprite.vy = -Math.abs(sprite.vy) * 0.48;
+        sprite.vx *= 0.85;
+        if (Math.abs(sprite.vy) < 1.2) {
+          sprite.vy = 0;
+        }
+        if (Math.abs(sprite.vx) < 0.2) {
+          sprite.vx = 0;
+        }
+      }
+    }
+  }
+
+  // 3. Render Fireworks Explosion Particles on Canvas
+  var fwCanvas = document.getElementById("fireworksCanvas");
+  if (fwCanvas && fwCanvas.getContext) {
+    if (fwCanvas.width !== vp.w || fwCanvas.height !== vp.h) {
+      fwCanvas.width = vp.w;
+      fwCanvas.height = vp.h;
+    }
+    var ctx = fwCanvas.getContext("2d");
+    ctx.clearRect(0, 0, vp.w, vp.h);
+
+    for (var p = worldState.particles.length - 1; p >= 0; p--) {
+      var pt = worldState.particles[p];
+      pt.x += pt.vx;
+      pt.y += pt.vy;
+      pt.vy += 0.12;
+      pt.life -= 1;
+      if (pt.life <= 0) {
+        worldState.particles.splice(p, 1);
+      } else {
+        ctx.fillStyle = pt.color;
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2, true);
+        ctx.fill();
+      }
+    }
+  }
+
+  // 4. Render DOM Sprites & Rockets
+  var layer = document.getElementById("playgroundLayer");
+  if (layer) {
+    var html = "";
+    for (var fid in worldState.fireworks) {
+      if (worldState.fireworks.hasOwnProperty(fid) && worldState.fireworks[fid]) {
+        var r = worldState.fireworks[fid];
+        var rx = Math.round((r.x / 1000) * vp.w);
+        var ry = Math.round((r.y / 1000) * vp.h);
+        var remSec = Math.max(0, Math.ceil((r.launchAt - now) / 1000));
+        var labelTxt = r.launched ? "FLYING!" : ("Fuse " + remSec + "s");
+        html += '<div class="world-firework" style="left:' + rx + 'px; top:' + ry + 'px;">' +
+                '<div class="fw-fuse-label">' + labelTxt + '</div>' +
+                '<div class="fw-rocket-body"></div>' +
+                '</div>';
+      }
+    }
+
+    for (var spid in worldState.sprites) {
+      if (worldState.sprites.hasOwnProperty(spid) && worldState.sprites[spid]) {
+        var s = worldState.sprites[spid];
+        if (!isValidImageSrc(s.url)) continue;
+        var sx = Math.round((s.x / 1000) * vp.w);
+        var sy = Math.round((s.y / 1000) * vp.h);
+        html += '<div class="world-sprite" style="left:' + sx + 'px; top:' + sy + 'px;" ' +
+                'onmousedown="handleSpriteMouseDown(event, \'' + esc(s.id) + '\')" ' +
+                'title="Hold RMB to throw across site, or drag onto a firework">' +
+                '<img src="' + esc(s.url) + '" alt="sprite">' +
+                '<div class="sprite-tag">' + esc(s.spawnedBy || "user") + '</div>' +
+                '</div>';
+      }
+    }
+    layer.innerHTML = html;
+  }
+}
+
+function renderRemoteCursors() {
+  var layer = document.getElementById("cursorsLayer");
+  if (!layer) return;
+  var vp = getViewportSize();
+  var now = new Date().getTime();
+  var html = "";
+
+  for (var cid in worldState.cursors) {
+    if (!worldState.cursors.hasOwnProperty(cid) || cid === myClientId) continue;
+    var cur = worldState.cursors[cid];
+    if (!cur || !cur.updatedAt || (now - cur.updatedAt) > 15000) continue;
+
+    var cx = Math.round((cur.xPct / 100) * vp.w);
+    var cy = Math.round((cur.yPct / 100) * vp.h);
+    html += '<div class="remote-cursor" style="left:' + cx + 'px; top:' + cy + 'px;">' +
+            '<div class="remote-cursor-label">' + esc(cur.name || "User") + '</div>' +
+            '<svg width="16" height="20" viewBox="0 0 16 20">' +
+            '<polygon points="0,0 0,16 4,12 8,19 10,18 6,11 12,11" fill="#AF0A0F" stroke="#FFFFEE" stroke-width="1"/>' +
+            '</svg>' +
+            '</div>';
+  }
+  layer.innerHTML = html;
+}
+
+function syncRealtimeWorld() {
+  var now = new Date().getTime();
+  dbGet("realtime", function(err, rtData) {
+    if (err || !rtData) return;
+
+    // Merge remote sprites (keep local grabbed sprite untouched)
+    var remoteSprites = rtData.sprites || {};
+    for (var oldSid in worldState.sprites) {
+      if (worldState.sprites.hasOwnProperty(oldSid) && !remoteSprites[oldSid] && oldSid !== worldState.grabbedSpriteId) {
+        delete worldState.sprites[oldSid];
+      }
+    }
+    for (var sid in remoteSprites) {
+      if (remoteSprites.hasOwnProperty(sid) && remoteSprites[sid]) {
+        if (sid === worldState.grabbedSpriteId) continue;
+        var remSp = remoteSprites[sid];
+        if (remSp.updatedAt && (now - remSp.updatedAt) > 900000) {
+          dbWrite("DELETE", "realtime/sprites/" + sid, null, null);
+          continue;
+        }
+        var locSp = worldState.sprites[sid];
+        if (!locSp || (remSp.updatedAt || 0) > (locSp.updatedAt || 0)) {
+          worldState.sprites[sid] = remSp;
+        }
+      }
+    }
+
+    // Merge remote fireworks
+    var remoteFws = rtData.fireworks || {};
+    for (var oldFid in worldState.fireworks) {
+      if (worldState.fireworks.hasOwnProperty(oldFid) && !remoteFws[oldFid]) {
+        delete worldState.fireworks[oldFid];
+      }
+    }
+    for (var fid in remoteFws) {
+      if (remoteFws.hasOwnProperty(fid) && remoteFws[fid]) {
+        var remFw = remoteFws[fid];
+        if (remFw.updatedAt && (now - remFw.updatedAt) > 20000) {
+          dbWrite("DELETE", "realtime/fireworks/" + fid, null, null);
+          continue;
+        }
+        if (!worldState.fireworks[fid]) {
+          worldState.fireworks[fid] = remFw;
+        } else if (remFw.launched && !worldState.fireworks[fid].launched) {
+          worldState.fireworks[fid].launched = true;
+        }
+      }
+    }
+
+    // Update remote cursors
+    worldState.cursors = rtData.cursors || {};
+    renderRemoteCursors();
+  });
 }
 
 /* ==========================================================================
@@ -1754,7 +2406,7 @@ function triggerGlobalSnow() {
   var payload = {
     enabledAt: now,
     expiresAt: expiresAt,
-    startedBy: state.user ? (state.profile.nickname || state.user.username) : "Anonymous"
+    startedBy: getDisplayUsername()
   };
 
   state.snowEffect = payload;
@@ -1790,8 +2442,9 @@ function startSnowCanvas() {
   if (!canvas || !canvas.getContext) return;
   snowState.active = true;
   canvas.style.display = "block";
-  canvas.width = window.innerWidth || document.documentElement.clientWidth || 800;
-  canvas.height = window.innerHeight || document.documentElement.clientHeight || 600;
+  var vp = getViewportSize();
+  canvas.width = vp.w;
+  canvas.height = vp.h;
 
   var flakes = [];
   for (var i = 0; i < 65; i++) {
@@ -2349,12 +3002,13 @@ function renderTopInfoBar() {
 function renderLeftLogoBox() {
   var box = document.getElementById("leftLogoBox");
   if (!box) return;
-  var html = "";
+  var html = '<a class="logo-link" href="' + esc(CONFIG.mainLogoRedirectUrl) + '" title="Go to Main Page">';
   if (isValidImageSrc(state.siteLogo)) {
     html += '<img class="site-logo-img" src="' + esc(state.siteLogo) + '" alt="Site Logo">';
   } else {
     html += '<div class="default-logo-emblem">&#9752; UA / PMR</div>';
   }
+  html += '</a>';
   html += '<div class="muted">Ukraine &amp; Pridnestrovie</div>';
 
   if (state.user && state.user.isAdmin) {
@@ -2800,12 +3454,14 @@ function renderAll() {
    ========================================================================== */
 window.onload = function() {
   initMusicPlayer();
+  initPlaygroundControls();
   loadSession();
   ensureFreshSession(function() {
     loadUserProfile(function() {
       refreshAllData(function() {
         renderAll();
         startAutoRefresh();
+        syncRealtimeWorld();
       });
     });
   });
