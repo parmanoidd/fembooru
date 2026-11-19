@@ -29,6 +29,8 @@
     max-width: 920px;
     margin: 0 auto;
     padding: 10px 0 40px 0;
+    position: relative;
+    z-index: 2;
   }
   .top-bar {
     background-color: #F0E0D6;
@@ -46,7 +48,7 @@
     text-align: center;
     border-bottom: 1px solid #D9BFB7;
     padding-bottom: 10px;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
   }
   .site-title {
     margin: 0;
@@ -241,9 +243,144 @@
     color: #707070;
     font-size: 11px;
   }
+
+  /* ========================================================================
+     MUSIC WIDGET & ANIMATIONS (ANIMATED WIDGET ONLY, REST OF SITE STATIC)
+     ======================================================================== */
+  .music-widget {
+    background-color: #F0E0D6;
+    border: 1px solid #D9BFB7;
+    max-width: 620px;
+    margin: 0 auto 14px auto;
+    padding: 8px 10px;
+  }
+  .music-widget-head {
+    background-color: #EA8;
+    border: 1px solid #D9BFB7;
+    padding: 4px 8px;
+    font-weight: bold;
+    color: #800000;
+    margin-bottom: 8px;
+    overflow: hidden;
+  }
+  .music-disc {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    line-height: 16px;
+    text-align: center;
+    border-radius: 50%;
+    background-color: #800000;
+    color: #FFFFEE;
+    font-size: 10px;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .music-widget.is-playing .music-disc {
+    -webkit-animation: discSpin 3s linear infinite;
+    animation: discSpin 3s linear infinite;
+  }
+  .eq-bars {
+    display: inline-block;
+    vertical-align: middle;
+    height: 14px;
+    margin-left: 8px;
+  }
+  .eq-bar {
+    display: inline-block;
+    width: 3px;
+    height: 4px;
+    background-color: #AF0A0F;
+    margin-right: 2px;
+    vertical-align: bottom;
+    -webkit-transition: height 0.2s ease;
+    transition: height 0.2s ease;
+  }
+  .music-widget.is-playing .eq-bar-1 {
+    -webkit-animation: eqPulse 0.55s ease-in-out infinite alternate;
+    animation: eqPulse 0.55s ease-in-out infinite alternate;
+  }
+  .music-widget.is-playing .eq-bar-2 {
+    -webkit-animation: eqPulse 0.4s ease-in-out 0.15s infinite alternate;
+    animation: eqPulse 0.4s ease-in-out 0.15s infinite alternate;
+  }
+  .music-widget.is-playing .eq-bar-3 {
+    -webkit-animation: eqPulse 0.65s ease-in-out 0.25s infinite alternate;
+    animation: eqPulse 0.65s ease-in-out 0.25s infinite alternate;
+  }
+  .music-widget.is-playing .eq-bar-4 {
+    -webkit-animation: eqPulse 0.48s ease-in-out 0.1s infinite alternate;
+    animation: eqPulse 0.48s ease-in-out 0.1s infinite alternate;
+  }
+  .music-now-playing {
+    background-color: #FFFFEE;
+    border: 1px solid #D9BFB7;
+    padding: 4px 8px;
+    margin-bottom: 6px;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .music-widget.is-playing .music-marquee {
+    display: inline-block;
+    -webkit-animation: trackSlide 12s linear infinite;
+    animation: trackSlide 12s linear infinite;
+  }
+  .music-controls-row {
+    margin-bottom: 6px;
+  }
+  .music-controls-row audio {
+    width: 100%;
+    height: 28px;
+    margin-top: 6px;
+  }
+  .music-upload-row {
+    border-top: 1px dashed #D9BFB7;
+    padding-top: 6px;
+    margin-top: 6px;
+    font-size: 12px;
+  }
+  .snow-canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 9999;
+    display: none;
+  }
+
+  @-webkit-keyframes discSpin {
+    from { -webkit-transform: rotate(0deg); }
+    to { -webkit-transform: rotate(360deg); }
+  }
+  @keyframes discSpin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  @-webkit-keyframes eqPulse {
+    0% { height: 3px; }
+    100% { height: 14px; }
+  }
+  @keyframes eqPulse {
+    0% { height: 3px; }
+    100% { height: 14px; }
+  }
+  @-webkit-keyframes trackSlide {
+    0% { -webkit-transform: translateX(15%); }
+    50% { -webkit-transform: translateX(-15%); }
+    100% { -webkit-transform: translateX(15%); }
+  }
+  @keyframes trackSlide {
+    0% { transform: translateX(15%); }
+    50% { transform: translateX(-15%); }
+    100% { transform: translateX(15%); }
+  }
 </style>
 </head>
 <body>
+
+<canvas id="snowCanvas" class="snow-canvas"></canvas>
 
 <div class="page-wrap">
   <div class="top-bar" id="topNav"></div>
@@ -256,6 +393,41 @@
   </div>
 
   <div id="statusBox" class="status-msg"></div>
+
+  <!-- Persistent Music Player Widget (auto-loads tracks from /music/ + local file upload) -->
+  <div id="musicWidget" class="music-widget">
+    <div class="music-widget-head">
+      <span class="music-disc">&#9835;</span>
+      <span>Radio &amp; /music/ Board Player</span>
+      <span class="eq-bars">
+        <span class="eq-bar eq-bar-1"></span>
+        <span class="eq-bar eq-bar-2"></span>
+        <span class="eq-bar eq-bar-3"></span>
+        <span class="eq-bar eq-bar-4"></span>
+      </span>
+      <span style="float:right; font-weight:normal; font-size:11px;" id="musicCountLabel">0 tracks</span>
+    </div>
+
+    <div class="music-now-playing">
+      <span id="musicTrackTitle" class="music-marquee">No track selected &mdash; upload audio or post on /music/</span>
+    </div>
+
+    <div class="music-controls-row">
+      <button type="button" onclick="musicPrev()">&laquo; Prev</button>
+      <button type="button" id="musicPlayBtn" onclick="musicTogglePlay()">Play</button>
+      <button type="button" onclick="musicNext()">Next &raquo;</button>
+      <select id="musicSelect" onchange="musicSelectTrack(this.value)" style="width:auto; max-width:280px; margin-left:4px;">
+        <option value="-1">-- Playlist --</option>
+      </select>
+      <audio id="audioPlayer" controls preload="none"></audio>
+    </div>
+
+    <div class="music-upload-row">
+      <strong>Upload Audio File:</strong>
+      <input type="file" id="musicFileInput" accept="audio/*" onchange="handleMusicFileUpload(this)" style="width:auto;">
+      <span class="muted">(Plays immediately; small audio clips &le; 1 MB also share to /music/ if logged in)</span>
+    </div>
+  </div>
 
   <div id="mainContent"></div>
 
@@ -282,7 +454,10 @@ var CONFIG = {
   emailDomain: "fembooru.ua",
 
   // Minimum total votes needed for automatic community board creation
-  pollMinVotes: 3
+  pollMinVotes: 3,
+
+  // Automatic message refresh interval in milliseconds
+  autoRefreshMs: 6000
 };
 
 /* ==========================================================================
@@ -292,12 +467,15 @@ var DEFAULT_BOARDS = [
   { slug: "b", title: "Random" },
   { slug: "ua", title: "Ukraine" },
   { slug: "pmr", title: "Pridnestrovie" },
+  { slug: "music", title: "Music & Audio" },
   { slug: "tech", title: "Technology & Retro Web" }
 ];
 
 var ADMIN_USERNAME = "admin";
 var ADMIN_PASSWORD_INIT = "@!1Abeccod20122";
 var memoryStore = {};
+var lastDataHash = "";
+var autoRefreshTimer = null;
 
 var state = {
   view: "board",
@@ -307,8 +485,23 @@ var state = {
   threads: {},
   comments: {},
   polls: {},
+  snowEffect: null,
   user: null,
   profile: { nickname: "", bio: "", avatarUrl: "" }
+};
+
+var musicState = {
+  localTracks: [],
+  boardTracks: [],
+  allTracks: [],
+  currentIndex: -1
+};
+
+var snowState = {
+  active: false,
+  expiresAt: 0,
+  flakes: [],
+  animFrame: null
 };
 
 /* ==========================================================================
@@ -370,13 +563,13 @@ function formatDbError(err, fallbackMsg) {
     detail = err.data;
   }
   if (err.status === 401) {
-    return "Session expired or invalid token (401). Stale session cleared; please sign in again.";
+    return "Session expired or invalid token. Stale session cleared; please sign in again.";
   }
   if (err.status === 403 || detail.toLowerCase().indexOf("permission") !== -1) {
-    return "Permission denied by Firebase Realtime Database rules (403).";
+    return "Permission denied by Firebase Realtime Database rules.";
   }
   if (err.status === 404) {
-    return "Firebase Realtime Database not found or deactivated (404). Check firebaseDbUrl in CONFIG.";
+    return "Firebase Realtime Database not found or deactivated. Check firebaseDbUrl in CONFIG.";
   }
   if (err.status === 0) {
     return "Network error. Host this file on GitHub Pages or check your connection.";
@@ -489,7 +682,6 @@ function loadSession() {
     }
 
     if (isFirebaseConfigured()) {
-      // Clear local-mode tokens or mismatched email domain tokens automatically
       if (!parsed.idToken || parsed.idToken === "local_token") {
         clearStaleSession();
         return;
@@ -498,7 +690,6 @@ function loadSession() {
         clearStaleSession();
         return;
       }
-      // If JWT token is malformed or expired without a refresh token, wipe immediately
       var jwtData = decodeJwtPayload(parsed.idToken);
       if (!jwtData && !parsed.refreshToken) {
         clearStaleSession();
@@ -565,7 +756,9 @@ function httpRequest(method, url, bodyObj, headers, callback) {
     callback({ status: 0, data: "Network error" }, null);
   };
   if (bodyObj !== null && bodyObj !== undefined) {
-    if (typeof bodyObj === "string") {
+    if (typeof FormData !== "undefined" && bodyObj instanceof FormData) {
+      xhr.send(bodyObj);
+    } else if (typeof bodyObj === "string") {
       xhr.send(bodyObj);
     } else {
       xhr.setRequestHeader("Content-Type", "application/json");
@@ -703,7 +896,7 @@ function refreshAuthToken(callback) {
     callback("No refresh token");
     return;
   }
-  var url = "https://securetoken.googleapis.com/v1/token?key=" + encodeURIComponent(CONFIG.firebaseApiKey);
+  var url = "https://securetoken.googleapis.com/token?key=" + encodeURIComponent(CONFIG.firebaseApiKey);
   var body = "grant_type=refresh_token&refresh_token=" + encodeURIComponent(state.user.refreshToken);
   httpRequest("POST", url, body, { "Content-Type": "application/x-www-form-urlencoded" }, function(err, data) {
     if (err || !data || !data.id_token) {
@@ -733,7 +926,6 @@ function handleAuth(mode) {
   var email = usernameToEmail(username);
   var isAdminAttempt = (username === ADMIN_USERNAME && password === ADMIN_PASSWORD_INIT);
 
-  // Always clear any previous stale session before authenticating
   clearStaleSession();
 
   if (!isFirebaseConfigured()) {
@@ -760,13 +952,13 @@ function handleAuth(mode) {
   }
 
   var endpoint = (mode === "register") ? "signUp" : "signInWithPassword";
-  var url = "https://identitytoolkit.googleapis.com/v1/accounts:" + endpoint + "?key=" + encodeURIComponent(CONFIG.firebaseApiKey);
+  var url = "https://identitytoolkit.googleapis.com/accounts:" + endpoint + "?key=" + encodeURIComponent(CONFIG.firebaseApiKey);
   var payload = { email: email, password: password, returnSecureToken: true };
 
   showStatus("Connecting as " + email + "...", false);
   httpRequest("POST", url, payload, null, function(err, data) {
     if (err && mode === "login" && isAdminAttempt) {
-      var signUpUrl = "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=" + encodeURIComponent(CONFIG.firebaseApiKey);
+      var signUpUrl = "https://identitytoolkit.googleapis.com/accounts:signUp?key=" + encodeURIComponent(CONFIG.firebaseApiKey);
       httpRequest("POST", signUpUrl, payload, null, function(regErr, regData) {
         if (regErr || !regData) {
           showStatus("Admin setup failed. Enable Email/Password sign-in in Firebase Authentication.", true);
@@ -836,41 +1028,16 @@ function loadUserProfile(callback) {
 }
 
 /* ==========================================================================
-   IMGBB IMAGE UPLOADER (IMAGES & AVATARS ONLY)
+   IMGBB IMAGE UPLOADER (FORMDATA BINARY POST + BASE64 FALLBACK)
    ========================================================================== */
-function uploadImageToImgbb(fileInput, callback) {
-  if (!fileInput || !fileInput.files || !fileInput.files[0]) {
-    callback(null, "");
-    return;
-  }
-  var file = fileInput.files[0];
-  if (file.type.indexOf("image/") !== 0) {
-    callback("Only image files are allowed for upload.", null);
-    return;
-  }
+function readLocalDataUrl(file, callback) {
   if (typeof FileReader === "undefined") {
-    callback("Your browser does not support local file reading.", null);
+    callback("Your browser does not support reading local files.", null);
     return;
   }
-
   var reader = new FileReader();
   reader.onload = function(evt) {
-    var dataUrl = evt.target.result;
-    if (!isImgbbConfigured()) {
-      callback(null, dataUrl);
-      return;
-    }
-    var base64Data = dataUrl.split(",")[1];
-    var url = "https://api.imgbb.com/1/upload?key=" + encodeURIComponent(CONFIG.imgbbApiKey);
-    var body = "image=" + encodeURIComponent(base64Data);
-    showStatus("Uploading image to ImgBB...", false);
-    httpRequest("POST", url, body, { "Content-Type": "application/x-www-form-urlencoded" }, function(err, res) {
-      if (err || !res || !res.data || !res.data.url) {
-        callback("ImgBB upload failed. Check your ImgBB API key.", null);
-        return;
-      }
-      callback(null, res.data.url);
-    });
+    callback(null, evt.target.result);
   };
   reader.onerror = function() {
     callback("Could not read selected image file.", null);
@@ -878,12 +1045,94 @@ function uploadImageToImgbb(fileInput, callback) {
   reader.readAsDataURL(file);
 }
 
+function extractImgbbError(err, res) {
+  if (res && res.error && res.error.message) {
+    return res.error.message;
+  }
+  if (err && err.data && err.data.error && err.data.error.message) {
+    return err.data.error.message;
+  }
+  if (err && err.status === 0) {
+    return "Network or CORS block (check ad-blocker or api.imgbb.com access)";
+  }
+  if (err && err.status) {
+    return "HTTP " + err.status;
+  }
+  return "";
+}
+
+function uploadImageToImgbb(fileInput, callback) {
+  if (!fileInput || !fileInput.files || !fileInput.files[0]) {
+    callback(null, "");
+    return;
+  }
+  var file = fileInput.files[0];
+  if (file.type && file.type.indexOf("image/") !== 0) {
+    callback("Only image files are allowed for upload.", null);
+    return;
+  }
+  if (file.size && file.size > 32 * 1024 * 1024) {
+    callback("Image exceeds the 32 MB size limit.", null);
+    return;
+  }
+
+  if (!isImgbbConfigured()) {
+    readLocalDataUrl(file, callback);
+    return;
+  }
+
+  var url = "https://api.imgbb.com/1/upload?key=" + encodeURIComponent(CONFIG.imgbbApiKey);
+  showStatus("Uploading image to ImgBB...", false);
+
+  if (typeof FormData !== "undefined") {
+    var fd = new FormData();
+    fd.append("image", file);
+    httpRequest("POST", url, fd, null, function(err, res) {
+      if (!err && res && res.data && (res.data.url || res.data.display_url)) {
+        callback(null, res.data.url || res.data.display_url);
+        return;
+      }
+      var detail = extractImgbbError(err, res);
+      callback("ImgBB upload failed" + (detail ? ": " + detail : "."), null);
+    });
+    return;
+  }
+
+  readLocalDataUrl(file, function(readErr, dataUrl) {
+    if (readErr) {
+      callback(readErr, null);
+      return;
+    }
+    var base64Data = dataUrl.split(",")[1];
+    var body = "image=" + encodeURIComponent(base64Data);
+    httpRequest("POST", url, body, { "Content-Type": "application/x-www-form-urlencoded" }, function(err, res) {
+      if (!err && res && res.data && (res.data.url || res.data.display_url)) {
+        callback(null, res.data.url || res.data.display_url);
+      } else {
+        var detail = extractImgbbError(err, res);
+        callback("ImgBB upload failed" + (detail ? ": " + detail : "."), null);
+      }
+    });
+  });
+}
+
 /* ==========================================================================
-   VIDEO LINK RENDERER (EXTERNAL LINKS ONLY, NEVER UPLOADED TO FIREBASE)
+   VIDEO & AUDIO LINK RENDERER (EXTERNAL LINKS ONLY FOR VIDEOS)
    ========================================================================== */
+function isDirectAudioUrl(url) {
+  return /\.(mp3|ogg|wav|m4a|flac)(\?.*)?$/i.test(String(url || ""));
+}
+
 function renderVideoHtml(rawUrl) {
   var url = safeUrl(rawUrl);
   if (!url) return "";
+
+  if (isDirectAudioUrl(url)) {
+    return '<div class="video-box">' +
+           '<div class="muted">Audio Link: <a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(url) + '</a></div>' +
+           '<audio controls preload="none" src="' + esc(url) + '"></audio>' +
+           '</div>';
+  }
 
   var ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
   if (ytMatch && ytMatch[1]) {
@@ -907,11 +1156,367 @@ function renderVideoHtml(rawUrl) {
 }
 
 /* ==========================================================================
-   DATA LOADING & SYNCHRONIZATION
+   MUSIC PLAYER WIDGET (FILE UPLOAD + AUTO-LOAD FROM /music/ BOARD)
    ========================================================================== */
-function refreshAllData(callback) {
+function initMusicPlayer() {
+  var audio = document.getElementById("audioPlayer");
+  var widget = document.getElementById("musicWidget");
+  var playBtn = document.getElementById("musicPlayBtn");
+  if (!audio) return;
+
+  audio.onplay = function() {
+    widget.className = "music-widget is-playing";
+    playBtn.innerHTML = "Pause";
+  };
+  audio.onpause = function() {
+    widget.className = "music-widget";
+    playBtn.innerHTML = "Play";
+  };
+  audio.onended = function() {
+    widget.className = "music-widget";
+    playBtn.innerHTML = "Play";
+    musicNext();
+  };
+}
+
+function extractAudioUrlFromText(text) {
+  if (!text) return "";
+  var match = String(text).match(/https?:\/\/[^\s<>"']+\.(?:mp3|ogg|wav|m4a|flac)(?:\?[^\s<>"']*)?/i);
+  return match ? match[0] : "";
+}
+
+function rebuildMusicPlaylist() {
+  var boardTracks = [];
+
+  for (var tid in state.threads) {
+    if (!state.threads.hasOwnProperty(tid)) continue;
+    var t = state.threads[tid];
+    if (!t || t.board !== "music") continue;
+
+    var trackSrc = "";
+    if (t.audioData && t.audioData.indexOf("data:audio/") === 0) {
+      trackSrc = t.audioData;
+    } else if (safeUrl(t.audioUrl)) {
+      trackSrc = safeUrl(t.audioUrl);
+    } else if (isDirectAudioUrl(t.videoUrl)) {
+      trackSrc = safeUrl(t.videoUrl);
+    } else {
+      trackSrc = extractAudioUrlFromText(t.text);
+    }
+
+    if (trackSrc) {
+      boardTracks.push({
+        id: "t_" + t.id,
+        title: (t.subject || t.audioName || "Track #" + t.id.replace("id_", "")) + " (" + (t.authorName || "Anon") + ")",
+        src: trackSrc,
+        createdAt: t.createdAt || 0
+      });
+    }
+
+    var tComments = state.comments[tid] || {};
+    for (var cid in tComments) {
+      if (!tComments.hasOwnProperty(cid)) continue;
+      var c = tComments[cid];
+      if (!c) continue;
+      var cSrc = "";
+      if (c.audioData && c.audioData.indexOf("data:audio/") === 0) {
+        cSrc = c.audioData;
+      } else if (safeUrl(c.audioUrl)) {
+        cSrc = safeUrl(c.audioUrl);
+      } else if (isDirectAudioUrl(c.videoUrl)) {
+        cSrc = safeUrl(c.videoUrl);
+      } else {
+        cSrc = extractAudioUrlFromText(c.text);
+      }
+      if (cSrc) {
+        boardTracks.push({
+          id: "c_" + c.id,
+          title: (c.audioName || "Reply Track") + " (" + (c.authorName || "Anon") + ")",
+          src: cSrc,
+          createdAt: c.createdAt || 0
+        });
+      }
+    }
+  }
+
+  boardTracks.sort(function(a, b) {
+    return (b.createdAt || 0) - (a.createdAt || 0);
+  });
+
+  musicState.boardTracks = boardTracks;
+  var prevCurrentId = (musicState.currentIndex >= 0 && musicState.allTracks[musicState.currentIndex])
+    ? musicState.allTracks[musicState.currentIndex].id
+    : null;
+
+  var combined = [];
+  for (var i = 0; i < musicState.localTracks.length; i++) {
+    combined.push(musicState.localTracks[i]);
+  }
+  for (var j = 0; j < boardTracks.length; j++) {
+    combined.push(boardTracks[j]);
+  }
+  musicState.allTracks = combined;
+
+  var countLabel = document.getElementById("musicCountLabel");
+  if (countLabel) {
+    countLabel.innerHTML = combined.length + " track" + (combined.length === 1 ? "" : "s");
+  }
+
+  var sel = document.getElementById("musicSelect");
+  if (sel) {
+    var opts = '<option value="-1">-- Select Track (' + combined.length + ') --</option>';
+    for (var k = 0; k < combined.length; k++) {
+      opts += '<option value="' + k + '">' + esc(combined[k].title) + '</option>';
+    }
+    sel.innerHTML = opts;
+  }
+
+  if (prevCurrentId) {
+    for (var m = 0; m < combined.length; m++) {
+      if (combined[m].id === prevCurrentId) {
+        musicState.currentIndex = m;
+        if (sel) sel.value = String(m);
+        return;
+      }
+    }
+  }
+
+  if (musicState.currentIndex === -1 && combined.length > 0) {
+    musicState.currentIndex = 0;
+    var titleEl = document.getElementById("musicTrackTitle");
+    if (titleEl) titleEl.innerHTML = esc(combined[0].title);
+    var audio = document.getElementById("audioPlayer");
+    if (audio && !audio.src) {
+      audio.src = combined[0].src;
+    }
+    if (sel) sel.value = "0";
+  }
+}
+
+function musicSelectTrack(idxStr) {
+  var idx = parseInt(idxStr, 10);
+  if (isNaN(idx) || idx < 0 || idx >= musicState.allTracks.length) return;
+  musicState.currentIndex = idx;
+  var track = musicState.allTracks[idx];
+  var audio = document.getElementById("audioPlayer");
+  var titleEl = document.getElementById("musicTrackTitle");
+  var sel = document.getElementById("musicSelect");
+
+  if (titleEl) titleEl.innerHTML = esc(track.title);
+  if (sel) sel.value = String(idx);
+  if (audio) {
+    audio.src = track.src;
+    audio.play();
+  }
+}
+
+function musicTogglePlay() {
+  var audio = document.getElementById("audioPlayer");
+  if (!audio) return;
+  if (musicState.allTracks.length === 0) {
+    showStatus("Upload an audio file or post an audio link on /music/ first.", true);
+    return;
+  }
+  if (musicState.currentIndex < 0) {
+    musicSelectTrack(0);
+    return;
+  }
+  if (audio.paused) {
+    if (!audio.src) {
+      audio.src = musicState.allTracks[musicState.currentIndex].src;
+    }
+    audio.play();
+  } else {
+    audio.pause();
+  }
+}
+
+function musicNext() {
+  if (musicState.allTracks.length === 0) return;
+  var nextIdx = (musicState.currentIndex + 1) % musicState.allTracks.length;
+  musicSelectTrack(nextIdx);
+}
+
+function musicPrev() {
+  if (musicState.allTracks.length === 0) return;
+  var prevIdx = (musicState.currentIndex - 1 + musicState.allTracks.length) % musicState.allTracks.length;
+  musicSelectTrack(prevIdx);
+}
+
+function handleMusicFileUpload(input) {
+  if (!input || !input.files || !input.files[0]) return;
+  var file = input.files[0];
+  var urlTool = window.URL || window.webkitURL;
+  if (!urlTool || !urlTool.createObjectURL) {
+    showStatus("Local audio preview is not supported in this browser.", true);
+    return;
+  }
+  var blobUrl = urlTool.createObjectURL(file);
+  var trackId = "local_" + generateId();
+  musicState.localTracks.unshift({
+    id: trackId,
+    title: "[Local] " + file.name,
+    src: blobUrl,
+    createdAt: new Date().getTime()
+  });
+  rebuildMusicPlaylist();
+  musicSelectTrack(0);
+
+  // If user is logged in and file is compact (<= 1 MB), also publish it to /music/ board automatically
+  if (state.user && file.size <= 1048576 && typeof FileReader !== "undefined") {
+    var reader = new FileReader();
+    reader.onload = function(evt) {
+      var dataUrl = evt.target.result;
+      if (dataUrl && dataUrl.indexOf("data:audio/") === 0) {
+        var threadId = generateId();
+        var now = new Date().getTime();
+        var threadObj = {
+          id: threadId,
+          board: "music",
+          subject: file.name,
+          text: "Uploaded audio track: " + file.name,
+          imageUrl: "",
+          videoUrl: "",
+          audioData: dataUrl,
+          audioName: file.name,
+          uid: state.user.uid,
+          authorName: state.profile.nickname || state.user.username,
+          authorAvatar: state.profile.avatarUrl || "",
+          isAdminPost: !!state.user.isAdmin,
+          createdAt: now,
+          bumpedAt: now
+        };
+        dbWrite("PUT", "threads/" + threadId, threadObj, function(err) {
+          if (!err) {
+            showStatus("Playing & shared '" + file.name + "' to /music/ board!", false);
+            refreshAllData(renderAll);
+          }
+        });
+      }
+    };
+    reader.readAsDataURL(file);
+  } else {
+    showStatus("Playing local file: " + file.name, false);
+  }
+}
+
+/* ==========================================================================
+   GLOBAL 1-MINUTE SNOW EFFECT (ANY USER CAN TRIGGER FOR EVERYONE)
+   ========================================================================== */
+function triggerGlobalSnow() {
+  var now = new Date().getTime();
+  var expiresAt = now + 60000;
+  var payload = {
+    enabledAt: now,
+    expiresAt: expiresAt,
+    startedBy: state.user ? (state.profile.nickname || state.user.username) : "Anonymous"
+  };
+
+  state.snowEffect = payload;
+  syncSnowState();
+
+  dbWrite("PUT", "effects/snow", payload, function(err) {
+    if (err) {
+      showStatus("Snow started locally for 1 minute (check database rules for global sync).", false);
+    } else {
+      showStatus("Snow enabled for everyone for 1 minute!", false);
+    }
+  });
+}
+
+function syncSnowState() {
+  var now = new Date().getTime();
+  var eff = state.snowEffect;
+  if (eff && eff.expiresAt && eff.expiresAt > now) {
+    snowState.expiresAt = eff.expiresAt;
+    if (!snowState.active) {
+      startSnowCanvas();
+    }
+  } else {
+    if (snowState.active) {
+      stopSnowCanvas();
+    }
+  }
+  renderTopNav();
+}
+
+function startSnowCanvas() {
+  var canvas = document.getElementById("snowCanvas");
+  if (!canvas || !canvas.getContext) return;
+  snowState.active = true;
+  canvas.style.display = "block";
+  canvas.width = window.innerWidth || document.documentElement.clientWidth || 800;
+  canvas.height = window.innerHeight || document.documentElement.clientHeight || 600;
+
+  var flakes = [];
+  for (var i = 0; i < 65; i++) {
+    flakes.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      r: 1.5 + Math.random() * 3,
+      d: 0.6 + Math.random() * 1.4
+    });
+  }
+  snowState.flakes = flakes;
+
+  var ctx = canvas.getContext("2d");
+  var lastSec = -1;
+
+  function step() {
+    if (!snowState.active) return;
+    var now = new Date().getTime();
+    var remaining = Math.ceil((snowState.expiresAt - now) / 1000);
+    if (remaining <= 0) {
+      stopSnowCanvas();
+      renderTopNav();
+      return;
+    }
+    if (remaining !== lastSec) {
+      lastSec = remaining;
+      var btnEl = document.getElementById("snowNavBtn");
+      if (btnEl) {
+        btnEl.innerHTML = "&#10052; Snowing (" + remaining + "s)";
+      }
+    }
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "rgba(180, 215, 255, 0.85)";
+    ctx.beginPath();
+    for (var j = 0; j < snowState.flakes.length; j++) {
+      var f = snowState.flakes[j];
+      ctx.moveTo(f.x, f.y);
+      ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2, true);
+      f.y += f.d;
+      f.x += Math.sin(f.y * 0.02) * 0.5;
+      if (f.y > canvas.height) {
+        f.y = -5;
+        f.x = Math.random() * canvas.width;
+      }
+    }
+    ctx.fill();
+    snowState.animFrame = setTimeout(step, 40);
+  }
+  step();
+}
+
+function stopSnowCanvas() {
+  snowState.active = false;
+  if (snowState.animFrame) {
+    clearTimeout(snowState.animFrame);
+    snowState.animFrame = null;
+  }
+  var canvas = document.getElementById("snowCanvas");
+  if (canvas) {
+    canvas.style.display = "none";
+  }
+}
+
+/* ==========================================================================
+   DATA LOADING & AUTOMATIC BACKGROUND REFRESH
+   ========================================================================== */
+function refreshAllData(callback, isBackground) {
   dbGet("boards", function(errB, customBoards) {
-    if (errB && errB.status === 404) {
+    if (!isBackground && errB && errB.status === 404) {
       showStatus(formatDbError(errB, "Database unavailable."), true);
     }
     var merged = [];
@@ -940,11 +1545,39 @@ function refreshAllData(callback) {
         state.comments = commentsData || {};
         dbGet("polls", function(errP, pollsData) {
           state.polls = pollsData || {};
-          if (callback) callback();
+          dbGet("effects/snow", function(errS, snowData) {
+            state.snowEffect = snowData || null;
+            syncSnowState();
+            rebuildMusicPlaylist();
+
+            var newHash = JSON.stringify({
+              b: state.boards,
+              t: state.threads,
+              c: state.comments,
+              p: state.polls
+            });
+            var changed = (newHash !== lastDataHash);
+            lastDataHash = newHash;
+
+            if (callback) {
+              callback(changed);
+            }
+          });
         });
       });
     });
   });
+}
+
+function startAutoRefresh() {
+  if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+  autoRefreshTimer = setInterval(function() {
+    refreshAllData(function(changed) {
+      if (changed) {
+        updateDynamicFeed();
+      }
+    }, true);
+  }, CONFIG.autoRefreshMs);
 }
 
 /* ==========================================================================
@@ -961,7 +1594,7 @@ function createThread() {
   var fileInput = document.getElementById("newThreadImage");
 
   if (!text && !videoUrl && (!fileInput.files || !fileInput.files[0])) {
-    showStatus("Enter text, select an image, or provide a video link.", true);
+    showStatus("Enter text, select an image, or provide a video or audio link.", true);
     return;
   }
 
@@ -1008,7 +1641,7 @@ function createComment(threadId) {
   var fileInput = document.getElementById("replyImage");
 
   if (!text && !videoUrl && (!fileInput.files || !fileInput.files[0])) {
-    showStatus("Enter reply text, select an image, or paste a video link.", true);
+    showStatus("Enter reply text, select an image, or paste a video or audio link.", true);
     return;
   }
 
@@ -1299,7 +1932,7 @@ function saveUserProfile() {
 }
 
 /* ==========================================================================
-   VIEW NAVIGATION & RENDERING
+   VIEW NAVIGATION & RENDERING (FORMS SEPARATED FROM LIVE-REFRESHED FEED)
    ========================================================================== */
 function switchView(viewName, param) {
   showStatus("", false);
@@ -1331,6 +1964,16 @@ function renderTopNav() {
   html += "] &nbsp; ";
   html += '[ <a onclick="switchView(\'polls\')">Board Polls</a> ] &nbsp; ';
 
+  var now = new Date().getTime();
+  var snowRem = (state.snowEffect && state.snowEffect.expiresAt > now)
+    ? Math.ceil((state.snowEffect.expiresAt - now) / 1000)
+    : 0;
+  if (snowRem > 0) {
+    html += '[ <a id="snowNavBtn" onclick="triggerGlobalSnow()">&#10052; Snowing (' + snowRem + 's)</a> ] &nbsp; ';
+  } else {
+    html += '[ <a id="snowNavBtn" onclick="triggerGlobalSnow()">&#10052; Let it Snow (1m)</a> ] &nbsp; ';
+  }
+
   if (state.user) {
     html += '[ <a onclick="switchView(\'profile\')">Profile (' + esc(state.profile.nickname || state.user.username) + ')</a> ] &nbsp; ';
     html += '[ <a onclick="logoutUser()">Logout</a> ]';
@@ -1338,9 +1981,7 @@ function renderTopNav() {
     html += '[ <a onclick="switchView(\'auth\')">Login / Register</a> ]';
   }
 
-  if (!isFirebaseConfigured()) {
-    html += ' <span class="muted">(Local Mode)</span>';
-  }
+  html += ' <span class="muted">(Auto-refresh' + (!isFirebaseConfigured() ? ' &bull; Local Mode' : '') + ')</span>';
   document.getElementById("topNav").innerHTML = html;
 }
 
@@ -1360,21 +2001,29 @@ function renderBoardView() {
   if (!state.user) {
     html += '<div>You must <a onclick="switchView(\'auth\')">Log In or Register</a> to create threads, comment, or like posts.</div>';
   } else {
+    var linkPlaceholder = (boardObj.slug === "music")
+      ? "Direct .mp3/.ogg/.wav audio link or YouTube video link"
+      : "https://youtube.com/... or direct .mp4/.webm/.mp3 link";
     html += '<table class="form-table">';
     html += '<tr><td class="form-label">Subject</td><td><input type="text" id="newThreadSubject" maxlength="100" placeholder="Optional subject"></td></tr>';
     html += '<tr><td class="form-label">Comment</td><td><textarea id="newThreadText" placeholder="Write your post..."></textarea></td></tr>';
     html += '<tr><td class="form-label">Image Upload</td><td><input type="file" id="newThreadImage" accept="image/*"></td></tr>';
-    html += '<tr><td class="form-label">Video Link</td><td><input type="text" id="newThreadVideo" placeholder="https://youtube.com/... or direct .mp4/.webm link"></td></tr>';
+    html += '<tr><td class="form-label">Video / Audio Link</td><td><input type="text" id="newThreadVideo" placeholder="' + linkPlaceholder + '"></td></tr>';
     html += '<tr><td class="form-label">Submit</td><td><button onclick="createThread()">Post Thread</button></td></tr>';
     html += '</table>';
   }
   html += '</div>';
 
+  html += '<div id="boardFeedArea">' + renderBoardThreadsHtml(boardObj.slug) + '</div>';
+  return html;
+}
+
+function renderBoardThreadsHtml(boardSlug) {
   var list = [];
   for (var id in state.threads) {
     if (state.threads.hasOwnProperty(id)) {
       var t = state.threads[id];
-      if (t && t.board === state.currentBoard) {
+      if (t && t.board === boardSlug) {
         list.push(t);
       }
     }
@@ -1384,10 +2033,10 @@ function renderBoardView() {
   });
 
   if (list.length === 0) {
-    html += '<div style="text-align:center; padding: 20px;">No threads on /' + esc(boardObj.slug) + '/ yet. Start the first one above!</div>';
-    return html;
+    return '<div style="text-align:center; padding: 20px;">No threads on /' + esc(boardSlug) + '/ yet. Start the first one above!</div>';
   }
 
+  var html = "";
   for (var j = 0; j < list.length; j++) {
     html += renderThreadBlock(list[j], false);
   }
@@ -1441,6 +2090,10 @@ function renderThreadBlock(thread, isSingleView) {
   if (thread.text) {
     html += '<div class="post-body">' + esc(thread.text) + '</div>';
   }
+  if (thread.audioData && thread.audioData.indexOf("data:audio/") === 0) {
+    html += '<div class="video-box"><div class="muted">Audio File: ' + esc(thread.audioName || "Track") + '</div>' +
+            '<audio controls preload="none" src="' + esc(thread.audioData) + '"></audio></div>';
+  }
   if (thread.videoUrl) {
     html += renderVideoHtml(thread.videoUrl);
   }
@@ -1489,6 +2142,10 @@ function renderCommentBlock(threadId, comment) {
   if (comment.text) {
     html += '<div class="post-body">' + esc(comment.text) + '</div>';
   }
+  if (comment.audioData && comment.audioData.indexOf("data:audio/") === 0) {
+    html += '<div class="video-box"><div class="muted">Audio File: ' + esc(comment.audioName || "Track") + '</div>' +
+            '<audio controls preload="none" src="' + esc(comment.audioData) + '"></audio></div>';
+  }
   if (comment.videoUrl) {
     html += renderVideoHtml(comment.videoUrl);
   }
@@ -1503,7 +2160,7 @@ function renderSingleThreadView() {
   }
 
   var html = '<div style="margin-bottom:10px;">[<a onclick="switchView(\'board\', \'' + esc(thread.board) + '\')">&larr; Return to /' + esc(thread.board) + '/</a>]</div>';
-  html += renderThreadBlock(thread, true);
+  html += '<div id="threadFeedArea">' + renderThreadBlock(thread, true) + '</div>';
 
   html += '<div class="box-panel">';
   html += '<h3>Post a Reply</h3>';
@@ -1513,7 +2170,7 @@ function renderSingleThreadView() {
     html += '<table class="form-table">';
     html += '<tr><td class="form-label">Comment</td><td><textarea id="replyText" placeholder="Write your reply..."></textarea></td></tr>';
     html += '<tr><td class="form-label">Image Upload</td><td><input type="file" id="replyImage" accept="image/*"></td></tr>';
-    html += '<tr><td class="form-label">Video Link</td><td><input type="text" id="replyVideo" placeholder="https://youtube.com/... or direct .mp4/.webm link"></td></tr>';
+    html += '<tr><td class="form-label">Video / Audio Link</td><td><input type="text" id="replyVideo" placeholder="https://youtube.com/... or direct .mp4/.webm/.mp3 link"></td></tr>';
     html += '<tr><td class="form-label">Submit</td><td><button onclick="createComment(\'' + esc(thread.id) + '\')">Post Reply</button></td></tr>';
     html += '</table>';
   }
@@ -1528,8 +2185,8 @@ function renderPollsView() {
     html += '<div class="box-panel">';
     html += '<h3>Admin Panel: Create or Remove Boards Immediately</h3>';
     html += '<table class="form-table">';
-    html += '<tr><td class="form-label">Board Slug</td><td><input type="text" id="adminBoardSlug" maxlength="16" placeholder="e.g. music"></td></tr>';
-    html += '<tr><td class="form-label">Board Title</td><td><input type="text" id="adminBoardTitle" maxlength="40" placeholder="e.g. Music & Audio"></td></tr>';
+    html += '<tr><td class="form-label">Board Slug</td><td><input type="text" id="adminBoardSlug" maxlength="16" placeholder="e.g. news"></td></tr>';
+    html += '<tr><td class="form-label">Board Title</td><td><input type="text" id="adminBoardTitle" maxlength="40" placeholder="e.g. Regional News"></td></tr>';
     html += '<tr><td class="form-label">Action</td><td><button onclick="createBoardAdmin()">Create Board Now</button></td></tr>';
     html += '</table>';
 
@@ -1561,7 +2218,12 @@ function renderPollsView() {
   }
   html += '</div>';
 
-  html += '<div style="max-width:620px; margin:0 auto;">';
+  html += '<div id="pollsFeedArea" style="max-width:620px; margin:0 auto;">' + renderPollsListHtml() + '</div>';
+  return html;
+}
+
+function renderPollsListHtml() {
+  var html = "";
   var hasPolls = false;
   for (var slug in state.polls) {
     if (state.polls.hasOwnProperty(slug) && state.polls[slug]) {
@@ -1606,7 +2268,6 @@ function renderPollsView() {
   if (!hasPolls) {
     html += '<div style="text-align:center;">No board polls created yet.</div>';
   }
-  html += '</div>';
   return html;
 }
 
@@ -1651,6 +2312,28 @@ function renderAuthView() {
   return html;
 }
 
+/* Updates only the live feed without touching open forms or playing music */
+function updateDynamicFeed() {
+  renderTopNav();
+  if (state.view === "board") {
+    var boardFeed = document.getElementById("boardFeedArea");
+    if (boardFeed) {
+      boardFeed.innerHTML = renderBoardThreadsHtml(state.currentBoard);
+    }
+  } else if (state.view === "thread") {
+    var threadFeed = document.getElementById("threadFeedArea");
+    var thread = state.threads[state.currentThreadId];
+    if (threadFeed && thread) {
+      threadFeed.innerHTML = renderThreadBlock(thread, true);
+    }
+  } else if (state.view === "polls") {
+    var pollsFeed = document.getElementById("pollsFeedArea");
+    if (pollsFeed) {
+      pollsFeed.innerHTML = renderPollsListHtml();
+    }
+  }
+}
+
 function renderAll() {
   renderTopNav();
   var container = document.getElementById("mainContent");
@@ -1671,10 +2354,14 @@ function renderAll() {
    INITIALIZATION
    ========================================================================== */
 window.onload = function() {
+  initMusicPlayer();
   loadSession();
   ensureFreshSession(function() {
     loadUserProfile(function() {
-      refreshAllData(renderAll);
+      refreshAllData(function() {
+        renderAll();
+        startAutoRefresh();
+      });
     });
   });
 };
