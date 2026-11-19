@@ -784,6 +784,7 @@ var snowState = {
 var worldState = {
   sprites: {},
   fireworks: {},
+  explodedFireworks: {},
   cursors: {},
   particles: [],
   grabbedSpriteId: null,
@@ -795,7 +796,9 @@ var worldState = {
   lastDragSyncTime: 0,
   lastCursorSendTime: 0,
   lastCursorXPct: -1,
-  lastCursorYPct: -1
+  lastCursorYPct: -1,
+  lastPlaygroundHtml: "",
+  hadParticles: false
 };
 
 /* ==========================================================================
@@ -1730,7 +1733,7 @@ function attachSpriteToFireworkIfNear(sprite) {
   for (var fwid in worldState.fireworks) {
     if (!worldState.fireworks.hasOwnProperty(fwid)) continue;
     var fw = worldState.fireworks[fwid];
-    if (!fw || fw.exploded) continue;
+    if (!fw || fw.exploded || worldState.explodedFireworks[fwid]) continue;
     var dx = Math.abs(sprite.x - fw.x);
     var dy = Math.abs(sprite.y - fw.y);
     if (dx < 65 && dy < 75) {
@@ -1777,7 +1780,6 @@ function initPlaygroundControls() {
     var mx = evt.clientX;
     var my = evt.clientY;
 
-    // Broadcast live cursor position (throttled)
     var now = new Date().getTime();
     var xPct = Math.round((mx / vp.w) * 1000) / 10;
     var yPct = Math.round((my / vp.h) * 1000) / 10;
@@ -1794,7 +1796,6 @@ function initPlaygroundControls() {
       }, null);
     }
 
-    // Handle active sprite RMB throw-hold or LMB drag
     if (worldState.grabbedSpriteId && worldState.sprites[worldState.grabbedSpriteId]) {
       var sp = worldState.sprites[worldState.grabbedSpriteId];
       var normX = Math.max(20, Math.min(980, (mx / vp.w) * 1000));
@@ -1819,7 +1820,7 @@ function initPlaygroundControls() {
     worldState.lastMouseY = my;
   };
 
-  document.onmouseup = function(e) {
+  document.onmouseup = function() {
     if (!worldState.grabbedSpriteId) return;
     var sp = worldState.sprites[worldState.grabbedSpriteId];
     var mode = worldState.grabMode;
@@ -1828,12 +1829,10 @@ function initPlaygroundControls() {
 
     if (!sp) return;
 
-    // Check if dropped onto a firework first
     if (attachSpriteToFireworkIfNear(sp)) {
       return;
     }
 
-    // If held with RMB (or thrown with speed), launch across the whole site
     if (mode === "rmb") {
       sp.vx = worldState.throwVx;
       sp.vy = worldState.throwVy;
@@ -1853,10 +1852,7 @@ function initPlaygroundControls() {
     dbWrite("DELETE", "realtime/cursors/" + myClientId, null, null);
   };
 
-  // Start local 30 FPS physics & particle animation loop
   setInterval(stepWorldPhysicsAndRender, 33);
-
-  // Start real-time Firebase sync for cursors, sprites, and fireworks
   setInterval(syncRealtimeWorld, CONFIG.realtimeSyncMs);
 }
 
@@ -1879,27 +1875,29 @@ function stepWorldPhysicsAndRender() {
   var now = new Date().getTime();
   var vp = getViewportSize();
 
-  // 1. Update Fireworks
+  // 1. Update Fireworks (one-shot launch and explosion)
   for (var fwid in worldState.fireworks) {
     if (!worldState.fireworks.hasOwnProperty(fwid)) continue;
     var fw = worldState.fireworks[fwid];
     if (!fw) continue;
 
-    if (!fw.launched && now >= fw.launchAt) {
-      fw.launched = true;
-      fw.updatedAt = now;
-      dbWrite("PATCH", "realtime/fireworks/" + fwid, { launched: true, updatedAt: now }, null);
+    if (worldState.explodedFireworks[fwid] || fw.exploded) {
+      delete worldState.fireworks[fwid];
+      continue;
     }
 
-    if (fw.launched && !fw.exploded) {
+    if (!fw.launched && now >= fw.launchAt) {
+      fw.launched = true;
+    }
+
+    if (fw.launched) {
       fw.y -= 13;
       if (fw.y <= 115) {
         fw.y = 115;
         fw.exploded = true;
-        fw.updatedAt = now;
+        worldState.explodedFireworks[fwid] = now;
         triggerFireworkExplosionPixels((fw.x / 1000) * vp.w, (fw.y / 1000) * vp.h);
 
-        // Detach any sprites riding this firework and make them fall down
         for (var sid in worldState.sprites) {
           if (worldState.sprites.hasOwnProperty(sid) && worldState.sprites[sid]) {
             var sp = worldState.sprites[sid];
@@ -1938,15 +1936,13 @@ function stepWorldPhysicsAndRender() {
       sprite.vy = 2;
     }
 
-    // Apply gravity and air drag when moving
     if (Math.abs(sprite.vx) > 0.05 || Math.abs(sprite.vy) > 0.05 || sprite.y < 955) {
-      sprite.vy += 0.45; // gravity pulls sprite down after firework blow or high throw
+      sprite.vy += 0.45;
       sprite.vx *= 0.99;
       sprite.vy *= 0.99;
       sprite.x += sprite.vx;
       sprite.y += sprite.vy;
 
-      // Bounce off screen borders
       if (sprite.x < 25) {
         sprite.x = 25;
         sprite.vx = Math.abs(sprite.vx) * 0.75;
@@ -1975,27 +1971,30 @@ function stepWorldPhysicsAndRender() {
   // 3. Render Fireworks Explosion Particles on Canvas
   var fwCanvas = document.getElementById("fireworksCanvas");
   if (fwCanvas && fwCanvas.getContext) {
-    if (fwCanvas.width !== vp.w || fwCanvas.height !== vp.h) {
-      fwCanvas.width = vp.w;
-      fwCanvas.height = vp.h;
-    }
-    var ctx = fwCanvas.getContext("2d");
-    ctx.clearRect(0, 0, vp.w, vp.h);
-
-    for (var p = worldState.particles.length - 1; p >= 0; p--) {
-      var pt = worldState.particles[p];
-      pt.x += pt.vx;
-      pt.y += pt.vy;
-      pt.vy += 0.12;
-      pt.life -= 1;
-      if (pt.life <= 0) {
-        worldState.particles.splice(p, 1);
-      } else {
-        ctx.fillStyle = pt.color;
-        ctx.beginPath();
-        ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2, true);
-        ctx.fill();
+    if (worldState.particles.length > 0 || worldState.hadParticles) {
+      if (fwCanvas.width !== vp.w || fwCanvas.height !== vp.h) {
+        fwCanvas.width = vp.w;
+        fwCanvas.height = vp.h;
       }
+      var ctx = fwCanvas.getContext("2d");
+      ctx.clearRect(0, 0, vp.w, vp.h);
+
+      for (var p = worldState.particles.length - 1; p >= 0; p--) {
+        var pt = worldState.particles[p];
+        pt.x += pt.vx;
+        pt.y += pt.vy;
+        pt.vy += 0.12;
+        pt.life -= 1;
+        if (pt.life <= 0) {
+          worldState.particles.splice(p, 1);
+        } else {
+          ctx.fillStyle = pt.color;
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2, true);
+          ctx.fill();
+        }
+      }
+      worldState.hadParticles = (worldState.particles.length > 0);
     }
   }
 
@@ -2031,7 +2030,10 @@ function stepWorldPhysicsAndRender() {
                 '</div>';
       }
     }
-    layer.innerHTML = html;
+    if (html !== worldState.lastPlaygroundHtml) {
+      worldState.lastPlaygroundHtml = html;
+      layer.innerHTML = html;
+    }
   }
 }
 
@@ -2064,6 +2066,15 @@ function syncRealtimeWorld() {
   dbGet("realtime", function(err, rtData) {
     if (err || !rtData) return;
 
+    // Prune expired exploded-firework tombstones
+    for (var expId in worldState.explodedFireworks) {
+      if (worldState.explodedFireworks.hasOwnProperty(expId)) {
+        if ((now - worldState.explodedFireworks[expId]) > 60000) {
+          delete worldState.explodedFireworks[expId];
+        }
+      }
+    }
+
     // Merge remote sprites (keep local grabbed sprite untouched)
     var remoteSprites = rtData.sprites || {};
     for (var oldSid in worldState.sprites) {
@@ -2086,7 +2097,7 @@ function syncRealtimeWorld() {
       }
     }
 
-    // Merge remote fireworks
+    // Merge remote fireworks (never re-add already exploded fireworks)
     var remoteFws = rtData.fireworks || {};
     for (var oldFid in worldState.fireworks) {
       if (worldState.fireworks.hasOwnProperty(oldFid) && !remoteFws[oldFid]) {
@@ -2096,14 +2107,23 @@ function syncRealtimeWorld() {
     for (var fid in remoteFws) {
       if (remoteFws.hasOwnProperty(fid) && remoteFws[fid]) {
         var remFw = remoteFws[fid];
-        if (remFw.updatedAt && (now - remFw.updatedAt) > 20000) {
+
+        if (worldState.explodedFireworks[fid] || remFw.exploded) {
           dbWrite("DELETE", "realtime/fireworks/" + fid, null, null);
           continue;
         }
+
+        if (typeof remFw.x !== "number" || typeof remFw.y !== "number" ||
+            (remFw.updatedAt && (now - remFw.updatedAt) > 20000)) {
+          dbWrite("DELETE", "realtime/fireworks/" + fid, null, null);
+          continue;
+        }
+
         if (!worldState.fireworks[fid]) {
           worldState.fireworks[fid] = remFw;
         } else if (remFw.launched && !worldState.fireworks[fid].launched) {
           worldState.fireworks[fid].launched = true;
+          worldState.fireworks[fid].launchAt = remFw.launchAt || now;
         }
       }
     }
