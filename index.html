@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>UA-PMR Imageboard</title>
+<link id="siteFavicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23EEAA88'/%3E%3Ctext x='16' y='23' font-size='20' font-weight='bold' text-anchor='middle' fill='%23800000'%3E%E2%98%98%3C/text%3E%3C/svg%3E">
 <style>
   * {
     box-sizing: border-box;
@@ -26,7 +27,7 @@
   }
   .page-wrap {
     width: 96%;
-    max-width: 920px;
+    max-width: 1080px;
     margin: 0 auto;
     padding: 10px 0 40px 0;
     position: relative;
@@ -37,12 +38,80 @@
     border: 1px solid #D9BFB7;
     padding: 6px 10px;
     margin-bottom: 12px;
-    text-align: center;
+    font-size: 12px;
+    overflow: hidden;
+  }
+  .top-bar-left {
+    float: left;
+  }
+  .top-bar-right {
+    float: right;
+  }
+  .layout-table {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+  }
+  .left-sidebar {
+    display: table-cell;
+    width: 220px;
+    vertical-align: top;
+    padding-right: 12px;
+  }
+  .center-main {
+    display: table-cell;
+    vertical-align: top;
+  }
+  .side-box {
+    background-color: #F0E0D6;
+    border: 1px solid #D9BFB7;
+    padding: 8px;
+    margin-bottom: 12px;
+  }
+  .side-box h4 {
+    margin: 0 0 6px 0;
+    padding: 3px 6px;
+    background-color: #EA8;
+    border: 1px solid #D9BFB7;
+    color: #800000;
     font-size: 12px;
   }
-  .top-bar a {
-    margin: 0 4px;
+  .logo-box {
+    text-align: center;
+  }
+  .site-logo-img {
+    max-width: 100%;
+    max-height: 150px;
+    border: 1px solid #D9BFB7;
+    background-color: #FFFFEE;
+    display: block;
+    margin: 0 auto 6px auto;
+  }
+  .default-logo-emblem {
+    background-color: #EEAA88;
+    border: 1px solid #800000;
+    color: #800000;
     font-weight: bold;
+    font-size: 20px;
+    padding: 16px 8px;
+    margin-bottom: 6px;
+  }
+  .board-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .board-list li {
+    padding: 3px 4px;
+    border-bottom: 1px dotted #D9BFB7;
+  }
+  .board-list li:last-child {
+    border-bottom: none;
+  }
+  .board-list a.active-board {
+    color: #AF0A0F;
+    font-weight: bold;
+    text-decoration: none;
   }
   .header-box {
     text-align: center;
@@ -52,7 +121,7 @@
   }
   .site-title {
     margin: 0;
-    font-size: 26px;
+    font-size: 25px;
     font-weight: bold;
     color: #AF0A0F;
     letter-spacing: 0.5px;
@@ -67,7 +136,7 @@
     font-size: 18px;
     font-weight: bold;
     color: #AF0A0F;
-    margin: 8px 0 12px 0;
+    margin: 6px 0 12px 0;
   }
   .status-msg {
     background-color: #FFE4C4;
@@ -131,7 +200,7 @@
     background-color: #EEAA88;
     color: #800000;
     border: 1px solid #800000;
-    padding: 4px 12px;
+    padding: 4px 10px;
     font-weight: bold;
     font-size: 12px;
     cursor: pointer;
@@ -222,8 +291,8 @@
     padding: 8px 10px;
     margin: 6px 0 6px 24px;
     display: table;
-    min-width: 300px;
-    max-width: 860px;
+    min-width: 280px;
+    max-width: 780px;
   }
   .poll-card {
     background-color: #F0E0D6;
@@ -354,6 +423,22 @@
     display: none;
   }
 
+  @media (max-width: 720px) {
+    .layout-table,
+    .left-sidebar,
+    .center-main {
+      display: block;
+      width: 100%;
+      padding-right: 0;
+    }
+    .top-bar-left,
+    .top-bar-right {
+      float: none;
+      text-align: center;
+      margin-bottom: 4px;
+    }
+  }
+
   @-webkit-keyframes discSpin {
     from { -webkit-transform: rotate(0deg); }
     to { -webkit-transform: rotate(360deg); }
@@ -387,54 +472,99 @@
 <canvas id="snowCanvas" class="snow-canvas"></canvas>
 
 <div class="page-wrap">
-  <div class="top-bar" id="topNav"></div>
+  <!-- Top Information Bar -->
+  <div class="top-bar" id="topInfoBar"></div>
 
-  <div class="header-box">
-    <h1 class="site-title">UA / PMR Imageboard</h1>
-    <div class="site-subtitle">
-      Community Imageboard Oriented Toward Ukraine &amp; Pridnestrovie &bull; English Default Interface
+  <div class="layout-table">
+    <!-- Left Sidebar: Site Logo, Boards List, Community Effects & Info -->
+    <div class="left-sidebar">
+      <div class="side-box logo-box" id="leftLogoBox"></div>
+
+      <div class="side-box">
+        <h4>Boards List</h4>
+        <ul class="board-list" id="leftBoardsList"></ul>
+      </div>
+
+      <div class="side-box">
+        <h4>Community &amp; Account</h4>
+        <div id="leftAccountLinks"></div>
+      </div>
+
+      <div class="side-box">
+        <h4>Global Fun (1 Min)</h4>
+        <div style="margin-bottom:8px;">
+          <button type="button" id="snowSideBtn" onclick="triggerGlobalSnow()" style="width:100%;">&#10052; Snow for All (1m)</button>
+        </div>
+        <div style="border-top:1px dotted #D9BFB7; padding-top:6px;">
+          <div style="font-weight:bold; margin-bottom:4px;">Change Tab Logo (1m):</div>
+          <input type="file" id="tabLogoFileInput" accept="image/*" style="font-size:11px; margin-bottom:4px;">
+          <input type="text" id="tabLogoUrlInput" placeholder="or paste image URL..." style="font-size:11px; margin-bottom:4px;">
+          <button type="button" onclick="triggerGlobalTabLogo()" style="width:100%;">Set Tab Icon (1m)</button>
+          <div id="tabLogoTimerLabel" class="muted" style="margin-top:4px;">Default tab icon active</div>
+        </div>
+      </div>
+
+      <div class="side-box">
+        <h4>Board Info</h4>
+        <div class="muted">
+          Oriented toward people from <strong>Ukraine</strong> &amp; <strong>Pridnestrovie</strong>.<br><br>
+          Interface language: <strong>English</strong>.<br>
+          Auto-refresh active.<br>
+          Videos: external links only.
+        </div>
+      </div>
+    </div>
+
+    <!-- Center Main Content Area -->
+    <div class="center-main">
+      <div class="header-box">
+        <h1 class="site-title">UA / PMR Imageboard</h1>
+        <div class="site-subtitle">
+          Community Imageboard Oriented Toward Ukraine &amp; Pridnestrovie &bull; English Default Interface
+        </div>
+      </div>
+
+      <div id="statusBox" class="status-msg"></div>
+
+      <!-- Animated Music Player Widget -->
+      <div id="musicWidget" class="music-widget">
+        <div class="music-widget-head">
+          <span class="music-disc">&#9835;</span>
+          <span>Radio &amp; /music/ Board Player</span>
+          <span class="eq-bars">
+            <span class="eq-bar eq-bar-1"></span>
+            <span class="eq-bar eq-bar-2"></span>
+            <span class="eq-bar eq-bar-3"></span>
+            <span class="eq-bar eq-bar-4"></span>
+            <span class="eq-bar eq-bar-5"></span>
+          </span>
+          <span style="float:right; font-weight:normal; font-size:11px;" id="musicCountLabel">0 tracks</span>
+        </div>
+
+        <div class="music-now-playing">
+          <span id="musicTrackTitle" class="music-marquee">No track selected &mdash; upload audio or post on /music/</span>
+        </div>
+
+        <div class="music-controls-row">
+          <button type="button" onclick="musicPrev()">&laquo; Prev</button>
+          <button type="button" id="musicPlayBtn" onclick="musicTogglePlay()">Play</button>
+          <button type="button" onclick="musicNext()">Next &raquo;</button>
+          <select id="musicSelect" onchange="musicSelectTrack(this.value)" style="width:auto; max-width:260px; margin-left:4px;">
+            <option value="-1">-- Playlist --</option>
+          </select>
+          <audio id="audioPlayer" controls preload="none"></audio>
+        </div>
+
+        <div class="music-upload-row">
+          <strong>Upload Audio File:</strong>
+          <input type="file" id="musicFileInput" accept="audio/*" onchange="handleMusicFileUpload(this)" style="width:auto;">
+          <span class="muted">(Plays immediately; clips up to 1 MB also share to /music/ if logged in)</span>
+        </div>
+      </div>
+
+      <div id="mainContent"></div>
     </div>
   </div>
-
-  <div id="statusBox" class="status-msg"></div>
-
-  <!-- Persistent Music Player Widget -->
-  <div id="musicWidget" class="music-widget">
-    <div class="music-widget-head">
-      <span class="music-disc">&#9835;</span>
-      <span>Radio &amp; /music/ Board Player</span>
-      <span class="eq-bars">
-        <span class="eq-bar eq-bar-1"></span>
-        <span class="eq-bar eq-bar-2"></span>
-        <span class="eq-bar eq-bar-3"></span>
-        <span class="eq-bar eq-bar-4"></span>
-        <span class="eq-bar eq-bar-5"></span>
-      </span>
-      <span style="float:right; font-weight:normal; font-size:11px;" id="musicCountLabel">0 tracks</span>
-    </div>
-
-    <div class="music-now-playing">
-      <span id="musicTrackTitle" class="music-marquee">No track selected &mdash; upload audio or post on /music/</span>
-    </div>
-
-    <div class="music-controls-row">
-      <button type="button" onclick="musicPrev()">&laquo; Prev</button>
-      <button type="button" id="musicPlayBtn" onclick="musicTogglePlay()">Play</button>
-      <button type="button" onclick="musicNext()">Next &raquo;</button>
-      <select id="musicSelect" onchange="musicSelectTrack(this.value)" style="width:auto; max-width:280px; margin-left:4px;">
-        <option value="-1">-- Playlist --</option>
-      </select>
-      <audio id="audioPlayer" controls preload="none"></audio>
-    </div>
-
-    <div class="music-upload-row">
-      <strong>Upload Audio File:</strong>
-      <input type="file" id="musicFileInput" accept="audio/*" onchange="handleMusicFileUpload(this)" style="width:auto;">
-      <span class="muted">(Plays immediately; clips up to 1 MB also share to /music/ if logged in)</span>
-    </div>
-  </div>
-
-  <div id="mainContent"></div>
 
   <div class="footer">
     Static Imageboard &bull; Powered by Firebase &amp; ImgBB &bull; Compatible with SeaMonkey &amp; Goanna
@@ -452,7 +582,7 @@ var CONFIG = {
   // 2. Firebase Realtime Database URL (no trailing slash)
   firebaseDbUrl: "https://fembooru-142a4-default-rtdb.europe-west1.firebasedatabase.app",
 
-  // 3. ImgBB API Key (used only for image and avatar uploads)
+  // 3. ImgBB API Key (used only for image, logo, tab icon & avatar uploads)
   imgbbApiKey: "120a27bcbb28d3ffd9f03bc4b32bb54f",
 
   // Email domain appended to user login names (e.g. alex -> alex@fembooru.ua)
@@ -476,11 +606,13 @@ var DEFAULT_BOARDS = [
   { slug: "tech", title: "Technology & Retro Web" }
 ];
 
+var DEFAULT_FAVICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23EEAA88'/%3E%3Ctext x='16' y='23' font-size='20' font-weight='bold' text-anchor='middle' fill='%23800000'%3E%E2%98%98%3C/text%3E%3C/svg%3E";
 var ADMIN_USERNAME = "admin";
 var ADMIN_PASSWORD_INIT = "@!1Abeccod20122";
 var memoryStore = {};
 var lastDataHash = "";
 var autoRefreshTimer = null;
+var tabLogoTickTimer = null;
 
 var state = {
   view: "board",
@@ -491,7 +623,9 @@ var state = {
   comments: {},
   polls: {},
   users: {},
+  siteLogo: "",
   snowEffect: null,
+  tabLogoEffect: null,
   user: null,
   profile: { nickname: "", bio: "", avatarUrl: "" }
 };
@@ -600,6 +734,11 @@ function safeUrl(url) {
     return trimmed;
   }
   return "";
+}
+
+function isValidImageSrc(src) {
+  if (!src) return false;
+  return Boolean(safeUrl(src)) || String(src).indexOf("data:image/") === 0;
 }
 
 function formatTime(ts) {
@@ -721,7 +860,6 @@ function verifyAccountStillExists(callback) {
   var url = "https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=" + encodeURIComponent(CONFIG.firebaseApiKey);
   httpRequest("POST", url, { idToken: state.user.idToken }, null, function(err, data) {
     if (err || !data || !data.users || !data.users.length) {
-      // User was deleted in Firebase Authentication -> wipe stale session cleanly
       clearStaleSession();
     }
     callback();
@@ -892,7 +1030,7 @@ function dbWrite(method, path, payload, callback) {
         refreshAuthToken(function(refErr) {
           if (refErr) {
             clearStaleSession();
-            renderTopNav();
+            renderChrome();
             callback(err, null);
           } else {
             var retryUrl = CONFIG.firebaseDbUrl + "/" + path + ".json?auth=" + encodeURIComponent(state.user.idToken);
@@ -901,7 +1039,7 @@ function dbWrite(method, path, payload, callback) {
         });
       } else {
         clearStaleSession();
-        renderTopNav();
+        renderChrome();
         callback(err, null);
       }
     } else {
@@ -919,7 +1057,7 @@ function refreshAuthToken(callback) {
     callback("No refresh token");
     return;
   }
-  var url = "https://securetoken.googleapis.com/v1/token?key=" + encodeURIComponent(CONFIG.firebaseApiKey);
+  var url = "https://securetoken.googleapis.com/token?key=" + encodeURIComponent(CONFIG.firebaseApiKey);
   var body = "grant_type=refresh_token&refresh_token=" + encodeURIComponent(state.user.refreshToken);
   httpRequest("POST", url, body, { "Content-Type": "application/x-www-form-urlencoded" }, function(err, data) {
     if (err || !data || !data.id_token) {
@@ -975,13 +1113,13 @@ function handleAuth(mode) {
   }
 
   var endpoint = (mode === "register") ? "signUp" : "signInWithPassword";
-  var url = "https://identitytoolkit.googleapis.com/v1/accounts:" + endpoint + "?key=" + encodeURIComponent(CONFIG.firebaseApiKey);
+  var url = "https://identitytoolkit.googleapis.com/accounts:" + endpoint + "?key=" + encodeURIComponent(CONFIG.firebaseApiKey);
   var payload = { email: email, password: password, returnSecureToken: true };
 
   showStatus("Connecting as " + email + "...", false);
   httpRequest("POST", url, payload, null, function(err, data) {
     if (err && mode === "login" && isAdminAttempt) {
-      var signUpUrl = "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=" + encodeURIComponent(CONFIG.firebaseApiKey);
+      var signUpUrl = "https://identitytoolkit.googleapis.com/accounts:signUp?key=" + encodeURIComponent(CONFIG.firebaseApiKey);
       httpRequest("POST", signUpUrl, payload, null, function(regErr, regData) {
         if (regErr || !regData) {
           showStatus("Admin setup failed. Enable Email/Password sign-in in Firebase Authentication.", true);
@@ -1033,7 +1171,6 @@ function finalizeAuthSuccess(username, email, data, isAdmin) {
   };
   saveSession();
 
-  // Remove any leftover database profile from a previously deleted account with the same name
   purgeOrphanedUserRecords(state.user.uid, username, email, function() {
     loadUserProfile(function() {
       var nick = state.profile.nickname || username;
@@ -1070,7 +1207,6 @@ function loadUserProfile(callback) {
         avatarUrl: data.avatarUrl || ""
       };
     } else {
-      // Recreate clean profile record if it was removed from Realtime Database
       state.profile = { nickname: state.user.username, bio: "", avatarUrl: "" };
       dbWrite("PATCH", "users/" + state.user.uid, {
         username: state.user.username,
@@ -1095,7 +1231,7 @@ function adminRemoveUserRecord(targetUid) {
       showStatus(formatDbError(err, "Failed to remove user record."), true);
       return;
     }
-    showStatus("User database record removed. Also delete from Firebase Authentication if needed.", false);
+    showStatus("User database record removed.", false);
     refreshAllData(renderAll);
   });
 }
@@ -1187,6 +1323,136 @@ function uploadImageToImgbb(fileInput, callback) {
       }
     });
   });
+}
+
+/* ==========================================================================
+   ADMIN-ONLY MAIN WEBPAGE LOGO UPLOAD
+   ========================================================================== */
+function uploadAdminSiteLogo(inputId) {
+  if (!state.user || !state.user.isAdmin) {
+    showStatus("Only the admin can upload or change the webpage logo.", true);
+    return;
+  }
+  var fileInput = document.getElementById(inputId);
+  if (!fileInput || !fileInput.files || !fileInput.files[0]) {
+    showStatus("Select an image file for the webpage logo first.", true);
+    return;
+  }
+  uploadImageToImgbb(fileInput, function(imgErr, logoUrl) {
+    if (imgErr) {
+      showStatus(imgErr, true);
+      return;
+    }
+    dbWrite("PUT", "site/logo", logoUrl, function(err) {
+      if (err) {
+        showStatus(formatDbError(err, "Failed to save webpage logo."), true);
+        return;
+      }
+      state.siteLogo = logoUrl;
+      syncTabLogoState();
+      renderChrome();
+      showStatus("Main webpage logo updated!", false);
+    });
+  });
+}
+
+function removeAdminSiteLogo() {
+  if (!state.user || !state.user.isAdmin) return;
+  dbWrite("DELETE", "site/logo", null, function(err) {
+    if (err) {
+      showStatus(formatDbError(err, "Failed to remove webpage logo."), true);
+      return;
+    }
+    state.siteLogo = "";
+    syncTabLogoState();
+    renderChrome();
+    showStatus("Main webpage logo reset to default.", false);
+  });
+}
+
+/* ==========================================================================
+   TEMPORARY 1-MINUTE TAB ICON (FAVICON) FOR EVERYONE (ANY USER)
+   ========================================================================== */
+function triggerGlobalTabLogo() {
+  var fileInput = document.getElementById("tabLogoFileInput");
+  var urlInput = document.getElementById("tabLogoUrlInput");
+  var pastedUrl = urlInput ? safeUrl(urlInput.value) : "";
+
+  if (fileInput && fileInput.files && fileInput.files[0]) {
+    uploadImageToImgbb(fileInput, function(imgErr, uploadedUrl) {
+      if (imgErr) {
+        showStatus(imgErr, true);
+        return;
+      }
+      saveGlobalTabLogoEffect(uploadedUrl);
+      fileInput.value = "";
+    });
+    return;
+  }
+
+  if (pastedUrl) {
+    saveGlobalTabLogoEffect(pastedUrl);
+    if (urlInput) urlInput.value = "";
+    return;
+  }
+
+  showStatus("Select an image file or paste an image URL to change the tab icon.", true);
+}
+
+function saveGlobalTabLogoEffect(iconUrl) {
+  var now = new Date().getTime();
+  var payload = {
+    iconUrl: iconUrl,
+    enabledAt: now,
+    expiresAt: now + 60000,
+    setBy: state.user ? (state.profile.nickname || state.user.username) : "Anonymous"
+  };
+  state.tabLogoEffect = payload;
+  syncTabLogoState();
+
+  dbWrite("PUT", "effects/tabLogo", payload, function(err) {
+    if (err) {
+      showStatus("Tab icon changed locally for 1 minute (check database rules for global sync).", false);
+    } else {
+      showStatus("Website tab icon changed for everyone for 1 minute!", false);
+    }
+  });
+}
+
+function applyFaviconHref(href) {
+  var link = document.getElementById("siteFavicon");
+  if (link && link.getAttribute("href") !== href) {
+    link.setAttribute("href", href);
+  }
+}
+
+function syncTabLogoState() {
+  var now = new Date().getTime();
+  var eff = state.tabLogoEffect;
+  var label = document.getElementById("tabLogoTimerLabel");
+
+  if (eff && eff.iconUrl && eff.expiresAt && eff.expiresAt > now && isValidImageSrc(eff.iconUrl)) {
+    applyFaviconHref(eff.iconUrl);
+    var rem = Math.ceil((eff.expiresAt - now) / 1000);
+    if (label) {
+      label.innerHTML = "Custom tab icon active (" + rem + "s left)";
+    }
+    if (!tabLogoTickTimer) {
+      tabLogoTickTimer = setInterval(function() {
+        syncTabLogoState();
+      }, 1000);
+    }
+  } else {
+    if (tabLogoTickTimer) {
+      clearInterval(tabLogoTickTimer);
+      tabLogoTickTimer = null;
+    }
+    var fallbackIcon = isValidImageSrc(state.siteLogo) ? state.siteLogo : DEFAULT_FAVICON;
+    applyFaviconHref(fallbackIcon);
+    if (label) {
+      label.innerHTML = "Default tab icon active";
+    }
+  }
 }
 
 /* ==========================================================================
@@ -1509,7 +1775,7 @@ function syncSnowState() {
       stopSnowCanvas();
     }
   }
-  renderTopNav();
+  renderTopInfoBar();
 }
 
 function startSnowCanvas() {
@@ -1540,15 +1806,17 @@ function startSnowCanvas() {
     var remaining = Math.ceil((snowState.expiresAt - now) / 1000);
     if (remaining <= 0) {
       stopSnowCanvas();
-      renderTopNav();
+      renderTopInfoBar();
+      var sideBtnEnd = document.getElementById("snowSideBtn");
+      if (sideBtnEnd) sideBtnEnd.innerHTML = "&#10052; Snow for All (1m)";
       return;
     }
     if (remaining !== lastSec) {
       lastSec = remaining;
-      var btnEl = document.getElementById("snowNavBtn");
-      if (btnEl) {
-        btnEl.innerHTML = "&#10052; Snowing (" + remaining + "s)";
-      }
+      var topBtn = document.getElementById("snowTopBtn");
+      if (topBtn) topBtn.innerHTML = "&#10052; Snowing (" + remaining + "s)";
+      var sideBtn = document.getElementById("snowSideBtn");
+      if (sideBtn) sideBtn.innerHTML = "&#10052; Snowing (" + remaining + "s)";
     }
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -1619,24 +1887,33 @@ function refreshAllData(callback, isBackground) {
           state.polls = pollsData || {};
           dbGet("users", function(errU, usersData) {
             state.users = usersData || {};
-            dbGet("effects/snow", function(errS, snowData) {
-              state.snowEffect = snowData || null;
-              syncSnowState();
-              rebuildMusicPlaylist();
+            dbGet("site/logo", function(errL, logoData) {
+              state.siteLogo = logoData || "";
+              dbGet("effects/snow", function(errS, snowData) {
+                state.snowEffect = snowData || null;
+                dbGet("effects/tabLogo", function(errTL, tabLogoData) {
+                  state.tabLogoEffect = tabLogoData || null;
 
-              var newHash = JSON.stringify({
-                b: state.boards,
-                t: state.threads,
-                c: state.comments,
-                p: state.polls,
-                u: state.users
+                  syncSnowState();
+                  syncTabLogoState();
+                  rebuildMusicPlaylist();
+
+                  var newHash = JSON.stringify({
+                    b: state.boards,
+                    t: state.threads,
+                    c: state.comments,
+                    p: state.polls,
+                    u: state.users,
+                    l: state.siteLogo
+                  });
+                  var changed = (newHash !== lastDataHash);
+                  lastDataHash = newHash;
+
+                  if (callback) {
+                    callback(changed);
+                  }
+                });
               });
-              var changed = (newHash !== lastDataHash);
-              lastDataHash = newHash;
-
-              if (callback) {
-                callback(changed);
-              }
             });
           });
         });
@@ -2008,7 +2285,7 @@ function saveUserProfile() {
 }
 
 /* ==========================================================================
-   VIEW NAVIGATION & RENDERING (FORMS SEPARATED FROM LIVE-REFRESHED FEED)
+   VIEW NAVIGATION & CHROME RENDERING (TOP BAR + LEFT SIDEBAR + CENTER)
    ========================================================================== */
 function switchView(viewName, param) {
   showStatus("", false);
@@ -2031,34 +2308,92 @@ function countLikes(likesObj) {
   return c;
 }
 
-function renderTopNav() {
-  var html = "[ ";
-  for (var i = 0; i < state.boards.length; i++) {
-    var b = state.boards[i];
-    html += '<a onclick="switchView(\'board\', \'' + esc(b.slug) + '\')">/' + esc(b.slug) + '/</a> ';
+function renderTopInfoBar() {
+  var threadTotal = 0;
+  for (var tid in state.threads) {
+    if (state.threads.hasOwnProperty(tid) && state.threads[tid]) threadTotal++;
   }
-  html += "] &nbsp; ";
-  html += '[ <a onclick="switchView(\'polls\')">Board Polls</a> ] &nbsp; ';
+
+  var leftHtml = '<strong>UA-PMR Board</strong> &bull; Boards: <strong>' + state.boards.length + '</strong> &bull; Threads: <strong>' + threadTotal + '</strong> &bull; <span class="muted">Auto-refresh' + (!isFirebaseConfigured() ? ' (Local Mode)' : '') + '</span>';
 
   var now = new Date().getTime();
   var snowRem = (state.snowEffect && state.snowEffect.expiresAt > now)
     ? Math.ceil((state.snowEffect.expiresAt - now) / 1000)
     : 0;
-  if (snowRem > 0) {
-    html += '[ <a id="snowNavBtn" onclick="triggerGlobalSnow()">&#10052; Snowing (' + snowRem + 's)</a> ] &nbsp; ';
-  } else {
-    html += '[ <a id="snowNavBtn" onclick="triggerGlobalSnow()">&#10052; Let it Snow (1m)</a> ] &nbsp; ';
-  }
+  var snowLink = (snowRem > 0)
+    ? '[<a id="snowTopBtn" onclick="triggerGlobalSnow()">&#10052; Snowing (' + snowRem + 's)</a>]'
+    : '[<a id="snowTopBtn" onclick="triggerGlobalSnow()">&#10052; Snow (1m)</a>]';
 
+  var rightHtml = snowLink + ' ';
   if (state.user) {
-    html += '[ <a onclick="switchView(\'profile\')">Profile (' + esc(state.profile.nickname || state.user.username) + ')</a> ] &nbsp; ';
-    html += '[ <a onclick="logoutUser()">Logout</a> ]';
+    rightHtml += 'User: <strong>' + esc(state.profile.nickname || state.user.username) + '</strong>' +
+                 (state.user.isAdmin ? ' <span class="admin-badge">ADMIN</span>' : '') + ' ' +
+                 '[<a onclick="switchView(\'profile\')">Profile</a>] ' +
+                 '[<a onclick="logoutUser()">Logout</a>]';
   } else {
-    html += '[ <a onclick="switchView(\'auth\')">Login / Register</a> ]';
+    rightHtml += '[<a onclick="switchView(\'auth\')">Login / Register</a>]';
   }
 
-  html += ' <span class="muted">(Auto-refresh' + (!isFirebaseConfigured() ? ' &bull; Local Mode' : '') + ')</span>';
-  document.getElementById("topNav").innerHTML = html;
+  document.getElementById("topInfoBar").innerHTML =
+    '<div class="top-bar-left">' + leftHtml + '</div>' +
+    '<div class="top-bar-right">' + rightHtml + '</div>';
+}
+
+function renderLeftLogoBox() {
+  var box = document.getElementById("leftLogoBox");
+  if (!box) return;
+  var html = "";
+  if (isValidImageSrc(state.siteLogo)) {
+    html += '<img class="site-logo-img" src="' + esc(state.siteLogo) + '" alt="Site Logo">';
+  } else {
+    html += '<div class="default-logo-emblem">&#9752; UA / PMR</div>';
+  }
+  html += '<div class="muted">Ukraine &amp; Pridnestrovie</div>';
+
+  if (state.user && state.user.isAdmin) {
+    html += '<div style="margin-top:8px; border-top:1px dotted #D9BFB7; padding-top:6px; text-align:left;">' +
+            '<strong style="font-size:11px;">Admin Logo Upload:</strong>' +
+            '<input type="file" id="sideAdminLogoFile" accept="image/*" style="font-size:11px; margin:4px 0;">' +
+            '<button type="button" onclick="uploadAdminSiteLogo(\'sideAdminLogoFile\')" style="width:100%;">Upload Logo</button>' +
+            (isValidImageSrc(state.siteLogo) ? '<div style="margin-top:4px; text-align:center;"><a style="font-size:11px; color:#CC0000;" onclick="removeAdminSiteLogo()">Reset Default Logo</a></div>' : '') +
+            '</div>';
+  }
+  box.innerHTML = html;
+}
+
+function renderLeftBoardsList() {
+  var ul = document.getElementById("leftBoardsList");
+  if (!ul) return;
+  var html = "";
+  for (var i = 0; i < state.boards.length; i++) {
+    var b = state.boards[i];
+    var isActive = (state.view === "board" || state.view === "thread") && state.currentBoard === b.slug;
+    html += '<li><a class="' + (isActive ? 'active-board' : '') + '" onclick="switchView(\'board\', \'' + esc(b.slug) + '\')">/' +
+            esc(b.slug) + '/ &mdash; ' + esc(b.title) + '</a></li>';
+  }
+  ul.innerHTML = html;
+}
+
+function renderLeftAccountLinks() {
+  var el = document.getElementById("leftAccountLinks");
+  if (!el) return;
+  var html = '<ul class="board-list">';
+  html += '<li><a onclick="switchView(\'polls\')">Board Polls &amp; Admin</a></li>';
+  if (state.user) {
+    html += '<li><a onclick="switchView(\'profile\')">My Profile &amp; Avatar</a></li>';
+    html += '<li><a onclick="logoutUser()">Logout (' + esc(state.user.username) + ')</a></li>';
+  } else {
+    html += '<li><a onclick="switchView(\'auth\')">Login / Register</a></li>';
+  }
+  html += '</ul>';
+  el.innerHTML = html;
+}
+
+function renderChrome() {
+  renderTopInfoBar();
+  renderLeftLogoBox();
+  renderLeftBoardsList();
+  renderLeftAccountLinks();
 }
 
 function renderBoardView() {
@@ -2137,7 +2472,7 @@ function renderThreadBlock(thread, isSingleView) {
 
   var html = '<div class="thread-item">';
   html += '<div class="post-header">';
-  if (safeUrl(thread.authorAvatar) || (thread.authorAvatar && thread.authorAvatar.indexOf("data:image/") === 0)) {
+  if (isValidImageSrc(thread.authorAvatar)) {
     html += '<img class="avatar-thumb" src="' + esc(thread.authorAvatar) + '" alt="avatar">';
   }
   if (thread.subject) {
@@ -2196,7 +2531,7 @@ function renderCommentBlock(threadId, comment) {
 
   var html = '<div class="reply-box">';
   html += '<div class="post-header">';
-  if (safeUrl(comment.authorAvatar) || (comment.authorAvatar && comment.authorAvatar.indexOf("data:image/") === 0)) {
+  if (isValidImageSrc(comment.authorAvatar)) {
     html += '<img class="avatar-thumb" src="' + esc(comment.authorAvatar) + '" alt="avatar">';
   }
   html += '<span class="poster-name">' + esc(comment.authorName || "Anonymous") + '</span>';
@@ -2280,8 +2615,9 @@ function renderPollsView() {
 
   if (state.user && state.user.isAdmin) {
     html += '<div class="box-panel">';
-    html += '<h3>Admin Panel: Boards &amp; User Records</h3>';
+    html += '<h3>Admin Panel: Logo, Boards &amp; User Records</h3>';
     html += '<table class="form-table">';
+    html += '<tr><td class="form-label">Webpage Logo</td><td><input type="file" id="panelAdminLogoFile" accept="image/*"> <button type="button" onclick="uploadAdminSiteLogo(\'panelAdminLogoFile\')">Upload Logo</button></td></tr>';
     html += '<tr><td class="form-label">Board Slug</td><td><input type="text" id="adminBoardSlug" maxlength="16" placeholder="e.g. news"></td></tr>';
     html += '<tr><td class="form-label">Board Title</td><td><input type="text" id="adminBoardTitle" maxlength="40" placeholder="e.g. Regional News"></td></tr>';
     html += '<tr><td class="form-label">Action</td><td><button onclick="createBoardAdmin()">Create Board Now</button></td></tr>';
@@ -2412,7 +2748,7 @@ function renderAuthView() {
 }
 
 function updateDynamicFeed() {
-  renderTopNav();
+  renderChrome();
   if (state.view === "board") {
     var boardFeed = document.getElementById("boardFeedArea");
     if (boardFeed) {
@@ -2437,7 +2773,7 @@ function updateDynamicFeed() {
 }
 
 function renderAll() {
-  renderTopNav();
+  renderChrome();
   var container = document.getElementById("mainContent");
   if (state.view === "thread") {
     container.innerHTML = renderSingleThreadView();
