@@ -1057,7 +1057,7 @@ function refreshAuthToken(callback) {
     callback("No refresh token");
     return;
   }
-  var url = "https://securetoken.googleapis.com/token?key=" + encodeURIComponent(CONFIG.firebaseApiKey);
+  var url = "https://securetoken.googleapis.com/v1/token?key=" + encodeURIComponent(CONFIG.firebaseApiKey);
   var body = "grant_type=refresh_token&refresh_token=" + encodeURIComponent(state.user.refreshToken);
   httpRequest("POST", url, body, { "Content-Type": "application/x-www-form-urlencoded" }, function(err, data) {
     if (err || !data || !data.id_token) {
@@ -1113,16 +1113,17 @@ function handleAuth(mode) {
   }
 
   var endpoint = (mode === "register") ? "signUp" : "signInWithPassword";
-  var url = "https://identitytoolkit.googleapis.com/accounts:" + endpoint + "?key=" + encodeURIComponent(CONFIG.firebaseApiKey);
+  var url = "https://identitytoolkit.googleapis.com/v1/accounts:" + endpoint + "?key=" + encodeURIComponent(CONFIG.firebaseApiKey);
   var payload = { email: email, password: password, returnSecureToken: true };
 
   showStatus("Connecting as " + email + "...", false);
   httpRequest("POST", url, payload, null, function(err, data) {
     if (err && mode === "login" && isAdminAttempt) {
-      var signUpUrl = "https://identitytoolkit.googleapis.com/accounts:signUp?key=" + encodeURIComponent(CONFIG.firebaseApiKey);
+      var signUpUrl = "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=" + encodeURIComponent(CONFIG.firebaseApiKey);
       httpRequest("POST", signUpUrl, payload, null, function(regErr, regData) {
-        if (regErr || !regData) {
-          showStatus("Admin setup failed. Enable Email/Password sign-in in Firebase Authentication.", true);
+        if (regErr || !regData || !regData.idToken) {
+          var regMsg = (regErr && regErr.data && regErr.data.error && regErr.data.error.message) ? regErr.data.error.message : "HTTP " + (regErr ? regErr.status : "0");
+          showStatus("Admin setup failed (" + regMsg + "). Enable Email/Password sign-in in Firebase Authentication.", true);
           return;
         }
         finalizeAuthSuccess(username, email, regData, true);
@@ -1134,8 +1135,14 @@ function handleAuth(mode) {
       var rawErr = (err && err.data && err.data.error && err.data.error.message) ? err.data.error.message : "";
       if (rawErr === "EMAIL_NOT_FOUND" || rawErr === "INVALID_LOGIN_CREDENTIALS") {
         showStatus("Account not found or removed. Click 'Register New Account' to create '" + username + "' now.", true);
+      } else if (rawErr === "OPERATION_NOT_ALLOWED") {
+        showStatus("Enable Email/Password sign-in in Firebase Console -> Authentication -> Sign-in method.", true);
+      } else if (rawErr.indexOf("WEAK_PASSWORD") === 0) {
+        showStatus("Password must be at least 6 characters long.", true);
+      } else if (rawErr === "EMAIL_EXISTS") {
+        showStatus("This name is already registered. Click 'Login' instead.", true);
       } else {
-        showStatus("Error: " + (rawErr || "Authentication failed."), true);
+        showStatus("Error: " + (rawErr || ("HTTP " + (err ? err.status : "0") + " — check Firebase Authentication settings.")), true);
       }
       return;
     }
@@ -2742,7 +2749,7 @@ function renderAuthView() {
           '<button onclick="handleAuth(\'register\')">Register New Account</button>' +
           '</td></tr>';
   html += '</table>';
-  html += '<div class="muted" style="margin-top:8px;">Enter a name (for example: <strong>alex</strong>) and a password. Your account is saved in Firebase as <strong>alex@' + esc(CONFIG.emailDomain) + '</strong>.</div>';
+  html += '<div class="muted" style="margin-top:8px;">Enter a name (for example: <strong>alex</strong>) and a password (at least 6 characters). Your account is saved in Firebase as <strong>alex@' + esc(CONFIG.emailDomain) + '</strong>.</div>';
   html += '</div>';
   return html;
 }
