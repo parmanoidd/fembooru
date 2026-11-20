@@ -219,7 +219,10 @@ function handlePropThumbError(imgEl, idx) {
 
 function ensurePropTopicControls(grid) {
   var controls = document.getElementById("qPropTopicControls");
-  if (controls) return controls;
+  if (controls) {
+    if (window.renderCustomPropTopics) window.renderCustomPropTopics();
+    return controls;
+  }
 
   controls = document.createElement("div");
   controls.id = "qPropTopicControls";
@@ -249,29 +252,87 @@ function ensurePropTopicControls(grid) {
   searchRow.appendChild(searchButton);
   controls.appendChild(searchRow);
 
-  var topics = [
-    ["Random", ""], ["Animals", "animals"], ["Cars", "cars"],
-    ["Anime", "anime"], ["Memes", "memes"], ["Food", "food"],
-    ["Nature", "nature"], ["Weapons", "weapons"], ["Furniture", "furniture"],
-    ["Computers", "computer"], ["Toys", "toys"], ["Space", "space"],
-    ["Architecture", "architecture"]
-  ];
   var topicRow = document.createElement("div");
+  topicRow.id = "qPropCustomTopics";
   topicRow.style.cssText = "display:flex;flex-wrap:wrap;gap:5px;width:100%;";
-  for (var i = 0; i < topics.length; i++) {
-    (function(topic) {
-      var button = document.createElement("button");
-      button.type = "button";
-      button.textContent = topic[0];
-      button.style.cssText = "padding:5px 8px;background:#303030;color:#eee;border:1px solid #555;border-radius:3px;font:inherit;font-size:11px;cursor:pointer;";
-      button.onclick = function() {
-        input.value = topic[1];
-        searchPropImages(topic[1]);
-      };
-      topicRow.appendChild(button);
-    })(topics[i]);
-  }
   controls.appendChild(topicRow);
+
+  var addTopicButton = document.createElement("button");
+  addTopicButton.type = "button";
+  addTopicButton.textContent = "Add topic";
+  addTopicButton.style.cssText = "padding:6px 10px;background:#303030;color:#eee;border:1px solid #555;border-radius:3px;cursor:pointer;";
+  addTopicButton.onclick = function() { addCustomPropTopic(input.value); };
+  searchRow.appendChild(addTopicButton);
+
+  function renderCustomTopics() {
+    var saved = [];
+    try {
+      saved = JSON.parse(storeGet("q_prop_custom_topics") || "[]");
+    } catch (e) {}
+    if (!Array.isArray(saved)) saved = [];
+    topicRow.innerHTML = "";
+    for (var i = 0; i < saved.length; i++) {
+      (function(topic, index) {
+        var chip = document.createElement("span");
+        chip.style.cssText = "display:inline-flex;align-items:center;background:#303030;border:1px solid #555;border-radius:3px;overflow:hidden;";
+        var topicButton = document.createElement("button");
+        topicButton.type = "button";
+        topicButton.textContent = topic;
+        topicButton.title = "Search this topic";
+        topicButton.style.cssText = "padding:5px 8px;background:transparent;color:#eee;border:0;font:inherit;font-size:11px;cursor:pointer;";
+        topicButton.onclick = function() {
+          input.value = topic;
+          searchPropImages(topic);
+        };
+        var removeButton = document.createElement("button");
+        removeButton.type = "button";
+        removeButton.textContent = "×";
+        removeButton.title = "Remove topic";
+        removeButton.style.cssText = "padding:3px 6px;background:#501f1f;color:#fff;border:0;border-left:1px solid #555;cursor:pointer;";
+        removeButton.onclick = function() {
+          var current = [];
+          try {
+            current = JSON.parse(storeGet("q_prop_custom_topics") || "[]");
+          } catch (e) {}
+          if (!Array.isArray(current)) current = [];
+          current.splice(index, 1);
+          storeSet("q_prop_custom_topics", JSON.stringify(current));
+          renderCustomTopics();
+        };
+        chip.appendChild(topicButton);
+        chip.appendChild(removeButton);
+        topicRow.appendChild(chip);
+      })(saved[i], i);
+    }
+  }
+
+  window.renderCustomPropTopics = renderCustomTopics;
+  renderCustomTopics();
+
+  function addCustomPropTopic(value) {
+    var topic = String(value || "").replace(/^\s+|\s+$/g, "").substring(0, 80);
+    if (!topic) {
+      if (status) status.textContent = "Type a topic first.";
+      input.focus();
+      return;
+    }
+    var saved = [];
+    try {
+      saved = JSON.parse(storeGet("q_prop_custom_topics") || "[]");
+    } catch (e) {}
+    if (!Array.isArray(saved)) saved = [];
+    var exists = false;
+    for (var i = 0; i < saved.length; i++) {
+      if (String(saved[i]).toLowerCase() === topic.toLowerCase()) exists = true;
+    }
+    if (!exists) {
+      saved.push(topic);
+      storeSet("q_prop_custom_topics", JSON.stringify(saved));
+    }
+    renderCustomTopics();
+    input.value = topic;
+    searchPropImages(topic);
+  }
 
   var status = document.createElement("div");
   status.id = "qPropTopicStatus";
@@ -541,6 +602,7 @@ function useActiveHl2Tool(clickX, clickY) {
     spawnBurstParticles(tx, ty, "#FFAA00", 10);
   }
 
+  // Check hits on props near cursor
   for (var sid in worldState.sprites) {
     if (!worldState.sprites.hasOwnProperty(sid) || !worldState.sprites[sid]) continue;
     var sp = worldState.sprites[sid];
@@ -552,6 +614,7 @@ function useActiveHl2Tool(clickX, clickY) {
     }
   }
 
+  // Check hits on other players' character models (combat)
   if (tool === "crowbar" || tool === "pistol" || tool === "gravgun") {
     var dmg = (tool === "crowbar") ? 25 : (tool === "pistol" ? 20 : 10);
     for (var aid in worldState.actors) {
@@ -968,6 +1031,7 @@ function stepWorldPhysicsAndRender() {
   stepMyActorPhysics();
   renderActorsLayer();
 
+  // Fireworks physics
   for (var fid in worldState.fireworks) {
     if (!worldState.fireworks.hasOwnProperty(fid)) continue;
     var fw = worldState.fireworks[fid];
@@ -1000,6 +1064,7 @@ function stepWorldPhysicsAndRender() {
     }
   }
 
+  // Props / Sprites physics & spinning
   for (var id in worldState.sprites) {
     if (!worldState.sprites.hasOwnProperty(id)) continue;
     var s = worldState.sprites[id];
@@ -1037,6 +1102,7 @@ function stepWorldPhysicsAndRender() {
     }
   }
 
+  // Render beams & particles on fxCanvas
   var fc = document.getElementById("fxCanvas");
   var hasActiveBeam = Boolean(worldState.grabbedSpriteId && worldState.sprites[worldState.grabbedSpriteId]);
   if (fc && fc.getContext && (worldState.particles.length || worldState.beams.length || hasActiveBeam || worldState.hadFx)) {
@@ -1083,6 +1149,7 @@ function stepWorldPhysicsAndRender() {
     worldState.hadFx = Boolean(worldState.particles.length || worldState.beams.length || hasActiveBeam);
   }
 
+  // Render fireworks and spinning props
   var layer = document.getElementById("playgroundLayer");
   if (layer) {
     var h = "";
