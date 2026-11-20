@@ -174,34 +174,88 @@ function renderRemoteCursors() {
 }
 
 /* ==========================================================================
-   GMOD / S&BOX PROP SPAWNER (Q MENU) WITH MULTIPLE RANDOM INTERNET SOURCES
+   GMOD / S&BOX PROP SPAWNER (Q MENU) — PURE RANDOM INTERNET IMAGES (NO TAGS)
    ========================================================================== */
+function makeFallbackPropSvg(label) {
+  var txt = String(label || "PROP").substring(0, 10).replace(/[<>&'"]/g, "");
+  return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E" +
+    "%3Crect width='120' height='120' fill='%23EEAA88' stroke='%23800000' stroke-width='4'/%3E" +
+    "%3Ctext x='60' y='66' font-family='arial,sans-serif' font-size='14' font-weight='bold' text-anchor='middle' fill='%23800000'%3E" +
+    encodeURIComponent(txt) + "%3C/text%3E%3C/svg%3E";
+}
+
 function buildRandomPropCatalog() {
-  var seed = Math.floor(Math.random() * 90000) + 1000;
-  return [
-    { name: "Random Photo #1", url: "https://picsum.photos/seed/fb" + (seed + 1) + "/160/160" },
-    { name: "Random Photo #2", url: "https://picsum.photos/seed/fb" + (seed + 2) + "/160/160" },
-    { name: "Cat Prop", url: "https://loremflickr.com/160/160/cat?lock=" + (seed + 3) },
-    { name: "Retro Tech", url: "https://loremflickr.com/160/160/computer?lock=" + (seed + 4) },
-    { name: "Robot Prop", url: "https://robohash.org/prop_" + (seed + 5) + ".png?size=160x160" },
-    { name: "Monster Prop", url: "https://robohash.org/mon_" + (seed + 6) + ".png?set=set2&size=160x160" },
-    { name: "Kitten Bot", url: "https://robohash.org/cat_" + (seed + 7) + ".png?set=set4&size=160x160" },
-    { name: "Pixel Avatar", url: "https://api.dicebear.com/9.x/pixel-art/svg?seed=fb" + (seed + 8) },
-    { name: "Bottts Prop", url: "https://api.dicebear.com/9.x/bottts/svg?seed=fb" + (seed + 9) },
-    { name: "Retro Car", url: "https://loremflickr.com/160/160/car?lock=" + (seed + 10) }
-  ];
+  var r = function() { return Math.floor(Math.random() * 999999) + 1; };
+  var sets = ["set1", "set2", "set3", "set4", "set5"];
+  var list = [];
+  for (var i = 0; i < 5; i++) {
+    var s1 = r();
+    list.push({
+      name: "Random #" + (i + 1),
+      url: "https://picsum.photos/160/160?random=" + s1
+    });
+  }
+  for (var j = 0; j < 5; j++) {
+    var s2 = r();
+    list.push({
+      name: "Random #" + (j + 6),
+      url: "https://robohash.org/" + s2 + ".png?set=" + sets[j % sets.length] + "&size=160x160"
+    });
+  }
+  return list;
+}
+
+function handlePropThumbError(imgEl, idx) {
+  if (!imgEl || imgEl.getAttribute("data-fb-done")) return;
+  imgEl.setAttribute("data-fb-done", "1");
+  var item = worldState.propCatalog[idx];
+  var fallback = makeFallbackPropSvg(item ? item.name : "PROP");
+  if (item) item.url = fallback;
+  imgEl.src = fallback;
 }
 
 function rerollRandomProps() {
   worldState.propCatalog = buildRandomPropCatalog();
   var grid = document.getElementById("qPropGrid");
   if (!grid) return;
+
+  // Fetch completely random untagged files from Wikimedia Commons
+  var xhr = new XMLHttpRequest();
+  xhr.open("GET", "https://commons.wikimedia.org/w/api.php?action=query&generator=random&grnnamespace=6&grnlimit=8&prop=imageinfo&iiprop=url&iiurlwidth=160&format=json&origin=*", true);
+  xhr.onreadystatechange = function() {
+    if (xhr.readyState === 4 && xhr.status === 200) {
+      try {
+        var data = JSON.parse(xhr.responseText);
+        var pages = data && data.query && data.query.pages;
+        var slot = 5;
+        if (pages) {
+          for (var pid in pages) {
+            if (pages.hasOwnProperty(pid) && pages[pid].imageinfo && pages[pid].imageinfo[0]) {
+              var info = pages[pid].imageinfo[0];
+              var thumb = info.thumburl || info.url;
+              if (thumb && /\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i.test(thumb) && slot < worldState.propCatalog.length) {
+                var cleanTitle = String(pages[pid].title || "Random").replace(/^File:/i, "").replace(/\.[^.]+$/, "").substring(0, 18);
+                worldState.propCatalog[slot] = { name: cleanTitle, url: thumb };
+                var imgNode = document.getElementById("qPropImg_" + slot);
+                var lblNode = document.getElementById("qPropLbl_" + slot);
+                if (imgNode) { imgNode.removeAttribute("data-fb-done"); imgNode.src = thumb; }
+                if (lblNode) lblNode.textContent = cleanTitle;
+                slot++;
+              }
+            }
+          }
+        }
+      } catch (e) {}
+    }
+  };
+  xhr.send();
+
   var h = "";
   for (var i = 0; i < worldState.propCatalog.length; i++) {
     var item = worldState.propCatalog[i];
     h += '<div class="q-prop-card" onclick="spawnPropFromCatalog(' + i + ')">' +
-           '<img src="' + esc(item.url) + '" alt="prop">' +
-           '<span>' + esc(item.name) + '</span>' +
+           '<img id="qPropImg_' + i + '" src="' + esc(item.url) + '" alt="prop" onerror="handlePropThumbError(this,' + i + ')">' +
+           '<span id="qPropLbl_' + i + '">' + esc(item.name) + '</span>' +
          '</div>';
   }
   grid.innerHTML = h;
@@ -381,7 +435,6 @@ function useActiveHl2Tool(clickX, clickY) {
     spawnBurstParticles(tx, ty, "#FFAA00", 10);
   }
 
-  // Check hits on props near cursor
   for (var sid in worldState.sprites) {
     if (!worldState.sprites.hasOwnProperty(sid) || !worldState.sprites[sid]) continue;
     var sp = worldState.sprites[sid];
@@ -393,7 +446,6 @@ function useActiveHl2Tool(clickX, clickY) {
     }
   }
 
-  // Check hits on other players' character models (combat)
   if (tool === "crowbar" || tool === "pistol" || tool === "gravgun") {
     var dmg = (tool === "crowbar") ? 25 : (tool === "pistol" ? 20 : 10);
     for (var aid in worldState.actors) {
@@ -810,7 +862,6 @@ function stepWorldPhysicsAndRender() {
   stepMyActorPhysics();
   renderActorsLayer();
 
-  // Fireworks physics
   for (var fid in worldState.fireworks) {
     if (!worldState.fireworks.hasOwnProperty(fid)) continue;
     var fw = worldState.fireworks[fid];
@@ -843,7 +894,6 @@ function stepWorldPhysicsAndRender() {
     }
   }
 
-  // Props / Sprites physics & spinning
   for (var id in worldState.sprites) {
     if (!worldState.sprites.hasOwnProperty(id)) continue;
     var s = worldState.sprites[id];
@@ -881,7 +931,6 @@ function stepWorldPhysicsAndRender() {
     }
   }
 
-  // Render beams & particles on fxCanvas
   var fc = document.getElementById("fxCanvas");
   var hasActiveBeam = Boolean(worldState.grabbedSpriteId && worldState.sprites[worldState.grabbedSpriteId]);
   if (fc && fc.getContext && (worldState.particles.length || worldState.beams.length || hasActiveBeam || worldState.hadFx)) {
@@ -928,7 +977,6 @@ function stepWorldPhysicsAndRender() {
     worldState.hadFx = Boolean(worldState.particles.length || worldState.beams.length || hasActiveBeam);
   }
 
-  // Render fireworks and spinning props
   var layer = document.getElementById("playgroundLayer");
   if (layer) {
     var h = "";
