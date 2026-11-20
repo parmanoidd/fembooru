@@ -206,9 +206,23 @@ function buildRandomPropCatalog() {
 }
 
 function handlePropThumbError(imgEl, idx) {
-  if (!imgEl || imgEl.getAttribute("data-fb-done")) return;
-  imgEl.setAttribute("data-fb-done", "1");
+  if (!imgEl) return;
   var item = worldState.propCatalog[idx];
+  var retries = parseInt(imgEl.getAttribute("data-fb-retry") || "0", 10);
+
+  // Try the other image provider once before showing the local fallback.
+  if (retries < 1) {
+    imgEl.setAttribute("data-fb-retry", String(retries + 1));
+    var backup = item && item.url.indexOf("robohash.org") !== -1
+      ? "https://picsum.photos/160/160?random=" + (Math.floor(Math.random() * 999999) + 1)
+      : "https://robohash.org/" + (Math.floor(Math.random() * 999999) + 1) + ".png?set=set1&size=160x160";
+    if (item) item.url = backup;
+    imgEl.src = backup;
+    return;
+  }
+
+  if (imgEl.getAttribute("data-fb-done")) return;
+  imgEl.setAttribute("data-fb-done", "1");
   var fallback = makeFallbackPropSvg(item ? item.name : "PROP");
   if (item) item.url = fallback;
   imgEl.src = fallback;
