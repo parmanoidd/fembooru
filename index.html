@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>UA-PMR Imageboard</title>
+<title>Fembooru &mdash; UA / PMR Imageboard</title>
 <link id="siteFavicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23EEAA88'/%3E%3Ctext x='16' y='23' font-size='20' font-weight='bold' text-anchor='middle' fill='%23800000'%3E%E2%98%98%3C/text%3E%3C/svg%3E">
 <style>
   * { box-sizing: border-box; }
@@ -137,7 +137,7 @@
     font-size: 13px;
     padding: 4px;
   }
-  textarea { height: 80px; resize: vertical; }
+  textarea { height: 76px; resize: vertical; }
   button, input[type="submit"] {
     background-color: #EEAA88;
     color: #800000;
@@ -195,8 +195,8 @@
     background-color: #FFFFEE;
     border: 1px solid #D9BFB7;
     padding: 6px;
-    margin-top: 4px;
-    max-height: 150px;
+    margin-top: 5px;
+    max-height: 140px;
     overflow-y: auto;
   }
   .sticker-pick-btn {
@@ -208,7 +208,7 @@
     cursor: pointer;
   }
   .sticker-pick-btn:hover { border-color: #AF0A0F; }
-  .sticker-pick-btn img { width: 44px; height: 44px; object-fit: contain; display: block; }
+  .sticker-pick-btn img { width: 42px; height: 42px; object-fit: contain; display: block; }
   .video-box { margin: 6px 0; clear: left; }
   .video-box iframe, .video-box video { max-width: 100%; border: 1px solid #D9BFB7; }
   .post-body { color: #800000; line-height: 1.45; word-wrap: break-word; white-space: pre-wrap; margin: 6px 0 8px 0; }
@@ -463,6 +463,7 @@
 </div>
 
 <div class="page-wrap" id="pageWrap">
+  <!-- Intuitive Top Bar: Quick Nav on Left, Account on Right -->
   <div class="top-bar" id="topInfoBar"></div>
 
   <div class="layout-table">
@@ -471,66 +472,49 @@
       <div class="side-box logo-box" id="leftLogoBox"></div>
 
       <div class="side-box">
-        <h4>Boards List</h4>
+        <h4>Boards</h4>
         <ul class="board-list" id="leftBoardsList"></ul>
       </div>
 
       <div class="side-box">
-        <h4>Social, Groups &amp; DMs</h4>
+        <h4>Community &amp; Social</h4>
         <div id="leftAccountLinks"></div>
       </div>
 
       <div class="side-box">
-        <h4>Public Stickers Archive</h4>
-        <div class="muted" style="margin-bottom:4px;">Upload static or animated sticker (GIF, APNG, WebP, AVIF, SVG, etc. &le; 2 MB, max 1024px):</div>
-        <input type="file" id="publicStickerFile" accept="image/*,.gif,.apng,.webp,.avif,.mng,.bpg,.flif,.svg" style="font-size:11px; margin-bottom:3px;">
-        <input type="text" id="publicStickerName" maxlength="24" placeholder="Sticker tag (e.g. pepe)" style="font-size:11px; margin-bottom:4px;">
-        <button type="button" onclick="uploadPublicSticker()" style="width:100%;">+ Add to Public Stickers</button>
-        <div style="margin-top:4px; text-align:center;">
-          <a style="font-size:11px;" onclick="switchView('stickers')">Browse Stickers (<span id="sideStickerCount">0</span>)</a>
-        </div>
-      </div>
-
-      <div class="side-box">
-        <h4>Sprites, Fireworks &amp; Chat</h4>
+        <h4>Playground &amp; 1-Min Effects</h4>
         <div style="margin-bottom:6px;">
           <div style="font-weight:bold; margin-bottom:3px;">Spawn Image / GIF Sprite:</div>
           <input type="file" id="spriteFileInput" accept="image/*,.gif,.apng,.webp,.avif,.mng,.bpg,.flif,.svg" style="font-size:11px; margin-bottom:3px;">
           <input type="text" id="spriteUrlInput" placeholder="or paste image/GIF URL..." style="font-size:11px; margin-bottom:4px;">
           <button type="button" onclick="spawnSharedSprite()" style="width:100%;">Spawn Sprite</button>
         </div>
-        <div style="border-top:1px dotted #D9BFB7; padding-top:6px; margin-bottom:6px;">
+        <div style="margin-bottom:6px;">
           <button type="button" onclick="spawnSharedFirework()" style="width:100%;">&#127878; Spawn Firework</button>
         </div>
-        <div class="muted" style="line-height:1.35;">
-          &bull; Press <strong>Shift</strong> or <strong>/</strong> for live cursor chat.<br>
-          &bull; Hold <strong>RMB</strong> (or touch-drag) on a sprite to throw.<br>
-          &bull; Drag a sprite onto a <strong>Firework</strong> to launch it.
+        <div class="muted" style="line-height:1.35; margin-bottom:6px;">
+          &bull; <strong>Shift</strong> or <strong>/</strong>: live cursor chat.<br>
+          &bull; <strong>RMB</strong> / touch-drag sprite: throw.<br>
+          &bull; Drag sprite onto <strong>Firework</strong>: launch.<br>
+          [<a style="color:#CC0000;" onclick="clearAllSprites()">Clear Sprites</a>]
         </div>
-        <div style="margin-top:5px; text-align:center;">
-          <a style="font-size:11px; color:#CC0000;" onclick="clearAllSprites()">Clear Sprites</a>
-        </div>
-      </div>
-
-      <div class="side-box">
-        <h4>Global Fun (1 Min)</h4>
-        <div style="margin-bottom:8px;">
+        <div style="border-top:1px dotted #D9BFB7; padding-top:6px; margin-bottom:6px;">
           <button type="button" id="snowSideBtn" onclick="triggerGlobalSnow()" style="width:100%;">&#10052; Snow for All (1m)</button>
         </div>
         <div style="border-top:1px dotted #D9BFB7; padding-top:6px;">
-          <div style="font-weight:bold; margin-bottom:4px;">Change Tab Logo (1m):</div>
-          <input type="file" id="tabLogoFileInput" accept="image/*,.gif,.apng,.webp,.avif,.svg" style="font-size:11px; margin-bottom:4px;">
+          <div style="font-weight:bold; margin-bottom:3px;">Change Tab Icon (1m):</div>
+          <input type="file" id="tabLogoFileInput" accept="image/*,.gif,.apng,.webp,.avif,.svg" style="font-size:11px; margin-bottom:3px;">
           <input type="text" id="tabLogoUrlInput" placeholder="or paste image URL..." style="font-size:11px; margin-bottom:4px;">
           <button type="button" onclick="triggerGlobalTabLogo()" style="width:100%;">Set Tab Icon (1m)</button>
-          <div id="tabLogoTimerLabel" class="muted" style="margin-top:4px;">Default tab icon active</div>
+          <div id="tabLogoTimerLabel" class="muted" style="margin-top:3px;">Default tab icon active</div>
         </div>
       </div>
 
       <div class="side-box">
-        <h4>Board Info</h4>
+        <h4>About Board</h4>
         <div class="muted">
           Oriented toward people from <strong>Ukraine</strong> &amp; <strong>Pridnestrovie</strong>.<br><br>
-          Interface language: <strong>English</strong>.<br>
+          Default language: <strong>English</strong>.<br>
           Formats: GIF, APNG, WebP, AVIF, MNG, BPG, FLIF, SVG, PNG, JPG.<br>
           Videos: external links only.
         </div>
@@ -540,7 +524,7 @@
     <!-- Center Main Content -->
     <div class="center-main">
       <div class="header-box">
-        <h1 class="site-title">UA / PMR Imageboard</h1>
+        <h1 class="site-title">Fembooru &mdash; UA / PMR Imageboard</h1>
         <div class="site-subtitle">
           Community Imageboard Oriented Toward Ukraine &amp; Pridnestrovie &bull; English Default Interface
         </div>
@@ -586,7 +570,7 @@
   </div>
 
   <div class="footer">
-    Static Imageboard &bull; Powered by Firebase &amp; ImgBB &bull; Compatible with SeaMonkey &amp; Goanna
+    Fembooru Static Imageboard &bull; Version: <strong>v<span id="siteVersionNum">1</span></strong> (Commits on <a href="https://github.com/parmanoidd/fembooru" target="_blank" rel="noopener">parmanoidd/fembooru</a>) &bull; Powered by Firebase &amp; ImgBB &bull; SeaMonkey &amp; Goanna Compatible
   </div>
 </div>
 
@@ -604,6 +588,9 @@ var CONFIG = {
   // 3. ImgBB API Key (images, stickers, sprites, logo, tab icon & avatars)
   imgbbApiKey: "120a27bcbb28d3ffd9f03bc4b32bb54f",
 
+  // GitHub repository for automatic commit-count site version
+  githubRepo: "parmanoidd/fembooru",
+
   // Main page URL when clicking the webpage logo
   mainLogoRedirectUrl: "https://parmanoidd.github.io/fembooru/",
 
@@ -619,7 +606,7 @@ var CONFIG = {
   // Real-time cursor, sprite & firework sync interval
   realtimeSyncMs: 450,
 
-  // Sticker limits
+  // Public Sticker limits
   stickerMaxFileBytes: 2097152,
   stickerMaxDimensionPx: 1024
 };
@@ -707,6 +694,7 @@ var state = {
   dms: {},
   stickers: {},
   selectedStickers: {},
+  openStickerPickers: {},
   siteLogo: "",
   snowEffect: null,
   tabLogoEffect: null,
@@ -743,6 +731,31 @@ var worldState = {
   localChatText: "",
   localChatExpiresAt: 0
 };
+
+/* ==========================================================================
+   GITHUB COMMIT-COUNT VERSION LOADER
+   ========================================================================== */
+function fetchGithubRepoVersion() {
+  var el = document.getElementById("siteVersionNum");
+  if (!el || !CONFIG.githubRepo) return;
+  var xhr = new XMLHttpRequest();
+  xhr.open("GET", "https://api.github.com/repos/" + CONFIG.githubRepo + "/commits?per_page=1", true);
+  xhr.onreadystatechange = function() {
+    if (xhr.readyState === 4 && xhr.status >= 200 && xhr.status < 300) {
+      var linkHeader = xhr.getResponseHeader("Link") || "";
+      var match = linkHeader.match(/page=(\d+)>;\s*rel="last"/);
+      if (match && match[1]) {
+        el.innerHTML = esc(match[1]);
+        return;
+      }
+      try {
+        var list = JSON.parse(xhr.responseText || "[]");
+        if (list && list.length) el.innerHTML = String(list.length);
+      } catch (e) {}
+    }
+  };
+  xhr.send();
+}
 
 /* ==========================================================================
    UTILITY & FORMAT SUPPORT HELPERS
@@ -1409,46 +1422,6 @@ function uploadImageToImgbb(fileInput, callback, options) {
 /* ==========================================================================
    PUBLIC STICKERS ARCHIVE (SIZE-LIMITED, STATIC OR ANIMATED, USABLE EVERYWHERE)
    ========================================================================== */
-function uploadPublicSticker() {
-  if (!state.user) { showStatus("Please log in to upload stickers to the public archive.", true); return; }
-  var fileInput = document.getElementById("publicStickerFile");
-  var nameInput = document.getElementById("publicStickerName");
-  if (!fileInput || !fileInput.files || !fileInput.files[0]) {
-    showStatus("Select a sticker image file first (GIF, APNG, WebP, AVIF, SVG, PNG, etc.).", true);
-    return;
-  }
-  var file = fileInput.files[0];
-  if (!isSupportedImageFile(file)) {
-    showStatus("Unsupported sticker format.", true);
-    return;
-  }
-  if (file.size > CONFIG.stickerMaxFileBytes) {
-    showStatus("Sticker too large! Maximum sticker file size is 2 MB.", true);
-    return;
-  }
-
-  var tag = String(nameInput ? nameInput.value : "").replace(/^\s+|\s+$/g, "") || file.name.replace(/\.[^.]+$/, "").substring(0, 20) || "sticker";
-
-  uploadImageToImgbb(fileInput, function(imgErr, stickerUrl) {
-    if (imgErr || !stickerUrl) {
-      showStatus(imgErr || "Sticker upload failed.", true);
-      return;
-    }
-    var probe = new Image();
-    probe.onload = function() {
-      if (probe.width > CONFIG.stickerMaxDimensionPx || probe.height > CONFIG.stickerMaxDimensionPx) {
-        showStatus("Sticker dimensions too large (" + probe.width + "x" + probe.height + "). Max allowed is " + CONFIG.stickerMaxDimensionPx + "x" + CONFIG.stickerMaxDimensionPx + "px.", true);
-        return;
-      }
-      savePublicStickerRecord(stickerUrl, tag, fileInput, nameInput);
-    };
-    probe.onerror = function() {
-      savePublicStickerRecord(stickerUrl, tag, fileInput, nameInput);
-    };
-    probe.src = stickerUrl;
-  }, { maxBytes: CONFIG.stickerMaxFileBytes });
-}
-
 function savePublicStickerRecord(stickerUrl, tag, fileInput, nameInput) {
   var stId = "st_" + generateId();
   var stickerObj = {
@@ -1468,6 +1441,30 @@ function savePublicStickerRecord(stickerUrl, tag, fileInput, nameInput) {
   });
 }
 
+function uploadPublicStickerFromArchive() {
+  if (!state.user) { showStatus("Please log in to upload stickers.", true); return; }
+  var fileInput = document.getElementById("archStickerFile");
+  var nameInput = document.getElementById("archStickerName");
+  if (!fileInput || !fileInput.files || !fileInput.files[0]) { showStatus("Select a sticker file first.", true); return; }
+  var file = fileInput.files[0];
+  if (!isSupportedImageFile(file)) { showStatus("Unsupported sticker format.", true); return; }
+  if (file.size > CONFIG.stickerMaxFileBytes) { showStatus("Sticker too large! Maximum size is 2 MB.", true); return; }
+  var tag = String(nameInput ? nameInput.value : "").replace(/^\s+|\s+$/g, "") || file.name.replace(/\.[^.]+$/, "").substring(0, 20) || "sticker";
+  uploadImageToImgbb(fileInput, function(imgErr, stickerUrl) {
+    if (imgErr || !stickerUrl) { showStatus(imgErr || "Upload failed.", true); return; }
+    var probe = new Image();
+    probe.onload = function() {
+      if (probe.width > CONFIG.stickerMaxDimensionPx || probe.height > CONFIG.stickerMaxDimensionPx) {
+        showStatus("Sticker dimensions (" + probe.width + "x" + probe.height + ") exceed 1024x1024px limit.", true);
+        return;
+      }
+      savePublicStickerRecord(stickerUrl, tag, fileInput, nameInput);
+    };
+    probe.onerror = function() { savePublicStickerRecord(stickerUrl, tag, fileInput, nameInput); };
+    probe.src = stickerUrl;
+  }, { maxBytes: CONFIG.stickerMaxFileBytes });
+}
+
 function deletePublicSticker(stId) {
   if (!state.user) return;
   var st = state.stickers[stId];
@@ -1483,10 +1480,19 @@ function deletePublicSticker(stId) {
   });
 }
 
+function toggleStickerPicker(ctxKey) {
+  state.openStickerPickers[ctxKey] = !state.openStickerPickers[ctxKey];
+  var bar = document.getElementById("stBar_" + ctxKey);
+  if (bar) bar.style.display = state.openStickerPickers[ctxKey] ? "block" : "none";
+}
+
 function selectStickerForContext(ctxKey, stId) {
   var st = state.stickers[stId];
   if (!st) return;
   state.selectedStickers[ctxKey] = st.url;
+  state.openStickerPickers[ctxKey] = false;
+  var bar = document.getElementById("stBar_" + ctxKey);
+  if (bar) bar.style.display = "none";
   var preview = document.getElementById("stPreview_" + ctxKey);
   if (preview) {
     preview.innerHTML = '<img class="sticker-inline" src="' + esc(st.url) + '" alt="sticker"> ' +
@@ -1510,21 +1516,24 @@ function renderStickerPickerWidget(ctxKey) {
   keys.sort(function(a, b) { return (state.stickers[b].createdAt || 0) - (state.stickers[a].createdAt || 0); });
 
   var curUrl = state.selectedStickers[ctxKey] || "";
+  var isOpen = !!state.openStickerPickers[ctxKey];
   var html = '<div id="stPreview_' + esc(ctxKey) + '">' +
              (curUrl ? '<img class="sticker-inline" src="' + esc(curUrl) + '" alt="sticker"> <a style="font-size:11px; color:#CC0000;" onclick="clearSelectedSticker(\'' + esc(ctxKey) + '\')">[Remove Sticker]</a>' : '') +
              '</div>';
 
-  if (keys.length === 0) {
-    html += '<span class="muted">No public stickers yet. Upload one in the left sidebar!</span>';
-    return html;
-  }
+  html += '<button type="button" onclick="toggleStickerPicker(\'' + esc(ctxKey) + '\')">+ Pick Public Sticker (' + keys.length + ')</button> ' +
+          '<a style="font-size:11px;" onclick="switchView(\'stickers\')">[Upload New Sticker]</a>';
 
-  html += '<div class="sticker-picker-bar">';
-  for (var i = 0; i < keys.length; i++) {
-    var st = state.stickers[keys[i]];
-    html += '<span class="sticker-pick-btn" onclick="selectStickerForContext(\'' + esc(ctxKey) + '\', \'' + esc(st.id) + '\')" title="' + esc(st.name || "Sticker") + '">' +
-            '<img src="' + esc(st.url) + '" alt="' + esc(st.name || "sticker") + '">' +
-            '</span>';
+  html += '<div id="stBar_' + esc(ctxKey) + '" class="sticker-picker-bar" style="display:' + (isOpen ? 'block' : 'none') + ';">';
+  if (keys.length === 0) {
+    html += '<span class="muted">No public stickers yet. Click [Upload New Sticker] to add one!</span>';
+  } else {
+    for (var i = 0; i < keys.length; i++) {
+      var st = state.stickers[keys[i]];
+      html += '<span class="sticker-pick-btn" onclick="selectStickerForContext(\'' + esc(ctxKey) + '\', \'' + esc(st.id) + '\')" title="' + esc(st.name || "Sticker") + '">' +
+              '<img src="' + esc(st.url) + '" alt="' + esc(st.name || "sticker") + '">' +
+              '</span>';
+    }
   }
   html += '</div>';
   return html;
@@ -1545,7 +1554,7 @@ function renderStickersArchiveView() {
   }
   html += '</div>';
 
-  html += '<div class="box-panel"><h3>Available Stickers (Click to Use Anywhere)</h3>';
+  html += '<div class="box-panel"><h3>Available Stickers (Usable on Threads, Walls, Groups &amp; DMs)</h3>';
   var list = [];
   for (var id in state.stickers) {
     if (state.stickers.hasOwnProperty(id) && state.stickers[id]) list.push(state.stickers[id]);
@@ -1569,29 +1578,6 @@ function renderStickersArchiveView() {
   }
   html += '</div>';
   return html;
-}
-
-function uploadPublicStickerFromArchive() {
-  var fileInput = document.getElementById("archStickerFile");
-  var nameInput = document.getElementById("archStickerName");
-  if (!fileInput || !fileInput.files || !fileInput.files[0]) { showStatus("Select a sticker file first.", true); return; }
-  var file = fileInput.files[0];
-  if (!isSupportedImageFile(file)) { showStatus("Unsupported sticker format.", true); return; }
-  if (file.size > CONFIG.stickerMaxFileBytes) { showStatus("Sticker too large! Maximum size is 2 MB.", true); return; }
-  var tag = String(nameInput ? nameInput.value : "").replace(/^\s+|\s+$/g, "") || file.name.replace(/\.[^.]+$/, "").substring(0, 20) || "sticker";
-  uploadImageToImgbb(fileInput, function(imgErr, stickerUrl) {
-    if (imgErr || !stickerUrl) { showStatus(imgErr || "Upload failed.", true); return; }
-    var probe = new Image();
-    probe.onload = function() {
-      if (probe.width > CONFIG.stickerMaxDimensionPx || probe.height > CONFIG.stickerMaxDimensionPx) {
-        showStatus("Sticker dimensions exceed 1024x1024px limit.", true);
-        return;
-      }
-      savePublicStickerRecord(stickerUrl, tag, fileInput, nameInput);
-    };
-    probe.onerror = function() { savePublicStickerRecord(stickerUrl, tag, fileInput, nameInput); };
-    probe.src = stickerUrl;
-  }, { maxBytes: CONFIG.stickerMaxFileBytes });
 }
 
 /* ==========================================================================
@@ -1779,18 +1765,18 @@ function renderGroupsView() {
     }
     html += '</div>';
 
+    html += '<div id="groupFeedArea" style="max-width:680px; margin:0 auto;">' + renderGroupMessagesHtml(grp.id) + '</div>';
+
     if (state.user) {
-      html += '<div class="box-panel"><h3>Post in Group</h3>';
+      html += '<div class="box-panel" style="margin-top:12px;"><h3>Send Message to Group</h3>';
       html += '<table class="form-table">';
-      html += '<tr><td class="form-label">Message</td><td><textarea id="grpMsgText" style="height:60px;" placeholder="Write to group..."></textarea></td></tr>';
-      html += '<tr><td class="form-label">Public Sticker</td><td>' + renderStickerPickerWidget("group_" + grp.id) + '</td></tr>';
+      html += '<tr><td class="form-label">Message</td><td><textarea id="grpMsgText" style="height:56px;" placeholder="Write to group..."></textarea></td></tr>';
+      html += '<tr><td class="form-label">Sticker</td><td>' + renderStickerPickerWidget("group_" + grp.id) + '</td></tr>';
       html += '<tr><td class="form-label">Image Upload</td><td><input type="file" id="grpMsgImage" accept="' + ALL_IMAGE_ACCEPT + '"></td></tr>';
       html += '<tr><td class="form-label">Video / Audio Link</td><td><input type="text" id="grpMsgVideo" placeholder="Optional YouTube or direct .mp4/.mp3 link"></td></tr>';
       html += '<tr><td class="form-label">Send</td><td><button type="button" onclick="sendGroupMessage(\'' + esc(grp.id) + '\')">Send to Group</button></td></tr>';
       html += '</table></div>';
     }
-
-    html += '<div id="groupFeedArea" style="max-width:680px; margin:0 auto;">' + renderGroupMessagesHtml(grp.id) + '</div>';
     return html;
   }
 
@@ -1799,7 +1785,7 @@ function renderGroupsView() {
     html += '<div>Please <a onclick="switchView(\'auth\')">Log In</a> to create or join groups.</div>';
   } else {
     html += '<table class="form-table">';
-    html += '<tr><td class="form-label">Group Title</td><td><input type="text" id="newGroupTitle" maxlength="50" placeholder="e.g. Vinnytsia & Tiraspol Meetup"></td></tr>';
+    html += '<tr><td class="form-label">Group Title</td><td><input type="text" id="newGroupTitle" maxlength="50" placeholder="e.g. Vinnytsia & Tiraspol Chat"></td></tr>';
     html += '<tr><td class="form-label">Description</td><td><input type="text" id="newGroupDesc" maxlength="140" placeholder="What is this group about?"></td></tr>';
     html += '<tr><td class="form-label">Create</td><td><button type="button" onclick="createGroup()">Create Group</button></td></tr>';
     html += '</table>';
@@ -1901,7 +1887,7 @@ function renderDmsView() {
     } else {
       html += '<table class="form-table" style="margin-top:8px; border-top:1px solid #D9BFB7;">';
       html += '<tr><td class="form-label">Message</td><td><textarea id="dmMsgText" style="height:55px;" placeholder="Write a direct message..."></textarea></td></tr>';
-      html += '<tr><td class="form-label">Public Sticker</td><td>' + renderStickerPickerWidget("dm_" + state.currentDmPeerUid) + '</td></tr>';
+      html += '<tr><td class="form-label">Sticker</td><td>' + renderStickerPickerWidget("dm_" + state.currentDmPeerUid) + '</td></tr>';
       html += '<tr><td class="form-label">Image Upload</td><td><input type="file" id="dmMsgImage" accept="' + ALL_IMAGE_ACCEPT + '"></td></tr>';
       html += '<tr><td class="form-label">Video / Audio Link</td><td><input type="text" id="dmMsgVideo" placeholder="Optional YouTube or direct .mp4/.mp3 link"></td></tr>';
       html += '<tr><td class="form-label">Send</td><td><button type="button" onclick="sendDirectMessage(\'' + esc(state.currentDmPeerUid) + '\')">Send DM</button></td></tr>';
@@ -2826,7 +2812,6 @@ function syncSnowState() {
     snowState.expiresAt = state.snowEffect.expiresAt;
     if (!snowState.active) startSnowCanvas();
   } else if (snowState.active) stopSnowCanvas();
-  renderTopInfoBar();
 }
 
 function startSnowCanvas() {
@@ -2847,15 +2832,12 @@ function startSnowCanvas() {
     var rem = Math.ceil((snowState.expiresAt - new Date().getTime()) / 1000);
     if (rem <= 0) {
       stopSnowCanvas();
-      renderTopInfoBar();
       var sideBtnEnd = document.getElementById("snowSideBtn");
       if (sideBtnEnd) sideBtnEnd.innerHTML = "&#10052; Snow for All (1m)";
       return;
     }
     if (rem !== lastSec) {
       lastSec = rem;
-      var topBtn = document.getElementById("snowTopBtn");
-      if (topBtn) topBtn.innerHTML = "&#10052; Snowing (" + rem + "s)";
       var sideBtn = document.getElementById("snowSideBtn");
       if (sideBtn) sideBtn.innerHTML = "&#10052; Snowing (" + rem + "s)";
     }
@@ -3358,19 +3340,20 @@ function countLikes(likesObj) {
 function renderTopInfoBar() {
   var threadTotal = 0;
   for (var tid in state.threads) if (state.threads.hasOwnProperty(tid) && state.threads[tid]) threadTotal++;
-  var leftHtml = '<strong>UA-PMR Board</strong> &bull; Boards: <strong>' + state.boards.length + '</strong> &bull; Threads: <strong>' + threadTotal + '</strong> &bull; <span class="muted">Shift or / = cursor chat</span>';
-  var now = new Date().getTime();
-  var snowRem = (state.snowEffect && state.snowEffect.expiresAt > now) ? Math.ceil((state.snowEffect.expiresAt - now) / 1000) : 0;
-  var snowLink = (snowRem > 0) ? '[<a id="snowTopBtn" onclick="triggerGlobalSnow()">&#10052; Snowing (' + snowRem + 's)</a>]' : '[<a id="snowTopBtn" onclick="triggerGlobalSnow()">&#10052; Snow (1m)</a>]';
+  var leftHtml = '[<a onclick="switchView(\'board\', state.currentBoard)">Boards</a>] ' +
+                 '[<a onclick="switchView(\'groups\')">Groups</a>] ' +
+                 '[<a onclick="switchView(\'dms\')">DMs</a>] ' +
+                 '[<a onclick="switchView(\'stickers\')">Stickers</a>] ' +
+                 '[<a onclick="switchView(\'members\')">Members</a>] ' +
+                 '[<a onclick="switchView(\'polls\')">Polls</a>] ' +
+                 '<span class="muted">&bull; Threads: ' + threadTotal + '</span>';
 
-  var rightHtml = snowLink + ' ';
+  var rightHtml = "";
   if (state.user) {
     rightHtml += 'User: <strong>' + esc(state.profile.nickname || state.user.username) + '</strong>' +
                  (state.user.isAdmin ? ' <span class="admin-badge">ADMIN</span>' : '') + ' ' +
                  '[<a onclick="openPublicProfile(\'' + esc(state.user.uid) + '\')">My Wall</a>] ' +
-                 '[<a onclick="switchView(\'groups\')">Groups</a>] ' +
-                 '[<a onclick="switchView(\'dms\')">DMs</a>] ' +
-                 '[<a onclick="switchView(\'profile\')">Profile</a>] ' +
+                 '[<a onclick="switchView(\'profile\')">Edit Profile</a>] ' +
                  '[<a onclick="logoutUser()">Logout</a>]';
   } else {
     rightHtml += '[<a onclick="switchView(\'auth\')">Login / Register</a>]';
@@ -3382,7 +3365,7 @@ function renderLeftLogoBox() {
   var box = document.getElementById("leftLogoBox");
   if (!box) return;
   var html = '<a class="logo-link" href="' + esc(CONFIG.mainLogoRedirectUrl) + '" title="Go to Main Page">';
-  html += isValidImageSrc(state.siteLogo) ? '<img class="site-logo-img" src="' + esc(state.siteLogo) + '" alt="Site Logo">' : '<div class="default-logo-emblem">&#9752; UA / PMR</div>';
+  html += isValidImageSrc(state.siteLogo) ? '<img class="site-logo-img" src="' + esc(state.siteLogo) + '" alt="Site Logo">' : '<div class="default-logo-emblem">&#9752; FEMBOORU</div>';
   html += '</a><div class="muted">Ukraine &amp; Pridnestrovie</div>';
   if (state.user && state.user.isAdmin) {
     html += '<div style="margin-top:8px; border-top:1px dotted #D9BFB7; padding-top:6px; text-align:left;">' +
@@ -3412,18 +3395,18 @@ function renderLeftAccountLinks() {
   if (!el) return;
   var stCount = 0;
   for (var k in state.stickers) if (state.stickers.hasOwnProperty(k) && state.stickers[k]) stCount++;
-  var scEl = document.getElementById("sideStickerCount");
-  if (scEl) scEl.innerHTML = String(stCount);
 
   var html = '<ul class="board-list">';
+  if (state.user) {
+    html += '<li><a onclick="openPublicProfile(\'' + esc(state.user.uid) + '\')">My Public Page &amp; Stena</a></li>';
+    html += '<li><a onclick="switchView(\'profile\')">Edit Profile &amp; Favorites</a></li>';
+  }
   html += '<li><a onclick="switchView(\'groups\')">Groups &amp; Group Chats</a></li>';
   html += '<li><a onclick="switchView(\'dms\')">Direct Messages (DMs)</a></li>';
   html += '<li><a onclick="switchView(\'stickers\')">Public Stickers Archive (' + stCount + ')</a></li>';
   html += '<li><a onclick="switchView(\'members\')">Members &amp; Walls</a></li>';
   html += '<li><a onclick="switchView(\'polls\')">Board Polls &amp; Admin</a></li>';
   if (state.user) {
-    html += '<li><a onclick="openPublicProfile(\'' + esc(state.user.uid) + '\')">My Public Page &amp; Stena</a></li>';
-    html += '<li><a onclick="switchView(\'profile\')">Edit Profile &amp; Favorites</a></li>';
     html += '<li><a onclick="logoutUser()">Logout (' + esc(state.user.username) + ')</a></li>';
   } else {
     html += '<li><a onclick="switchView(\'auth\')">Login / Register</a></li>';
@@ -3451,7 +3434,7 @@ function renderBoardView() {
     html += '<table class="form-table">';
     html += '<tr><td class="form-label">Subject</td><td><input type="text" id="newThreadSubject" maxlength="100" placeholder="Optional subject"></td></tr>';
     html += '<tr><td class="form-label">Comment</td><td><textarea id="newThreadText" placeholder="Write your post..."></textarea></td></tr>';
-    html += '<tr><td class="form-label">Public Sticker</td><td>' + renderStickerPickerWidget("thread_new") + '</td></tr>';
+    html += '<tr><td class="form-label">Sticker</td><td>' + renderStickerPickerWidget("thread_new") + '</td></tr>';
     html += '<tr><td class="form-label">Image Upload</td><td><input type="file" id="newThreadImage" accept="' + ALL_IMAGE_ACCEPT + '"></td></tr>';
     html += '<tr><td class="form-label">Video / Audio Link</td><td><input type="text" id="newThreadVideo" placeholder="https://youtube.com/... or direct .mp4/.webm/.mp3 link"></td></tr>';
     html += '<tr><td class="form-label">Submit</td><td><button onclick="createThread()">Post Thread</button></td></tr>';
@@ -3542,7 +3525,7 @@ function renderSingleThreadView() {
   else {
     html += '<table class="form-table">';
     html += '<tr><td class="form-label">Comment</td><td><textarea id="replyText" placeholder="Write your reply..."></textarea></td></tr>';
-    html += '<tr><td class="form-label">Public Sticker</td><td>' + renderStickerPickerWidget("reply_" + thread.id) + '</td></tr>';
+    html += '<tr><td class="form-label">Sticker</td><td>' + renderStickerPickerWidget("reply_" + thread.id) + '</td></tr>';
     html += '<tr><td class="form-label">Image Upload</td><td><input type="file" id="replyImage" accept="' + ALL_IMAGE_ACCEPT + '"></td></tr>';
     html += '<tr><td class="form-label">Video / Audio Link</td><td><input type="text" id="replyVideo" placeholder="https://youtube.com/... or direct .mp4/.mp3 link"></td></tr>';
     html += '<tr><td class="form-label">Submit</td><td><button onclick="createComment(\'' + esc(thread.id) + '\')">Post Reply</button></td></tr>';
@@ -3638,7 +3621,7 @@ function renderPublicProfileView() {
   else {
     html += '<table class="form-table">';
     html += '<tr><td class="form-label">Wall Message</td><td><textarea id="newWallText" style="height:60px;" placeholder="Write on ' + esc(displayName) + '\'s stena..."></textarea></td></tr>';
-    html += '<tr><td class="form-label">Public Sticker</td><td>' + renderStickerPickerWidget("wall_" + targetUid) + '</td></tr>';
+    html += '<tr><td class="form-label">Sticker</td><td>' + renderStickerPickerWidget("wall_" + targetUid) + '</td></tr>';
     html += '<tr><td class="form-label">Image Upload</td><td><input type="file" id="newWallImage" accept="' + ALL_IMAGE_ACCEPT + '"></td></tr>';
     html += '<tr><td class="form-label">Video / Audio Link</td><td><input type="text" id="newWallVideo" placeholder="Optional YouTube or direct .mp4/.mp3 link"></td></tr>';
     html += '<tr><td class="form-label">Submit</td><td><button type="button" onclick="createWallPost(\'' + esc(targetUid) + '\')">Post to Wall</button></td></tr>';
@@ -3906,6 +3889,7 @@ function renderAll() {
 }
 
 window.onload = function() {
+  fetchGithubRepoVersion();
   initMusicPlayer();
   initPlaygroundControls();
   loadSession();
