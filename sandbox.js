@@ -184,23 +184,12 @@ function makeFallbackPropSvg(label) {
     encodeURIComponent(txt) + "%3C/text%3E%3C/svg%3E";
 }
 
+var propSearchRequestId = 0;
+
 function buildRandomPropCatalog() {
-  var r = function() { return Math.floor(Math.random() * 999999) + 1; };
-  var sets = ["set1", "set2", "set3", "set4", "set5"];
   var list = [];
-  for (var i = 0; i < 5; i++) {
-    var s1 = r();
-    list.push({
-      name: "Random #" + (i + 1),
-      url: "https://picsum.photos/160/160?random=" + s1
-    });
-  }
-  for (var j = 0; j < 5; j++) {
-    var s2 = r();
-    list.push({
-      name: "Random #" + (j + 6),
-      url: "https://robohash.org/" + s2 + ".png?set=" + sets[j % sets.length] + "&size=160x160"
-    });
+  for (var i = 0; i < 10; i++) {
+    list.push({ name: "Loading #" + (i + 1), url: makeFallbackPropSvg("LOADING") });
   }
   return list;
 }
@@ -228,42 +217,74 @@ function handlePropThumbError(imgEl, idx) {
   imgEl.src = fallback;
 }
 
-function rerollRandomProps() {
-  worldState.propCatalog = buildRandomPropCatalog();
-  var grid = document.getElementById("qPropGrid");
-  if (!grid) return;
+function ensurePropTopicControls(grid) {
+  var controls = document.getElementById("qPropTopicControls");
+  if (controls) return controls;
 
-  // Fetch completely random untagged files from Wikimedia Commons
-  var xhr = new XMLHttpRequest();
-  xhr.open("GET", "https://commons.wikimedia.org/w/api.php?action=query&generator=random&grnnamespace=6&grnlimit=8&prop=imageinfo&iiprop=url&iiurlwidth=160&format=json&origin=*", true);
-  xhr.onreadystatechange = function() {
-    if (xhr.readyState === 4 && xhr.status === 200) {
-      try {
-        var data = JSON.parse(xhr.responseText);
-        var pages = data && data.query && data.query.pages;
-        var slot = 5;
-        if (pages) {
-          for (var pid in pages) {
-            if (pages.hasOwnProperty(pid) && pages[pid].imageinfo && pages[pid].imageinfo[0]) {
-              var info = pages[pid].imageinfo[0];
-              var thumb = info.thumburl || info.url;
-              if (thumb && /\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i.test(thumb) && slot < worldState.propCatalog.length) {
-                var cleanTitle = String(pages[pid].title || "Random").replace(/^File:/i, "").replace(/\.[^.]+$/, "").substring(0, 18);
-                worldState.propCatalog[slot] = { name: cleanTitle, url: thumb };
-                var imgNode = document.getElementById("qPropImg_" + slot);
-                var lblNode = document.getElementById("qPropLbl_" + slot);
-                if (imgNode) { imgNode.removeAttribute("data-fb-done"); imgNode.src = thumb; }
-                if (lblNode) lblNode.textContent = cleanTitle;
-                slot++;
-              }
-            }
-          }
-        }
-      } catch (e) {}
+  controls = document.createElement("div");
+  controls.id = "qPropTopicControls";
+  controls.style.cssText = "display:flex;flex-direction:column;gap:7px;margin:0 0 10px 0;width:100%;";
+
+  var searchRow = document.createElement("div");
+  searchRow.style.cssText = "display:flex;gap:5px;width:100%;";
+  var input = document.createElement("input");
+  input.id = "qPropTopicInput";
+  input.type = "text";
+  input.placeholder = "Search image topic...";
+  input.setAttribute("aria-label", "Custom image topic");
+  input.style.cssText = "min-width:0;flex:1;padding:7px;background:#171717;color:#fff;border:1px solid #666;border-radius:3px;font:inherit;";
+  input.onkeydown = function(e) {
+    var ev = e || window.event;
+    if ((ev.keyCode || ev.which) === 13) {
+      if (ev.preventDefault) ev.preventDefault();
+      searchPropImages(input.value);
     }
   };
-  xhr.send();
+  var searchButton = document.createElement("button");
+  searchButton.type = "button";
+  searchButton.textContent = "Search";
+  searchButton.style.cssText = "padding:6px 10px;background:#444;color:#fff;border:1px solid #777;border-radius:3px;cursor:pointer;";
+  searchButton.onclick = function() { searchPropImages(input.value); };
+  searchRow.appendChild(input);
+  searchRow.appendChild(searchButton);
+  controls.appendChild(searchRow);
 
+  var topics = [
+    ["Random", ""], ["Animals", "animals"], ["Cars", "cars"],
+    ["Anime", "anime"], ["Memes", "memes"], ["Food", "food"],
+    ["Nature", "nature"], ["Weapons", "weapons"], ["Furniture", "furniture"],
+    ["Computers", "computer"], ["Toys", "toys"], ["Space", "space"],
+    ["Architecture", "architecture"]
+  ];
+  var topicRow = document.createElement("div");
+  topicRow.style.cssText = "display:flex;flex-wrap:wrap;gap:5px;width:100%;";
+  for (var i = 0; i < topics.length; i++) {
+    (function(topic) {
+      var button = document.createElement("button");
+      button.type = "button";
+      button.textContent = topic[0];
+      button.style.cssText = "padding:5px 8px;background:#303030;color:#eee;border:1px solid #555;border-radius:3px;font:inherit;font-size:11px;cursor:pointer;";
+      button.onclick = function() {
+        input.value = topic[1];
+        searchPropImages(topic[1]);
+      };
+      topicRow.appendChild(button);
+    })(topics[i]);
+  }
+  controls.appendChild(topicRow);
+
+  var status = document.createElement("div");
+  status.id = "qPropTopicStatus";
+  status.style.cssText = "font-size:11px;color:#bbb;min-height:14px;";
+  controls.appendChild(status);
+
+  if (grid.parentNode) grid.parentNode.insertBefore(controls, grid);
+  return controls;
+}
+
+function renderPropCatalog() {
+  var grid = document.getElementById("qPropGrid");
+  if (!grid) return;
   var h = "";
   for (var i = 0; i < worldState.propCatalog.length; i++) {
     var item = worldState.propCatalog[i];
@@ -273,6 +294,77 @@ function rerollRandomProps() {
          '</div>';
   }
   grid.innerHTML = h;
+}
+
+function searchPropImages(topic) {
+  var grid = document.getElementById("qPropGrid");
+  if (!grid) return;
+  ensurePropTopicControls(grid);
+  var input = document.getElementById("qPropTopicInput");
+  var status = document.getElementById("qPropTopicStatus");
+  var query = String(topic || "").replace(/^\s+|\s+$/g, "").substring(0, 80);
+  if (input && input.value !== query) input.value = query;
+
+  var requestId = ++propSearchRequestId;
+  if (status) status.textContent = query ? "Searching: " + query : "Loading random images...";
+  worldState.propCatalog = buildRandomPropCatalog();
+  renderPropCatalog();
+
+  var xhr = new XMLHttpRequest();
+  var api = "https://commons.wikimedia.org/w/api.php?action=query&";
+  if (query) {
+    api += "generator=search&gsrnamespace=6&gsrlimit=10&gsrsearch=" + encodeURIComponent(query);
+  } else {
+    api += "generator=random&grnnamespace=6&grnlimit=10";
+  }
+  api += "&prop=imageinfo&iiprop=url&iiurlwidth=160&format=json&origin=*";
+  xhr.open("GET", api, true);
+  xhr.onreadystatechange = function() {
+    if (xhr.readyState !== 4 || requestId !== propSearchRequestId) return;
+    var found = [];
+    if (xhr.status === 200) {
+      try {
+        var data = JSON.parse(xhr.responseText);
+        var pages = data && data.query && data.query.pages;
+        if (pages) {
+          for (var pid in pages) {
+            if (!pages.hasOwnProperty(pid)) continue;
+            var page = pages[pid];
+            var info = page.imageinfo && page.imageinfo[0];
+            var thumb = info && (info.thumburl || info.url);
+            if (thumb && /^https?:\/\//i.test(thumb)) {
+              var cleanTitle = String(page.title || "Image").replace(/^File:/i, "").replace(/\.[^.]+$/, "").substring(0, 28);
+              found.push({ name: cleanTitle || "Image", url: thumb });
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    if (!found.length) {
+      if (status) status.textContent = "No images found. Try another topic.";
+      worldState.propCatalog = [];
+      for (var n = 0; n < 10; n++) {
+        worldState.propCatalog.push({ name: "No image found", url: makeFallbackPropSvg("NO IMAGE") });
+      }
+    } else {
+      worldState.propCatalog = found;
+      if (status) status.textContent = "Showing " + found.length + " images" + (query ? " for: " + query : "");
+    }
+    renderPropCatalog();
+  };
+  xhr.onerror = function() {
+    if (requestId !== propSearchRequestId) return;
+    if (status) status.textContent = "Could not load images. Check your connection.";
+  };
+  xhr.send();
+}
+
+function rerollRandomProps() {
+  var grid = document.getElementById("qPropGrid");
+  if (!grid) return;
+  ensurePropTopicControls(grid);
+  searchPropImages("");
 }
 
 function togglePropMenu(forceState) {
