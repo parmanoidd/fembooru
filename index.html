@@ -32,6 +32,10 @@
   .site-subtitle { margin: 4px 0 0; font-size: 12px; color: #800000; }
   .board-banner { text-align: center; font-size: 18px; font-weight: bold; color: #AF0A0F; margin: 6px 0 12px; }
   .status-msg { background: #FFE4C4; border: 1px solid #D9BFB7; color: #800000; padding: 6px 10px; margin: 0 auto 12px; text-align: center; font-weight: bold; display: none; }
+  .upload-progress-box { background: #F0E0D6; border: 1px solid #800000; padding: 6px 10px; margin: 0 auto 12px; max-width: 680px; display: none; }
+  .upload-progress-top { font-size: 12px; margin-bottom: 4px; color: #800000; overflow: hidden; }
+  .upload-progress-track { width: 100%; height: 12px; background: #FFFFEE; border: 1px solid #D9BFB7; overflow: hidden; }
+  .upload-progress-fill { height: 100%; width: 0%; background: #AF0A0F; }
   .box-panel { background: #F0E0D6; border: 1px solid #D9BFB7; padding: 10px; margin: 0 auto 14px; max-width: 680px; }
   .box-panel h3 { margin: 0 0 8px; padding: 4px 6px; background: #EA8; color: #800000; font-size: 13px; border: 1px solid #D9BFB7; }
   .section-subhead { margin: 10px 0 6px; padding: 3px 6px; background: #E6CFC2; border-left: 3px solid #AF0A0F; font-weight: bold; font-size: 12px; }
@@ -197,6 +201,15 @@
         <div class="site-subtitle">Community Imageboard Oriented Toward Ukraine &amp; Pridnestrovie &bull; English Default Interface</div>
       </div>
       <div id="statusBox" class="status-msg"></div>
+      <div id="uploadProgressBox" class="upload-progress-box">
+        <div class="upload-progress-top">
+          <span id="uploadProgressLabel" style="float:left; font-weight:bold;">Uploading...</span>
+          <span id="uploadProgressPct" style="float:right; font-weight:bold;">0%</span>
+        </div>
+        <div class="upload-progress-track">
+          <div id="uploadProgressFill" class="upload-progress-fill"></div>
+        </div>
+      </div>
 
       <div id="musicWidget" class="music-widget">
         <div class="music-widget-head">
@@ -276,7 +289,7 @@ var DEFAULT_FAVICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
 var DEFAULT_SPRITE_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='28' fill='%23EEAA88' stroke='%23800000' stroke-width='4'/%3E%3Ctext x='32' y='41' font-size='28' font-weight='bold' text-anchor='middle' fill='%23800000'%3E%E2%98%98%3C/text%3E%3C/svg%3E";
 var ADMIN_USERNAME = "admin";
 var ADMIN_PASSWORD_INIT = "@!1Abeccod201222";
-var memoryStore = {}, lastDataHash = "", autoRefreshTimer = null, tabLogoTickTimer = null;
+var memoryStore = {}, lastDataHash = "", autoRefreshTimer = null, tabLogoTickTimer = null, progressHideTimer = null;
 
 var myClientId = (function() {
   try {
@@ -297,7 +310,7 @@ var state = {
   siteLogo: "", snowEffect: null, tabLogoEffect: null, user: null, profile: emptyProfile("")
 };
 
-var musicState = { localTracks: [], allTracks: [], currentIndex: -1 };
+var musicState = { localTracks: [], allTracks: [], currentIndex: -1, currentPlayingId: null };
 var snowState = { active: false, expiresAt: 0, flakes: [], animFrame: null };
 var worldState = {
   sprites: {}, fireworks: {}, explodedFireworks: {}, cursors: {}, cursorNodes: {}, particles: [],
@@ -307,13 +320,35 @@ var worldState = {
 };
 
 /* ==========================================================================
-   HELPERS, GITHUB COMMIT VERSION & ADAPTIVE POLICY ENGINE
+   HELPERS, UPLOAD PROGRESS BAR, GITHUB COMMIT VERSION & ADAPTIVE POLICY
    ========================================================================== */
 function storeGet(k) { try { return localStorage.getItem(k); } catch (e) { return memoryStore[k] || null; } }
 function storeSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { memoryStore[k] = v; } }
 function storeRemove(k) { try { localStorage.removeItem(k); } catch (e) { delete memoryStore[k]; } }
 function isFirebaseConfigured() { return CONFIG.firebaseApiKey && CONFIG.firebaseApiKey.indexOf("PASTE_") === -1 && CONFIG.firebaseDbUrl && CONFIG.firebaseDbUrl.indexOf("YOUR-PROJECT-ID") === -1; }
 function isImgbbConfigured() { return CONFIG.imgbbApiKey && CONFIG.imgbbApiKey.indexOf("PASTE_") === -1; }
+
+function setUploadProgress(pct, label) {
+  var box = document.getElementById("uploadProgressBox");
+  var fill = document.getElementById("uploadProgressFill");
+  var lbl = document.getElementById("uploadProgressLabel");
+  var pctEl = document.getElementById("uploadProgressPct");
+  if (!box) return;
+  if (progressHideTimer) { clearTimeout(progressHideTimer); progressHideTimer = null; }
+  if (pct === null || pct === undefined || pct < 0) {
+    box.style.display = "none";
+    if (fill) fill.style.width = "0%";
+    return;
+  }
+  var clamped = Math.max(0, Math.min(100, Math.round(pct)));
+  box.style.display = "block";
+  if (fill) fill.style.width = clamped + "%";
+  if (lbl && label) lbl.innerHTML = esc(label);
+  if (pctEl) pctEl.innerHTML = clamped + "%";
+  if (clamped >= 100) {
+    progressHideTimer = setTimeout(function() { box.style.display = "none"; }, 1100);
+  }
+}
 
 function loadSavedPolicy() {
   try {
@@ -409,7 +444,7 @@ function normalizeCustomFields(raw) {
 }
 
 /* ==========================================================================
-   SUBSCRIPTIONS, BLOCKING & SESSION / FIREBASE XHR
+   SUBSCRIPTIONS, BLOCKING & SESSION / FIREBASE XHR (WITH PROGRESS)
    ========================================================================== */
 function isUserBlockedByMe(t) { return Boolean(state.user && t && t !== state.user.uid && state.blocks[state.user.uid] && state.blocks[state.user.uid][t]); }
 function amIBlockedByUser(t) { return Boolean(state.user && t && t !== state.user.uid && state.blocks[t] && state.blocks[t][state.user.uid]); }
@@ -459,10 +494,15 @@ function ensureFreshSession(cb) {
   else check();
 }
 
-function httpRequest(method, url, body, headers, cb) {
+function httpRequest(method, url, body, headers, cb, onProgress) {
   var xhr = new XMLHttpRequest();
   xhr.open(method, url, true);
   if (headers) for (var k in headers) if (headers.hasOwnProperty(k)) xhr.setRequestHeader(k, headers[k]);
+  if (onProgress && xhr.upload) {
+    xhr.upload.onprogress = function(ev) {
+      if (ev && ev.lengthComputable && ev.total > 0) onProgress(Math.round((ev.loaded / ev.total) * 100));
+    };
+  }
   xhr.onreadystatechange = function() {
     if (xhr.readyState === 4) {
       var d = null; try { d = xhr.responseText ? JSON.parse(xhr.responseText) : null; } catch (e) { d = xhr.responseText; }
@@ -478,16 +518,16 @@ function httpRequest(method, url, body, headers, cb) {
 }
 
 function dbGet(path, cb) { if (!isFirebaseConfigured()) { cb(null, null); return; } httpRequest("GET", CONFIG.firebaseDbUrl + "/" + path + ".json", null, null, cb); }
-function dbWrite(method, path, payload, cb) {
+function dbWrite(method, path, payload, cb, onProgress) {
   var q = (state.user && state.user.idToken) ? ("?auth=" + encodeURIComponent(state.user.idToken)) : "";
   httpRequest(method, CONFIG.firebaseDbUrl + "/" + path + ".json" + q, payload, null, function(err, res) {
     if (err && err.status === 401 && state.user && state.user.refreshToken) {
       refreshAuthToken(function(re) {
         if (re) { clearStaleSession(); renderChrome(); if (cb) cb(err, null); }
-        else httpRequest(method, CONFIG.firebaseDbUrl + "/" + path + ".json?auth=" + encodeURIComponent(state.user.idToken), payload, null, function(e2, r2) { if (cb) cb(e2, r2); });
+        else httpRequest(method, CONFIG.firebaseDbUrl + "/" + path + ".json?auth=" + encodeURIComponent(state.user.idToken), payload, null, function(e2, r2) { if (cb) cb(e2, r2); }, onProgress);
       });
     } else if (cb) cb(err, res);
-  });
+  }, onProgress);
 }
 
 function refreshAuthToken(cb) {
@@ -564,23 +604,26 @@ function adminRemoveUserRecord(uid) {
 }
 
 /* ==========================================================================
-   ADAPTIVE IMAGE UPLOADER & AUTOMATIC IMAGE COMPRESSION
+   ADAPTIVE IMAGE UPLOADER & AUTOMATIC IMAGE COMPRESSION (WITH PROGRESS BAR)
    ========================================================================== */
-function readLocalDataUrl(file, cb) {
+function readLocalDataUrl(file, cb, onReadProgress) {
   if (typeof FileReader === "undefined") { cb("FileReader unsupported.", null); return; }
   if (getFileExtension(file.name) === "svg" || file.type === "image/svg+xml") {
     var tr = new FileReader();
+    tr.onprogress = function(ev) { if (onReadProgress && ev.lengthComputable && ev.total > 0) onReadProgress(Math.round((ev.loaded / ev.total) * 100)); };
     tr.onload = function(e) { cb(null, "data:image/svg+xml;charset=utf-8," + encodeURIComponent(String(e.target.result || "").replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "").replace(/\son[a-z]+\s*=\s*["'][^"']*["']/gi, ""))); };
     tr.onerror = function() { cb("SVG read error.", null); };
     tr.readAsText(file); return;
   }
   var r = new FileReader();
+  r.onprogress = function(ev) { if (onReadProgress && ev.lengthComputable && ev.total > 0) onReadProgress(Math.round((ev.loaded / ev.total) * 100)); };
   r.onload = function(e) { cb(null, e.target.result); };
   r.onerror = function() { cb("Image read error.", null); };
   r.readAsDataURL(file);
 }
 
 function compressImageToTargetBytes(dataUrl, targetBytes, cb) {
+  setUploadProgress(35, "Optimizing image size...");
   var img = new Image();
   img.onload = function() {
     var w = img.width || 800, h = img.height || 600, maxDim = 1600, q = 0.82;
@@ -595,6 +638,7 @@ function compressImageToTargetBytes(dataUrl, targetBytes, cb) {
       if (result.length * 0.75 <= targetBytes) break;
       q = Math.max(0.4, q - 0.14); w = Math.round(w * 0.78); h = Math.round(h * 0.78);
     }
+    setUploadProgress(48, "Image ready to upload...");
     cb(result);
   };
   img.onerror = function() { cb(dataUrl); };
@@ -605,50 +649,68 @@ function uploadImageToImgbb(fileInput, cb, options) {
   if (!fileInput || !fileInput.files || !fileInput.files[0]) { cb(null, ""); return; }
   var file = fileInput.files[0];
   var maxBytes = (options && options.maxBytes) ? options.maxBytes : SERVICE_POLICY.imgbbMaxBytes;
-  if (file.type && file.type.indexOf("image/") !== 0) { cb("Selected file is not an image.", null); return; }
+  var keepBar = Boolean(options && options.keepProgressOpen);
+  if (file.type && file.type.indexOf("image/") !== 0) { setUploadProgress(-1); cb("Selected file is not an image.", null); return; }
 
+  setUploadProgress(5, "Preparing image: " + file.name);
   var isSvg = (getFileExtension(file.name) === "svg" || file.type === "image/svg+xml");
   if (!isImgbbConfigured() || !SERVICE_POLICY.imgbbOnline || isSvg) {
     readLocalDataUrl(file, function(re, dUrl) {
-      if (re) { cb(re, null); return; }
-      if (isSvg || dUrl.length * 0.75 <= SERVICE_POLICY.firebaseInlineImageMaxBytes) { cb(null, dUrl); return; }
-      compressImageToTargetBytes(dUrl, SERVICE_POLICY.firebaseInlineImageMaxBytes, function(cUrl) { cb(null, cUrl); });
-    });
+      if (re) { setUploadProgress(-1); cb(re, null); return; }
+      if (isSvg || dUrl.length * 0.75 <= SERVICE_POLICY.firebaseInlineImageMaxBytes) {
+        setUploadProgress(keepBar ? 85 : 100, keepBar ? "Saving..." : "Image ready!");
+        cb(null, dUrl);
+        return;
+      }
+      compressImageToTargetBytes(dUrl, SERVICE_POLICY.firebaseInlineImageMaxBytes, function(cUrl) {
+        setUploadProgress(keepBar ? 85 : 100, keepBar ? "Saving..." : "Image compressed!");
+        cb(null, cUrl);
+      });
+    }, function(rp) { setUploadProgress(5 + Math.round(rp * 0.35), "Reading image..."); });
     return;
   }
 
   function sendToImgbb(payloadData, isBlob) {
     var url = "https://api.imgbb.com/1/upload?key=" + encodeURIComponent(CONFIG.imgbbApiKey);
-    showStatus("Uploading image...", false);
+    setUploadProgress(45, "Uploading image to ImgBB...");
     var body = isBlob ? (function() { var fd = new FormData(); fd.append("image", payloadData); return fd; })() : ("image=" + encodeURIComponent(payloadData.split(",")[1]));
     var hdrs = isBlob ? null : { "Content-Type": "application/x-www-form-urlencoded" };
     httpRequest("POST", url, body, hdrs, function(err, res) {
-      if (!err && res && res.data && (res.data.url || res.data.display_url)) { cb(null, res.data.url || res.data.display_url); return; }
+      if (!err && res && res.data && (res.data.url || res.data.display_url)) {
+        setUploadProgress(keepBar ? 85 : 100, keepBar ? "Saving record..." : "Image uploaded!");
+        cb(null, res.data.url || res.data.display_url);
+        return;
+      }
       var errMsg = (err && err.data && err.data.error && err.data.error.message) ? String(err.data.error.message).toLowerCase() : "";
       if ((err && err.status === 413) || errMsg.indexOf("size") !== -1 || errMsg.indexOf("large") !== -1) {
         SERVICE_POLICY.imgbbMaxBytes = Math.max(512000, Math.floor((file.size || 2000000) * 0.75));
         saveAndApplyPolicy("ImgBB limit set to " + (SERVICE_POLICY.imgbbMaxBytes / 1048576).toFixed(1) + " MB");
       }
       readLocalDataUrl(file, function(re2, dUrl2) {
-        if (re2) { cb("Upload failed.", null); return; }
-        compressImageToTargetBytes(dUrl2, SERVICE_POLICY.firebaseInlineImageMaxBytes, function(cUrl2) { cb(null, cUrl2); });
+        if (re2) { setUploadProgress(-1); cb("Upload failed.", null); return; }
+        compressImageToTargetBytes(dUrl2, SERVICE_POLICY.firebaseInlineImageMaxBytes, function(cUrl2) {
+          setUploadProgress(keepBar ? 85 : 100, keepBar ? "Saving record..." : "Image ready!");
+          cb(null, cUrl2);
+        });
       });
+    }, function(upPct) {
+      setUploadProgress(45 + Math.round(upPct * (keepBar ? 0.40 : 0.55)), "Uploading image to ImgBB...");
     });
   }
 
   if (file.size && file.size > maxBytes) {
     readLocalDataUrl(file, function(re, dUrl) {
-      if (re) { cb(re, null); return; }
+      if (re) { setUploadProgress(-1); cb(re, null); return; }
       compressImageToTargetBytes(dUrl, maxBytes, function(cUrl) { sendToImgbb(cUrl, false); });
-    });
+    }, function(rp) { setUploadProgress(5 + Math.round(rp * 0.30), "Reading oversized image..."); });
     return;
   }
   if (typeof FormData !== "undefined") sendToImgbb(file, true);
-  else readLocalDataUrl(file, function(re, dUrl) { if (re) cb(re, null); else sendToImgbb(dUrl, false); });
+  else readLocalDataUrl(file, function(re, dUrl) { if (re) { setUploadProgress(-1); cb(re, null); } else sendToImgbb(dUrl, false); }, function(rp) { setUploadProgress(5 + Math.round(rp * 0.35), "Reading image..."); });
 }
 
 /* ==========================================================================
-   AUTOMATIC AUDIO COMPRESSOR (ADAPTS TO FIREBASE SERVICE SIZE REQUIREMENT)
+   AUTOMATIC AUDIO COMPRESSOR (ADAPTS TO SERVICE SIZE & PROGRESS BAR)
    ========================================================================== */
 function encodeMonoWavBase64(samples, sampleRate, bitsPerSample) {
   var bytesPerSample = bitsPerSample === 8 ? 1 : 2;
@@ -674,32 +736,37 @@ function encodeMonoWavBase64(samples, sampleRate, bitsPerSample) {
 
 function compressAudioToServiceLimit(file, targetBytes, cb) {
   if (typeof FileReader === "undefined") { cb("FileReader unsupported.", null); return; }
+  setUploadProgress(5, "Reading audio: " + file.name);
   if (file.size <= targetBytes) {
     var rDirect = new FileReader();
-    rDirect.onload = function(e) { cb(null, e.target.result); };
+    rDirect.onprogress = function(ev) { if (ev.lengthComputable && ev.total > 0) setUploadProgress(5 + Math.round((ev.loaded / ev.total) * 45), "Preparing audio..."); };
+    rDirect.onload = function(e) { setUploadProgress(55, "Audio ready to upload..."); cb(null, e.target.result); };
     rDirect.onerror = function() { cb("Audio read error.", null); };
     rDirect.readAsDataURL(file);
     return;
   }
   var AudioCtx = window.AudioContext || window.webkitAudioContext;
   if (!AudioCtx) { cb("Browser lacks Web Audio compression; file exceeds " + Math.round(targetBytes / 1024) + " KB.", null); return; }
-  showStatus("Compressing audio to fit service limit (" + Math.round(targetBytes / 1024) + " KB)...", false);
   var rBuf = new FileReader();
+  rBuf.onprogress = function(ev) { if (ev.lengthComputable && ev.total > 0) setUploadProgress(5 + Math.round((ev.loaded / ev.total) * 25), "Reading audio buffer..."); };
   rBuf.onload = function(e) {
+    setUploadProgress(35, "Compressing audio to " + Math.round(targetBytes / 1024) + " KB limit...");
     var ctx = new AudioCtx();
     ctx.decodeAudioData(e.target.result, function(audioBuf) {
+      setUploadProgress(48, "Encoding compressed audio...");
       var duration = audioBuf.duration || 1;
       var maxRawBytes = Math.max(40000, Math.floor(targetBytes * 0.72) - 64);
       var desiredRate = Math.floor(maxRawBytes / duration);
       var sampleRate = Math.max(8000, Math.min(22050, desiredRate));
-      var maxSamples = maxRawBytes;
       var src = audioBuf.getChannelData(0);
       var step = audioBuf.sampleRate / sampleRate;
-      var outLen = Math.min(maxSamples, Math.floor(src.length / step));
+      var outLen = Math.min(maxRawBytes, Math.floor(src.length / step));
       var down = new Float32Array(outLen);
       for (var i = 0; i < outLen; i++) down[i] = src[Math.floor(i * step)] || 0;
       if (ctx.close) try { ctx.close(); } catch (ce) {}
-      cb(null, encodeMonoWavBase64(down, sampleRate, 8));
+      var wavData = encodeMonoWavBase64(down, sampleRate, 8);
+      setUploadProgress(55, "Compressed audio ready...");
+      cb(null, wavData);
     }, function() {
       if (ctx.close) try { ctx.close(); } catch (ce) {}
       cb("Could not decode audio format for compression.", null);
@@ -720,18 +787,19 @@ function uploadPublicStickerFromArchive() {
   if (file.size > SERVICE_POLICY.stickerMaxBytes) { showStatus("Sticker too large! Max " + (SERVICE_POLICY.stickerMaxBytes / 1048576).toFixed(1) + " MB.", true); return; }
   var tag = String(nEl ? nEl.value : "").replace(/^\s+|\s+$/g, "") || file.name.replace(/\.[^.]+$/, "").substring(0, 20) || "sticker";
   uploadImageToImgbb(fEl, function(err, sUrl) {
-    if (err || !sUrl) { showStatus(err || "Upload failed.", true); return; }
+    if (err || !sUrl) { setUploadProgress(-1); showStatus(err || "Upload failed.", true); return; }
     function save() {
       var stId = "st_" + generateId();
       dbWrite("PUT", "stickers/" + stId, { id: stId, url: sUrl, name: tag, uploadedByUid: state.user.uid, uploadedByName: state.profile.nickname || state.user.username, createdAt: new Date().getTime() }, function(e) {
-        if (e) { showStatus(formatDbError(e, "Failed."), true); return; }
+        if (e) { setUploadProgress(-1); showStatus(formatDbError(e, "Failed."), true); return; }
+        setUploadProgress(100, "Sticker added!");
         fEl.value = ""; if (nEl) nEl.value = ""; showStatus("Sticker added!", false); refreshAllData(renderAll);
-      });
+      }, function(p) { setUploadProgress(85 + Math.round(p * 0.15), "Saving sticker..."); });
     }
     var img = new Image();
-    img.onload = function() { if (img.width > SERVICE_POLICY.stickerMaxDim || img.height > SERVICE_POLICY.stickerMaxDim) { showStatus("Sticker exceeds " + SERVICE_POLICY.stickerMaxDim + "px limit.", true); return; } save(); };
+    img.onload = function() { if (img.width > SERVICE_POLICY.stickerMaxDim || img.height > SERVICE_POLICY.stickerMaxDim) { setUploadProgress(-1); showStatus("Sticker exceeds " + SERVICE_POLICY.stickerMaxDim + "px limit.", true); return; } save(); };
     img.onerror = save; img.src = sUrl;
-  }, { maxBytes: SERVICE_POLICY.stickerMaxBytes });
+  }, { maxBytes: SERVICE_POLICY.stickerMaxBytes, keepProgressOpen: true });
 }
 
 function deletePublicSticker(stId) {
@@ -773,13 +841,13 @@ function deleteGroup(gid) { var g = state.groups[gid]; if (state.user && g && (g
 
 function sendGroupMessage(gid) {
   if (!state.user) return;
-  var txt = String(document.getElementById("grpMsgText").value || "").replace(/^\s+|\s+$/g, ""), vid = safeUrl(document.getElementById("grpMsgVideo").value), st = state.selectedStickers["group_" + gid] || "", fEl = document.getElementById("grpMsgImage");
-  if (!txt && !vid && !st && (!fEl.files || !fEl.files[0])) return;
+  var txt = String(document.getElementById("grpMsgText").value || "").replace(/^\s+|\s+$/g, ""), vid = safeUrl(document.getElementById("grpMsgVideo").value), st = state.selectedStickers["group_" + gid] || "", fEl = document.getElementById("grpMsgImage"), hasF = Boolean(fEl && fEl.files && fEl.files[0]);
+  if (!txt && !vid && !st && !hasF) return;
   uploadImageToImgbb(fEl, function(err, img) {
-    if (err) { showStatus(err, true); return; }
+    if (err) { setUploadProgress(-1); showStatus(err, true); return; }
     var mid = generateId();
-    dbWrite("PUT", "groupMessages/" + gid + "/" + mid, { id: mid, authorUid: state.user.uid, authorName: state.profile.nickname || state.user.username, text: txt, imageUrl: img || "", stickerUrl: st, videoUrl: vid, createdAt: new Date().getTime() }, function() { clearSelectedSticker("group_" + gid); refreshAllData(renderAll); });
-  });
+    dbWrite("PUT", "groupMessages/" + gid + "/" + mid, { id: mid, authorUid: state.user.uid, authorName: state.profile.nickname || state.user.username, text: txt, imageUrl: img || "", stickerUrl: st, videoUrl: vid, createdAt: new Date().getTime() }, function() { if (hasF) setUploadProgress(100, "Sent!"); clearSelectedSticker("group_" + gid); refreshAllData(renderAll); }, hasF ? function(p) { setUploadProgress(85 + Math.round(p * 0.15), "Sending message..."); } : null);
+  }, { keepProgressOpen: hasF });
 }
 function deleteGroupMessage(gid, mid) { var m = (state.groupMessages[gid] || {})[mid], g = state.groups[gid] || {}; if (state.user && m && (m.authorUid === state.user.uid || g.ownerUid === state.user.uid || state.user.isAdmin)) dbWrite("DELETE", "groupMessages/" + gid + "/" + mid, null, function() { refreshAllData(renderAll); }); }
 
@@ -787,38 +855,38 @@ function getDmKey(a, b) { return a < b ? (a + "__" + b) : (b + "__" + a); }
 function openDmWithUser(uid) { if (!state.user) { showStatus("Log in for DMs.", true); return; } state.currentDmPeerUid = uid; switchView("dms"); }
 function sendDirectMessage(peer) {
   if (!state.user || isUserBlockedByMe(peer) || amIBlockedByUser(peer)) return;
-  var txt = String(document.getElementById("dmMsgText").value || "").replace(/^\s+|\s+$/g, ""), vid = safeUrl(document.getElementById("dmMsgVideo").value), st = state.selectedStickers["dm_" + peer] || "", fEl = document.getElementById("dmMsgImage");
-  if (!txt && !vid && !st && (!fEl.files || !fEl.files[0])) return;
+  var txt = String(document.getElementById("dmMsgText").value || "").replace(/^\s+|\s+$/g, ""), vid = safeUrl(document.getElementById("dmMsgVideo").value), st = state.selectedStickers["dm_" + peer] || "", fEl = document.getElementById("dmMsgImage"), hasF = Boolean(fEl && fEl.files && fEl.files[0]);
+  if (!txt && !vid && !st && !hasF) return;
   uploadImageToImgbb(fEl, function(err, img) {
-    if (err) { showStatus(err, true); return; }
+    if (err) { setUploadProgress(-1); showStatus(err, true); return; }
     var ck = getDmKey(state.user.uid, peer), mid = generateId();
-    dbWrite("PUT", "dms/" + ck + "/" + mid, { id: mid, fromUid: state.user.uid, fromName: state.profile.nickname || state.user.username, toUid: peer, text: txt, imageUrl: img || "", stickerUrl: st, videoUrl: vid, createdAt: new Date().getTime() }, function() { clearSelectedSticker("dm_" + peer); refreshAllData(renderAll); });
-  });
+    dbWrite("PUT", "dms/" + ck + "/" + mid, { id: mid, fromUid: state.user.uid, fromName: state.profile.nickname || state.user.username, toUid: peer, text: txt, imageUrl: img || "", stickerUrl: st, videoUrl: vid, createdAt: new Date().getTime() }, function() { if (hasF) setUploadProgress(100, "DM Sent!"); clearSelectedSticker("dm_" + peer); refreshAllData(renderAll); }, hasF ? function(p) { setUploadProgress(85 + Math.round(p * 0.15), "Sending DM..."); } : null);
+  }, { keepProgressOpen: hasF });
 }
 function deleteDirectMessage(ck, mid) { var m = (state.dms[ck] || {})[mid]; if (state.user && m && (m.fromUid === state.user.uid || state.user.isAdmin)) dbWrite("DELETE", "dms/" + ck + "/" + mid, null, function() { refreshAllData(renderAll); }); }
 
 /* ==========================================================================
-   LOGO, 1-MIN TAB ICON, 1-MIN SNOW & MUSIC PLAYER
+   LOGO, 1-MIN TAB ICON, 1-MIN SNOW & SEAMLESS MUSIC PLAYER
    ========================================================================== */
 function uploadAdminSiteLogo(id) {
   if (!state.user || !state.user.isAdmin) return;
   uploadImageToImgbb(document.getElementById(id), function(err, u) {
-    if (err || !u) { showStatus(err || "Select an image.", true); return; }
-    dbWrite("PUT", "site/logo", u, function() { state.siteLogo = u; syncTabLogoState(); renderChrome(); showStatus("Logo updated!", false); });
-  });
+    if (err || !u) { setUploadProgress(-1); showStatus(err || "Select an image.", true); return; }
+    dbWrite("PUT", "site/logo", u, function() { setUploadProgress(100, "Logo updated!"); state.siteLogo = u; syncTabLogoState(); renderChrome(); showStatus("Logo updated!", false); }, function(p) { setUploadProgress(85 + Math.round(p * 0.15), "Saving logo..."); });
+  }, { keepProgressOpen: true });
 }
 function removeAdminSiteLogo() { if (state.user && state.user.isAdmin) dbWrite("DELETE", "site/logo", null, function() { state.siteLogo = ""; syncTabLogoState(); renderChrome(); }); }
 
 function triggerGlobalTabLogo() {
   var fEl = document.getElementById("tabLogoFileInput"), uEl = document.getElementById("tabLogoUrlInput"), pUrl = uEl ? safeUrl(uEl.value) : "";
-  if (fEl && fEl.files && fEl.files[0]) { uploadImageToImgbb(fEl, function(e, u) { if (!e && u) { saveTabLogo(u); fEl.value = ""; } else showStatus(e || "Failed.", true); }); return; }
-  if (pUrl) { saveTabLogo(pUrl); uEl.value = ""; return; }
+  if (fEl && fEl.files && fEl.files[0]) { uploadImageToImgbb(fEl, function(e, u) { if (!e && u) { saveTabLogo(u, true); fEl.value = ""; } else { setUploadProgress(-1); showStatus(e || "Failed.", true); } }, { keepProgressOpen: true }); return; }
+  if (pUrl) { saveTabLogo(pUrl, false); uEl.value = ""; return; }
   showStatus("Select an image or paste URL.", true);
 }
-function saveTabLogo(u) {
+function saveTabLogo(u, hasProgress) {
   var now = new Date().getTime(), p = { iconUrl: u, expiresAt: now + 60000 };
   state.tabLogoEffect = p; syncTabLogoState();
-  dbWrite("PUT", "effects/tabLogo", p, function() { showStatus("Tab icon changed for 1 minute!", false); });
+  dbWrite("PUT", "effects/tabLogo", p, function() { if (hasProgress) setUploadProgress(100, "Tab icon updated!"); showStatus("Tab icon changed for 1 minute!", false); }, hasProgress ? function(pr) { setUploadProgress(85 + Math.round(pr * 0.15), "Applying tab icon..."); } : null);
 }
 function syncTabLogoState() {
   var now = new Date().getTime(), eff = state.tabLogoEffect, lbl = document.getElementById("tabLogoTimerLabel"), lnk = document.getElementById("siteFavicon");
@@ -880,6 +948,7 @@ function initMusicPlayer() {
   a.onpause = function() { w.className = "music-widget"; b.innerHTML = "Play"; };
   a.onended = function() { w.className = "music-widget"; b.innerHTML = "Play"; musicNext(); };
 }
+
 function rebuildMusicPlaylist() {
   var bTracks = [];
   for (var tid in state.threads) if (state.threads.hasOwnProperty(tid) && state.threads[tid] && state.threads[tid].board === "music") {
@@ -888,51 +957,149 @@ function rebuildMusicPlaylist() {
     if (src) bTracks.push({ id: "t_" + t.id, title: (t.subject || t.audioName || "Track") + " (" + (t.authorName || "User") + ")", src: src, createdAt: t.createdAt || 0 });
   }
   bTracks.sort(function(a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
-  var prevId = (musicState.currentIndex >= 0 && musicState.allTracks[musicState.currentIndex]) ? musicState.allTracks[musicState.currentIndex].id : null;
-  var all = musicState.localTracks.concat(bTracks); musicState.allTracks = all;
-  var cnt = document.getElementById("musicCountLabel"), sel = document.getElementById("musicSelect");
+  var activeId = musicState.currentPlayingId || ((musicState.currentIndex >= 0 && musicState.allTracks[musicState.currentIndex]) ? musicState.allTracks[musicState.currentIndex].id : null);
+  var all = musicState.localTracks.concat(bTracks);
+  musicState.allTracks = all;
+  var cnt = document.getElementById("musicCountLabel"), sel = document.getElementById("musicSelect"), te = document.getElementById("musicTrackTitle");
   if (cnt) cnt.innerHTML = all.length + " track" + (all.length === 1 ? "" : "s");
   if (sel) {
     var o = '<option value="-1">-- Playlist (' + all.length + ') --</option>';
     for (var i = 0; i < all.length; i++) o += '<option value="' + i + '">' + esc(all[i].title) + '</option>';
     sel.innerHTML = o;
   }
-  if (prevId) for (var j = 0; j < all.length; j++) if (all[j].id === prevId) { musicState.currentIndex = j; if (sel) sel.value = String(j); return; }
-  if (musicState.currentIndex === -1 && all.length) {
+  if (activeId) {
+    for (var j = 0; j < all.length; j++) {
+      if (all[j].id === activeId) {
+        musicState.currentIndex = j;
+        musicState.currentPlayingId = activeId;
+        if (sel) sel.value = String(j);
+        if (te) te.innerHTML = esc(all[j].title);
+        return;
+      }
+    }
+  }
+  if (all.length && (musicState.currentIndex < 0 || musicState.currentIndex >= all.length)) {
     musicState.currentIndex = 0;
-    var te = document.getElementById("musicTrackTitle"), au = document.getElementById("audioPlayer");
-    if (te) te.innerHTML = esc(all[0].title); if (au && !au.src) au.src = all[0].src; if (sel) sel.value = "0";
+    musicState.currentPlayingId = all[0].id;
+    var au = document.getElementById("audioPlayer");
+    if (te) te.innerHTML = esc(all[0].title);
+    if (au && !au.src) au.src = all[0].src;
+    if (sel) sel.value = "0";
   }
 }
+
 function musicSelectTrack(iStr) {
   var i = parseInt(iStr, 10); if (isNaN(i) || i < 0 || i >= musicState.allTracks.length) return;
-  musicState.currentIndex = i; var tr = musicState.allTracks[i], au = document.getElementById("audioPlayer"), te = document.getElementById("musicTrackTitle"), sel = document.getElementById("musicSelect");
-  if (te) te.innerHTML = esc(tr.title); if (sel) sel.value = String(i); if (au) { au.src = tr.src; au.play(); }
+  musicState.currentIndex = i;
+  var tr = musicState.allTracks[i], au = document.getElementById("audioPlayer"), te = document.getElementById("musicTrackTitle"), sel = document.getElementById("musicSelect");
+  musicState.currentPlayingId = tr.id;
+  if (te) te.innerHTML = esc(tr.title);
+  if (sel) sel.value = String(i);
+  if (au) { au.src = tr.src; au.play(); }
 }
 function musicTogglePlay() { var a = document.getElementById("audioPlayer"); if (!a || !musicState.allTracks.length) return; if (musicState.currentIndex < 0) { musicSelectTrack(0); return; } if (a.paused) { if (!a.src) a.src = musicState.allTracks[musicState.currentIndex].src; a.play(); } else a.pause(); }
 function musicNext() { if (musicState.allTracks.length) musicSelectTrack((musicState.currentIndex + 1) % musicState.allTracks.length); }
 function musicPrev() { if (musicState.allTracks.length) musicSelectTrack((musicState.currentIndex - 1 + musicState.allTracks.length) % musicState.allTracks.length); }
 
+function removeTempLocalTrack(tempId) {
+  for (var i = musicState.localTracks.length - 1; i >= 0; i--) {
+    if (musicState.localTracks[i].id === tempId) {
+      var u = window.URL || window.webkitURL;
+      if (u && u.revokeObjectURL && musicState.localTracks[i].blobUrl) {
+        try { u.revokeObjectURL(musicState.localTracks[i].blobUrl); } catch (e) {}
+      }
+      musicState.localTracks.splice(i, 1);
+    }
+  }
+}
+
 function handleMusicFileUpload(inp) {
   if (!inp || !inp.files || !inp.files[0]) return;
   var f = inp.files[0], u = window.URL || window.webkitURL;
-  if (u && u.createObjectURL) {
-    musicState.localTracks.unshift({ id: "loc_" + generateId(), title: "[Local] " + f.name, src: u.createObjectURL(f), createdAt: new Date().getTime() });
-    rebuildMusicPlaylist(); musicSelectTrack(0);
+  var blobUrl = (u && u.createObjectURL) ? u.createObjectURL(f) : "";
+
+  if (!state.user) {
+    if (blobUrl) {
+      var guestId = "loc_" + generateId();
+      musicState.localTracks.unshift({ id: guestId, title: "[Local] " + f.name, src: blobUrl, blobUrl: blobUrl, createdAt: new Date().getTime() });
+      rebuildMusicPlaylist();
+      musicSelectTrack(0);
+      setUploadProgress(100, "Loaded local track (log in to upload to /music/)");
+    }
+    return;
   }
-  if (!state.user) return;
+
+  var tid = generateId();
+  var tempId = "uploading_" + tid;
+  var authorDisplay = state.profile.nickname || state.user.username;
+  var cloudTrackId = "t_" + tid;
+  var cloudTitle = f.name + " (" + authorDisplay + ")";
+
+  if (blobUrl) {
+    musicState.localTracks.unshift({ id: tempId, title: cloudTitle, src: blobUrl, blobUrl: blobUrl, createdAt: new Date().getTime() });
+    rebuildMusicPlaylist();
+    musicSelectTrack(0);
+  }
+
   function publishCompressedAudio(limitBytes) {
     compressAudioToServiceLimit(f, limitBytes, function(cErr, dataUrl) {
-      if (cErr || !dataUrl || dataUrl.indexOf("data:audio/") !== 0) { if (cErr) showStatus(cErr, true); return; }
-      var tid = generateId(), now = new Date().getTime();
-      dbWrite("PUT", "threads/" + tid, { id: tid, board: "music", subject: f.name, text: "Audio: " + f.name, audioData: dataUrl, audioName: f.name, uid: state.user.uid, authorName: state.profile.nickname || state.user.username, createdAt: now, bumpedAt: now }, function(wErr) {
+      if (cErr || !dataUrl || dataUrl.indexOf("data:audio/") !== 0) {
+        setUploadProgress(-1);
+        if (cErr) showStatus(cErr, true);
+        return;
+      }
+      var now = new Date().getTime();
+      var threadObj = { id: tid, board: "music", subject: f.name, text: "Audio: " + f.name, audioData: dataUrl, audioName: f.name, uid: state.user.uid, authorName: authorDisplay, createdAt: now, bumpedAt: now };
+      dbWrite("PUT", "threads/" + tid, threadObj, function(wErr) {
         if (wErr && (wErr.status === 413 || String(wErr.data || "").toLowerCase().indexOf("size") !== -1) && limitBytes > 120000) {
           SERVICE_POLICY.firebaseAudioMaxBytes = Math.floor(limitBytes * 0.65);
           saveAndApplyPolicy("Firebase audio limit set to " + Math.round(SERVICE_POLICY.firebaseAudioMaxBytes / 1024) + " KB");
           publishCompressedAudio(SERVICE_POLICY.firebaseAudioMaxBytes);
           return;
         }
-        if (!wErr) { showStatus("Audio uploaded to /music/!", false); refreshAllData(renderAll); }
+        if (wErr) {
+          setUploadProgress(-1);
+          showStatus(formatDbError(wErr, "Audio upload failed."), true);
+          return;
+        }
+
+        // Remove temporary local track so there is ZERO [Local] entry and ZERO duplication,
+        // and seamlessly continue playback on the uploaded cloud track!
+        var au = document.getElementById("audioPlayer");
+        var wasPlayingTemp = Boolean(au && musicState.currentPlayingId === tempId);
+        var savedTime = (wasPlayingTemp && au.currentTime) ? au.currentTime : 0;
+        var shouldResume = Boolean(wasPlayingTemp && !au.paused);
+
+        state.threads[tid] = threadObj;
+        removeTempLocalTrack(tempId);
+        if (wasPlayingTemp) musicState.currentPlayingId = cloudTrackId;
+        rebuildMusicPlaylist();
+
+        if (wasPlayingTemp && au) {
+          for (var k = 0; k < musicState.allTracks.length; k++) {
+            if (musicState.allTracks[k].id === cloudTrackId) {
+              musicState.currentIndex = k;
+              var sel = document.getElementById("musicSelect"), te = document.getElementById("musicTrackTitle");
+              if (sel) sel.value = String(k);
+              if (te) te.innerHTML = esc(cloudTitle);
+              au.onloadedmetadata = function() {
+                au.onloadedmetadata = null;
+                if (savedTime > 0 && au.duration && savedTime < au.duration) {
+                  try { au.currentTime = savedTime; } catch (teErr) {}
+                }
+                if (shouldResume) au.play();
+              };
+              au.src = dataUrl;
+              break;
+            }
+          }
+        }
+
+        setUploadProgress(100, "Audio uploaded to /music/!");
+        showStatus("Audio uploaded to /music/!", false);
+        refreshAllData(renderAll);
+      }, function(upPct) {
+        setUploadProgress(55 + Math.round(upPct * 0.43), "Uploading audio to /music/...");
       });
     });
   }
@@ -975,12 +1142,12 @@ function closeCursorChat(keep) {
 
 function spawnSharedSprite() {
   var fEl = document.getElementById("spriteFileInput"), uEl = document.getElementById("spriteUrlInput"), pUrl = uEl ? safeUrl(uEl.value) : "";
-  if (fEl && fEl.files && fEl.files[0]) { uploadImageToImgbb(fEl, function(e, u) { if (!e && u) { saveSprite(u); fEl.value = ""; } else showStatus(e || "Failed.", true); }); return; }
-  if (uEl) uEl.value = ""; saveSprite(pUrl || DEFAULT_SPRITE_ICON);
+  if (fEl && fEl.files && fEl.files[0]) { uploadImageToImgbb(fEl, function(e, u) { if (!e && u) { saveSprite(u, true); fEl.value = ""; } else { setUploadProgress(-1); showStatus(e || "Failed.", true); } }, { keepProgressOpen: true }); return; }
+  if (uEl) uEl.value = ""; saveSprite(pUrl || DEFAULT_SPRITE_ICON, false);
 }
-function saveSprite(u) {
+function saveSprite(u, hasProgress) {
   var sid = "sp_" + generateId(), obj = { id: sid, url: u, x: 420 + Math.floor(Math.random() * 160), y: 420 + Math.floor(Math.random() * 160), vx: (Math.random() - 0.5) * 6, vy: -4, attachedFireworkId: "", spawnedBy: getDisplayUsername(), updatedAt: new Date().getTime() };
-  worldState.sprites[sid] = obj; dbWrite("PUT", "realtime/sprites/" + sid, obj, null);
+  worldState.sprites[sid] = obj; dbWrite("PUT", "realtime/sprites/" + sid, obj, function() { if (hasProgress) setUploadProgress(100, "Sprite spawned!"); }, hasProgress ? function(p) { setUploadProgress(85 + Math.round(p * 0.15), "Spawning sprite..."); } : null);
 }
 function clearAllSprites() { worldState.sprites = {}; worldState.grabbedSpriteId = null; dbWrite("DELETE", "realtime/sprites", null, null); }
 function spawnSharedFirework() {
@@ -1147,7 +1314,7 @@ function syncRealtimeWorld() {
 }
 
 /* ==========================================================================
-   DATA REFRESH & POST / WALL / POLL / PROFILE ACTIONS
+   DATA REFRESH & POST / WALL / POLL / PROFILE ACTIONS (WITH PROGRESS)
    ========================================================================== */
 function refreshAllData(cb) {
   dbGet("boards", function(eB, cB) {
@@ -1196,24 +1363,24 @@ function countLikes(o) { if (!o) return 0; var c = 0; for (var k in o) if (o.has
 
 function createThread() {
   if (!state.user) return;
-  var sub = String(document.getElementById("newThreadSubject").value || "").replace(/^\s+|\s+$/g, ""), txt = String(document.getElementById("newThreadText").value || "").replace(/^\s+|\s+$/g, ""), vid = safeUrl(document.getElementById("newThreadVideo").value), st = state.selectedStickers["thread_new"] || "", fEl = document.getElementById("newThreadImage");
-  if (!txt && !vid && !st && (!fEl.files || !fEl.files[0])) { showStatus("Enter text, sticker, image, or video link.", true); return; }
+  var sub = String(document.getElementById("newThreadSubject").value || "").replace(/^\s+|\s+$/g, ""), txt = String(document.getElementById("newThreadText").value || "").replace(/^\s+|\s+$/g, ""), vid = safeUrl(document.getElementById("newThreadVideo").value), st = state.selectedStickers["thread_new"] || "", fEl = document.getElementById("newThreadImage"), hasF = Boolean(fEl && fEl.files && fEl.files[0]);
+  if (!txt && !vid && !st && !hasF) { showStatus("Enter text, sticker, image, or video link.", true); return; }
   uploadImageToImgbb(fEl, function(err, img) {
-    if (err) { showStatus(err, true); return; }
+    if (err) { setUploadProgress(-1); showStatus(err, true); return; }
     var tid = generateId(), now = new Date().getTime();
-    dbWrite("PUT", "threads/" + tid, { id: tid, board: state.currentBoard, subject: sub, text: txt, imageUrl: img || "", stickerUrl: st, videoUrl: vid, uid: state.user.uid, authorName: state.profile.nickname || state.user.username, authorAvatar: state.profile.avatarUrl || "", isAdminPost: !!state.user.isAdmin, createdAt: now, bumpedAt: now }, function() { clearSelectedSticker("thread_new"); showStatus("Thread posted.", false); refreshAllData(renderAll); });
-  });
+    dbWrite("PUT", "threads/" + tid, { id: tid, board: state.currentBoard, subject: sub, text: txt, imageUrl: img || "", stickerUrl: st, videoUrl: vid, uid: state.user.uid, authorName: state.profile.nickname || state.user.username, authorAvatar: state.profile.avatarUrl || "", isAdminPost: !!state.user.isAdmin, createdAt: now, bumpedAt: now }, function() { if (hasF) setUploadProgress(100, "Thread posted!"); clearSelectedSticker("thread_new"); showStatus("Thread posted.", false); refreshAllData(renderAll); }, hasF ? function(p) { setUploadProgress(85 + Math.round(p * 0.15), "Posting thread..."); } : null);
+  }, { keepProgressOpen: hasF });
 }
 
 function createComment(tid) {
   if (!state.user) return;
-  var txt = String(document.getElementById("replyText").value || "").replace(/^\s+|\s+$/g, ""), vid = safeUrl(document.getElementById("replyVideo").value), st = state.selectedStickers["reply_" + tid] || "", fEl = document.getElementById("replyImage");
-  if (!txt && !vid && !st && (!fEl.files || !fEl.files[0])) return;
+  var txt = String(document.getElementById("replyText").value || "").replace(/^\s+|\s+$/g, ""), vid = safeUrl(document.getElementById("replyVideo").value), st = state.selectedStickers["reply_" + tid] || "", fEl = document.getElementById("replyImage"), hasF = Boolean(fEl && fEl.files && fEl.files[0]);
+  if (!txt && !vid && !st && !hasF) return;
   uploadImageToImgbb(fEl, function(err, img) {
-    if (err) { showStatus(err, true); return; }
+    if (err) { setUploadProgress(-1); showStatus(err, true); return; }
     var cid = generateId(), now = new Date().getTime();
-    dbWrite("PUT", "comments/" + tid + "/" + cid, { id: cid, text: txt, imageUrl: img || "", stickerUrl: st, videoUrl: vid, uid: state.user.uid, authorName: state.profile.nickname || state.user.username, authorAvatar: state.profile.avatarUrl || "", isAdminPost: !!state.user.isAdmin, createdAt: now }, function() { clearSelectedSticker("reply_" + tid); dbWrite("PATCH", "threads/" + tid, { bumpedAt: now }, function() { refreshAllData(renderAll); }); });
-  });
+    dbWrite("PUT", "comments/" + tid + "/" + cid, { id: cid, text: txt, imageUrl: img || "", stickerUrl: st, videoUrl: vid, uid: state.user.uid, authorName: state.profile.nickname || state.user.username, authorAvatar: state.profile.avatarUrl || "", isAdminPost: !!state.user.isAdmin, createdAt: now }, function() { if (hasF) setUploadProgress(100, "Reply posted!"); clearSelectedSticker("reply_" + tid); dbWrite("PATCH", "threads/" + tid, { bumpedAt: now }, function() { refreshAllData(renderAll); }); }, hasF ? function(p) { setUploadProgress(85 + Math.round(p * 0.15), "Posting reply..."); } : null);
+  }, { keepProgressOpen: hasF });
 }
 
 function deleteThread(tid) { var t = state.threads[tid]; if (t && state.user && (t.uid === state.user.uid || state.user.isAdmin) && confirm("Delete thread?")) dbWrite("DELETE", "threads/" + tid, null, function() { dbWrite("DELETE", "comments/" + tid, null, function() { if (state.view === "thread") state.view = "board"; refreshAllData(renderAll); }); }); }
@@ -1223,13 +1390,13 @@ function toggleCommentLike(tid, cid) { if (state.user && (state.comments[tid] ||
 
 function createWallPost(tUid) {
   if (!state.user || amIBlockedByUser(tUid)) return;
-  var txt = String(document.getElementById("newWallText").value || "").replace(/^\s+|\s+$/g, ""), vid = safeUrl(document.getElementById("newWallVideo").value), st = state.selectedStickers["wall_" + tUid] || "", fEl = document.getElementById("newWallImage");
-  if (!txt && !vid && !st && (!fEl.files || !fEl.files[0])) return;
+  var txt = String(document.getElementById("newWallText").value || "").replace(/^\s+|\s+$/g, ""), vid = safeUrl(document.getElementById("newWallVideo").value), st = state.selectedStickers["wall_" + tUid] || "", fEl = document.getElementById("newWallImage"), hasF = Boolean(fEl && fEl.files && fEl.files[0]);
+  if (!txt && !vid && !st && !hasF) return;
   uploadImageToImgbb(fEl, function(err, img) {
-    if (err) { showStatus(err, true); return; }
+    if (err) { setUploadProgress(-1); showStatus(err, true); return; }
     var pid = generateId();
-    dbWrite("PUT", "walls/" + tUid + "/" + pid, { id: pid, wallOwnerUid: tUid, authorUid: state.user.uid, authorName: state.profile.nickname || state.user.username, text: txt, imageUrl: img || "", stickerUrl: st, videoUrl: vid, createdAt: new Date().getTime() }, function() { clearSelectedSticker("wall_" + tUid); refreshAllData(renderAll); });
-  });
+    dbWrite("PUT", "walls/" + tUid + "/" + pid, { id: pid, wallOwnerUid: tUid, authorUid: state.user.uid, authorName: state.profile.nickname || state.user.username, text: txt, imageUrl: img || "", stickerUrl: st, videoUrl: vid, createdAt: new Date().getTime() }, function() { if (hasF) setUploadProgress(100, "Posted to wall!"); clearSelectedSticker("wall_" + tUid); refreshAllData(renderAll); }, hasF ? function(p) { setUploadProgress(85 + Math.round(p * 0.15), "Posting to wall..."); } : null);
+  }, { keepProgressOpen: hasF });
 }
 function deleteWallPost(tUid, pid) { var p = (state.walls[tUid] || {})[pid]; if (state.user && p && (p.authorUid === state.user.uid || tUid === state.user.uid || state.user.isAdmin) && confirm("Delete wall post?")) dbWrite("DELETE", "walls/" + tUid + "/" + pid, null, function() { dbWrite("DELETE", "wallComments/" + tUid + "/" + pid, null, function() { refreshAllData(renderAll); }); }); }
 function toggleWallPostLike(tUid, pid) { if (state.user && (state.walls[tUid] || {})[pid]) { var l = state.walls[tUid][pid].likes && state.walls[tUid][pid].likes[state.user.uid]; dbWrite(l ? "DELETE" : "PUT", "walls/" + tUid + "/" + pid + "/likes/" + state.user.uid, l ? null : true, function() { refreshAllData(renderAll); }); } }
@@ -1279,15 +1446,15 @@ function voteOnPoll(s, ch) {
 
 function addFavoriteCardItem() {
   if (!state.user) return;
-  var cat = document.getElementById("favCategory").value, title = String(document.getElementById("favTitle").value || "").replace(/^\s+|\s+$/g, ""), sub = String(document.getElementById("favSubtitle").value || "").replace(/^\s+|\s+$/g, ""), fEl = document.getElementById("favImageFile"), pUrl = safeUrl(document.getElementById("favImageUrl").value);
+  var cat = document.getElementById("favCategory").value, title = String(document.getElementById("favTitle").value || "").replace(/^\s+|\s+$/g, ""), sub = String(document.getElementById("favSubtitle").value || "").replace(/^\s+|\s+$/g, ""), fEl = document.getElementById("favImageFile"), pUrl = safeUrl(document.getElementById("favImageUrl").value), hasF = Boolean(fEl && fEl.files && fEl.files[0]);
   if (!title) { showStatus("Title required.", true); return; }
   function save(img) {
     if (!state.profile.favorites) state.profile.favorites = { films: [], tv: [], books: [], games: [] };
     if (!state.profile.favorites[cat]) state.profile.favorites[cat] = [];
     state.profile.favorites[cat].push({ id: generateId(), title: title, subtitle: sub, imageUrl: img || "" });
-    dbWrite("PUT", "users/" + state.user.uid + "/favorites", state.profile.favorites, function() { refreshAllData(renderAll); });
+    dbWrite("PUT", "users/" + state.user.uid + "/favorites", state.profile.favorites, function() { if (hasF) setUploadProgress(100, "Card saved!"); refreshAllData(renderAll); }, hasF ? function(p) { setUploadProgress(85 + Math.round(p * 0.15), "Saving favorite card..."); } : null);
   }
-  if (fEl && fEl.files && fEl.files[0]) uploadImageToImgbb(fEl, function(e, u) { if (!e) save(u); else showStatus(e, true); }); else save(pUrl);
+  if (hasF) uploadImageToImgbb(fEl, function(e, u) { if (!e) save(u); else { setUploadProgress(-1); showStatus(e, true); } }, { keepProgressOpen: true }); else save(pUrl);
 }
 function removeFavoriteCardItem(cat, idx) { if (state.user && (state.profile.favorites || {})[cat]) { state.profile.favorites[cat].splice(idx, 1); dbWrite("PUT", "users/" + state.user.uid + "/favorites", state.profile.favorites, function() { refreshAllData(renderAll); }); } }
 function addCustomProfileField() {
@@ -1301,8 +1468,9 @@ function saveUserProfile() {
   if (!state.user) return;
   var cust = [], ex = state.profile.customFields || [];
   for (var i = 0; i < ex.length; i++) { var l = document.getElementById("custLbl_" + i), v = document.getElementById("custVal_" + i); if ((l && l.value) || (v && v.value)) cust.push({ label: String(l ? l.value : ex[i].label), value: String(v ? v.value : ex[i].value) }); }
-  uploadImageToImgbb(document.getElementById("profAvatarFile"), function(err, av) {
-    if (err) { showStatus(err, true); return; }
+  var fEl = document.getElementById("profAvatarFile"), hasF = Boolean(fEl && fEl.files && fEl.files[0]);
+  uploadImageToImgbb(fEl, function(err, av) {
+    if (err) { setUploadProgress(-1); showStatus(err, true); return; }
     var upd = {
       username: state.user.username, email: state.user.email,
       nickname: String(document.getElementById("profNickname").value || "").replace(/^\s+|\s+$/g, "") || state.user.username,
@@ -1320,8 +1488,8 @@ function saveUserProfile() {
       bio: String(document.getElementById("profBio").value || "").replace(/^\s+|\s+$/g, ""),
       favorites: state.profile.favorites || { films: [], tv: [], books: [], games: [] }, customFields: cust
     };
-    dbWrite("PATCH", "users/" + state.user.uid, upd, function() { for (var k in upd) if (upd.hasOwnProperty(k)) state.profile[k] = upd[k]; showStatus("Profile saved!", false); renderAll(); });
-  });
+    dbWrite("PATCH", "users/" + state.user.uid, upd, function() { if (hasF) setUploadProgress(100, "Profile & avatar saved!"); for (var k in upd) if (upd.hasOwnProperty(k)) state.profile[k] = upd[k]; showStatus("Profile saved!", false); renderAll(); }, hasF ? function(p) { setUploadProgress(85 + Math.round(p * 0.15), "Saving profile..."); } : null);
+  }, { keepProgressOpen: hasF });
 }
 
 /* ==========================================================================
