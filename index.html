@@ -10,28 +10,29 @@
   body { margin: 0; padding: 0; background: #FFFFEE; color: #800000; font-family: arial, helvetica, sans-serif; font-size: 13px; }
   a { color: #000080; text-decoration: underline; cursor: pointer; }
   a:hover { color: #DD0000; }
-  .page-wrap { width: 96%; max-width: 1120px; margin: 0 auto; padding: 10px 0 36px; position: relative; z-index: 2; }
-  .top-bar { background: #F0E0D6; border: 1px solid #D9BFB7; padding: 6px 10px; margin-bottom: 12px; font-size: 12px; overflow: hidden; }
+  .page-wrap { width: 96%; max-width: 1140px; margin: 0 auto; padding: 10px 0 40px; position: relative; z-index: 2; }
+  .top-bar { background: #F0E0D6; border: 1px solid #D9BFB7; padding: 7px 10px; margin-bottom: 12px; font-size: 12px; line-height: 1.7; overflow: hidden; }
   .top-bar-left { float: left; }
   .top-bar-right { float: right; }
+  .nav-pill { display: inline-block; padding: 1px 4px; margin-right: 2px; }
   .layout-table { display: table; width: 100%; table-layout: fixed; }
-  .left-sidebar { display: table-cell; width: 230px; vertical-align: top; padding-right: 12px; }
+  .left-sidebar { display: table-cell; width: 240px; vertical-align: top; padding-right: 12px; }
   .center-main { display: table-cell; vertical-align: top; }
   .side-box { background: #F0E0D6; border: 1px solid #D9BFB7; padding: 8px; margin-bottom: 12px; }
-  .side-box h4 { margin: 0 0 6px; padding: 3px 6px; background: #EA8; border: 1px solid #D9BFB7; color: #800000; font-size: 12px; }
+  .side-box h4 { margin: 0 0 6px; padding: 4px 6px; background: #EA8; border: 1px solid #D9BFB7; color: #800000; font-size: 12px; }
   .logo-box { text-align: center; }
   .logo-link { display: block; text-decoration: none; }
   .site-logo-img { max-width: 100%; max-height: 150px; border: 1px solid #D9BFB7; background: #FFFFEE; display: block; margin: 0 auto 6px; }
   .default-logo { background: #EEAA88; border: 1px solid #800000; color: #800000; font-weight: bold; font-size: 20px; padding: 15px 8px; margin-bottom: 6px; }
   .board-list { list-style: none; margin: 0; padding: 0; }
-  .board-list li { padding: 3px 4px; border-bottom: 1px dotted #D9BFB7; }
+  .board-list li { padding: 4px; border-bottom: 1px dotted #D9BFB7; }
   .board-list li:last-child { border-bottom: none; }
   .board-list a.active-board { color: #AF0A0F; font-weight: bold; text-decoration: none; }
   .header-box { text-align: center; border-bottom: 1px solid #D9BFB7; padding-bottom: 10px; margin-bottom: 12px; }
   .site-title { margin: 0; font-size: 24px; font-weight: bold; color: #AF0A0F; }
   .site-subtitle { margin: 4px 0 0; font-size: 12px; color: #800000; }
   .board-banner { text-align: center; font-size: 18px; font-weight: bold; color: #AF0A0F; margin: 6px 0 12px; }
-  .status-msg { background: #FFE4C4; border: 1px solid #D9BFB7; color: #800000; padding: 6px 10px; margin: 0 auto 12px; text-align: center; font-weight: bold; display: none; }
+  .status-msg { background: #FFE4C4; border: 1px solid #D9BFB7; color: #800000; padding: 7px 10px; margin: 0 auto 12px; text-align: center; font-weight: bold; display: none; }
   .upload-progress-box { background: #F0E0D6; border: 1px solid #800000; padding: 6px 10px; margin: 0 auto 12px; max-width: 680px; display: none; }
   .upload-progress-top { font-size: 12px; margin-bottom: 4px; color: #800000; overflow: hidden; }
   .upload-progress-track { width: 100%; height: 12px; background: #FFFFEE; border: 1px solid #D9BFB7; overflow: hidden; }
@@ -41,15 +42,15 @@
   .section-subhead { margin: 10px 0 6px; padding: 3px 6px; background: #E6CFC2; border-left: 3px solid #AF0A0F; font-weight: bold; font-size: 12px; }
   .form-table { width: 100%; border-collapse: collapse; }
   .form-table td { padding: 4px; vertical-align: top; }
-  .form-label { width: 140px; background: #EA8; color: #800000; font-weight: bold; border: 1px solid #D9BFB7; padding: 4px 6px; }
-  input[type="text"], input[type="password"], textarea, select { width: 100%; border: 1px solid #AAA; background: #FFF; color: #000; font-family: inherit; font-size: 13px; padding: 4px; }
+  .form-label { width: 140px; background: #EA8; color: #800000; font-weight: bold; border: 1px solid #D9BFB7; padding: 5px 6px; }
+  input[type="text"], input[type="password"], textarea, select { width: 100%; border: 1px solid #AAA; background: #FFF; color: #000; font-family: inherit; font-size: 13px; padding: 5px; }
   textarea { height: 70px; resize: vertical; }
-  button { background: #EEAA88; color: #800000; border: 1px solid #800000; padding: 4px 9px; font-weight: bold; font-size: 12px; cursor: pointer; }
+  button { background: #EEAA88; color: #800000; border: 1px solid #800000; padding: 5px 10px; font-weight: bold; font-size: 12px; cursor: pointer; touch-action: manipulation; }
   button:hover { background: #F5C2A8; }
   .btn-danger { background: #FFD2D2; }
   .btn-active { background: #D4EDDA; color: #155724; border-color: #155724; }
   .thread-item { border-top: 1px solid #D9BFB7; padding: 12px 4px; margin-bottom: 10px; clear: both; }
-  .post-header { margin-bottom: 6px; font-size: 12px; }
+  .post-header { margin-bottom: 6px; font-size: 12px; line-height: 1.6; }
   .post-subject { color: #CC1105; font-weight: bold; font-size: 14px; }
   .poster-link { color: #117743; font-weight: bold; text-decoration: none; }
   .poster-link:hover { text-decoration: underline; color: #AF0A0F; }
@@ -59,18 +60,19 @@
   .post-media { float: left; margin: 0 12px 8px 0; max-width: 260px; }
   .post-media img { max-width: 250px; max-height: 250px; border: 1px solid #D9BFB7; display: block; }
   .sticker-inline { max-width: 96px; max-height: 96px; border: 1px solid #D9BFB7; background: #FFFFEE; display: inline-block; margin: 4px 6px 4px 0; vertical-align: middle; }
-  .sticker-picker-bar { background: #FFFFEE; border: 1px solid #D9BFB7; padding: 6px; margin-top: 5px; max-height: 140px; overflow-y: auto; }
-  .sticker-pick-btn { display: inline-block; padding: 2px; margin: 2px; background: #F0E0D6; border: 1px solid #D9BFB7; cursor: pointer; }
+  .sticker-picker-bar { background: #FFFFEE; border: 1px solid #D9BFB7; padding: 6px; margin-top: 5px; max-height: 145px; overflow-y: auto; }
+  .sticker-pick-btn { display: inline-block; padding: 3px; margin: 2px; background: #F0E0D6; border: 1px solid #D9BFB7; cursor: pointer; }
   .sticker-pick-btn:hover { border-color: #AF0A0F; }
   .sticker-pick-btn img { width: 42px; height: 42px; object-fit: contain; display: block; }
   .video-box { margin: 6px 0; clear: left; }
   .video-box iframe, .video-box video { max-width: 100%; border: 1px solid #D9BFB7; }
   .post-body { color: #800000; line-height: 1.45; word-wrap: break-word; white-space: pre-wrap; margin: 6px 0 8px; }
   .post-actions { clear: both; }
-  .reply-box { background: #F0E0D6; border: 1px solid #D9BFB7; border-left: 3px solid #EA8; padding: 8px 10px; margin: 6px 0 6px 24px; display: table; min-width: 280px; max-width: 780px; }
+  .reply-box { background: #F0E0D6; border: 1px solid #D9BFB7; border-left: 3px solid #EA8; padding: 8px 10px; margin: 6px 0 6px 20px; display: table; min-width: 260px; max-width: 780px; }
   .poll-card { background: #F0E0D6; border: 1px solid #D9BFB7; padding: 10px; margin-bottom: 10px; }
   .footer { text-align: center; font-size: 11px; border-top: 1px solid #D9BFB7; padding-top: 10px; margin-top: 24px; }
   .muted { color: #707070; font-size: 11px; }
+  .ctrl-hint { display: block; font-size: 11px; color: #707070; margin-top: 2px; }
 
   /* PROFILE, DISCORD CARDS & WALL */
   .profile-status-banner { background: #FFFFEE; border: 1px solid #800000; border-left: 5px solid #AF0A0F; padding: 7px 10px; margin: 0 auto 10px; max-width: 680px; font-style: italic; }
@@ -109,31 +111,40 @@
   .music-widget.is-playing .eq-bar-4 { animation: eqPulse 0.44s ease-in-out 0.08s infinite alternate; }
   .music-now-playing { background: #FFFFEE; border: 1px solid #D9BFB7; padding: 4px 8px; margin-bottom: 6px; overflow: hidden; white-space: nowrap; }
   .music-widget.is-playing .music-marquee { display: inline-block; animation: trackSlide 11s linear infinite; }
-  .music-widget audio { width: 100%; height: 28px; margin-top: 6px; }
+  .music-widget audio { width: 100%; height: 30px; margin-top: 6px; }
   .music-upload-row { border-top: 1px dashed #D9BFB7; padding-top: 6px; margin-top: 6px; font-size: 12px; }
 
-  /* OVERLAYS: SNOW, SPRITES, FIREWORKS & FAST REALTIME CURSORS + CHAT */
+  /* OVERLAYS: SNOW, SPRITES, FIREWORKS & NON-OVERLAPPING REALTIME CURSORS + CHAT */
   .snow-canvas, .fireworks-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9000; }
   .snow-canvas { display: none; }
   .fireworks-canvas { z-index: 9100; }
   .playground-layer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9200; }
   .world-sprite { position: fixed; width: 68px; height: 68px; margin: -34px 0 0 -34px; pointer-events: auto; cursor: grab; user-select: none; touch-action: none; z-index: 9210; }
   .world-sprite img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; display: block; }
-  .sprite-tag { position: absolute; bottom: -14px; left: 50%; transform: translateX(-50%); background: rgba(240,224,214,0.9); border: 1px solid #D9BFB7; font-size: 9px; padding: 0 3px; white-space: nowrap; pointer-events: none; }
+  .sprite-tag { position: absolute; bottom: -14px; left: 50%; transform: translateX(-50%); background: rgba(240,224,214,0.92); border: 1px solid #D9BFB7; font-size: 9px; padding: 0 3px; white-space: nowrap; pointer-events: none; }
   .world-firework { position: fixed; width: 34px; height: 54px; margin: -27px 0 0 -17px; text-align: center; z-index: 9205; }
   .fw-rocket-body { width: 16px; height: 30px; margin: 0 auto; background: #AF0A0F; border: 1px solid #800000; border-top: 8px solid #EEAA88; }
   .fw-fuse-label { background: #FFFFEE; border: 1px solid #800000; font-size: 9px; font-weight: bold; padding: 0 2px; white-space: nowrap; }
   .remote-cursor { position: fixed; top: 0; left: 0; pointer-events: none; z-index: 9300; will-change: transform; }
-  .remote-cursor-label { position: absolute; top: -17px; left: 6px; background: #EEAA88; border: 1px solid #800000; font-size: 10px; font-weight: bold; padding: 0 4px; white-space: nowrap; }
-  .cursor-chat-bubble { position: absolute; bottom: 22px; left: 6px; background: #FFFFEE; border: 1px solid #800000; font-size: 11px; padding: 3px 6px; max-width: 210px; word-wrap: break-word; white-space: pre-wrap; box-shadow: 1px 1px 0 #D9BFB7; }
-  .local-cursor-chat { position: fixed; z-index: 9400; background: #FFFFEE; border: 1px solid #AF0A0F; padding: 4px 6px; display: none; box-shadow: 2px 2px 0 #D9BFB7; }
-  .local-cursor-chat input { width: 185px; font-size: 12px; padding: 2px 4px; border: 1px solid #800000; }
-  .local-cursor-bubble-preview { position: fixed; z-index: 9350; background: #FFFFEE; border: 1px solid #800000; font-size: 11px; padding: 2px 6px; max-width: 210px; word-wrap: break-word; pointer-events: none; display: none; }
+  .remote-cursor-header { position: absolute; bottom: 22px; left: 6px; }
+  .remote-cursor-label { display: inline-block; background: #EEAA88; border: 1px solid #800000; font-size: 10px; font-weight: bold; padding: 0 4px; white-space: nowrap; }
+  .cursor-chat-bubble { background: #FFFFEE; border: 1px solid #800000; font-size: 11px; padding: 3px 6px; margin-bottom: 2px; max-width: 210px; word-wrap: break-word; white-space: pre-wrap; box-shadow: 1px 1px 0 #D9BFB7; }
+  .local-cursor-chat { position: fixed; z-index: 9400; background: #FFFFEE; border: 2px solid #AF0A0F; padding: 6px 8px; display: none; box-shadow: 2px 2px 0 #D9BFB7; }
+  .local-cursor-chat input { width: 190px; font-size: 14px; padding: 4px 6px; border: 1px solid #800000; }
+  .local-cursor-bubble-preview { position: fixed; z-index: 9350; background: #FFFFEE; border: 1px solid #800000; font-size: 11px; padding: 3px 6px; max-width: 210px; word-wrap: break-word; pointer-events: none; display: none; }
 
   @media (max-width: 720px) {
     .layout-table, .left-sidebar, .center-main { display: block; width: 100%; padding-right: 0; }
     .top-bar-left, .top-bar-right { float: none; text-align: center; margin-bottom: 4px; }
     .discord-fav-card { width: 100%; }
+    .form-table, .form-table tbody, .form-table tr, .form-table td { display: block; width: 100%; }
+    .form-label { width: 100%; margin-top: 4px; }
+    input[type="text"], input[type="password"], textarea, select { font-size: 16px; padding: 7px; }
+    button { padding: 7px 12px; font-size: 13px; margin: 2px 0; }
+    .reply-box { margin-left: 10px; min-width: 0; width: auto; }
+    .profile-card-left { float: none; width: 100%; margin: 0 0 10px 0; }
+    .local-cursor-chat { left: 10px !important; right: 10px; bottom: 12px !important; }
+    .local-cursor-chat input { width: 65%; }
   }
   @keyframes discSpin { to { transform: rotate(360deg); } }
   @keyframes eqPulse { 0% { height: 3px; } 100% { height: 15px; } }
@@ -148,8 +159,10 @@
 <div id="cursorsLayer" class="playground-layer"></div>
 <div id="localCursorBubblePreview" class="local-cursor-bubble-preview"></div>
 <div id="localCursorChatBox" class="local-cursor-chat">
-  <div style="font-size:10px; font-weight:bold; color:#AF0A0F; margin-bottom:2px;">Live Cursor Chat (Enter = keep, Esc = close):</div>
-  <input type="text" id="cursorChatInput" maxlength="90" placeholder="Type live above cursor...">
+  <div style="font-size:11px; font-weight:bold; color:#AF0A0F; margin-bottom:4px;">Live Cursor Chat:</div>
+  <input type="text" id="cursorChatInput" maxlength="90" placeholder="Type message above cursor...">
+  <button type="button" onclick="closeCursorChat(true)">Post</button>
+  <button type="button" class="btn-danger" onclick="closeCursorChat(false)">Close</button>
 </div>
 
 <div class="page-wrap" id="pageWrap">
@@ -161,26 +174,30 @@
       <div class="side-box"><h4>Community &amp; Social</h4><div id="leftAccountLinks"></div></div>
       <div class="side-box">
         <h4>Playground &amp; 1-Min Effects</h4>
-        <div style="margin-bottom:6px;">
-          <div style="font-weight:bold; margin-bottom:3px;">Spawn Image / GIF Sprite:</div>
-          <input type="file" id="spriteFileInput" accept="image/*" style="font-size:11px; margin-bottom:3px;">
-          <input type="text" id="spriteUrlInput" placeholder="or paste image URL..." style="font-size:11px; margin-bottom:4px;">
-          <button type="button" onclick="spawnSharedSprite()" style="width:100%;">Spawn Sprite</button>
+        <div style="margin-bottom:8px;">
+          <button type="button" onclick="openCursorChat()" style="width:100%;">&#128172; Live Cursor Chat</button>
+          <span class="ctrl-hint">Tap button above, or press <strong>Shift</strong> or <strong>/</strong> on keyboard.</span>
         </div>
-        <div style="margin-bottom:6px;"><button type="button" onclick="spawnSharedFirework()" style="width:100%;">&#127878; Spawn Firework</button></div>
-        <div class="muted" style="line-height:1.35; margin-bottom:6px;">
-          &bull; <strong>Shift</strong> or <strong>/</strong>: live cursor chat.<br>
-          &bull; <strong>RMB</strong> / touch-drag sprite: throw.<br>
-          &bull; Drag sprite onto <strong>Firework</strong>: launch.<br>
-          [<a style="color:#CC0000;" onclick="clearAllSprites()">Clear Sprites</a>]
+        <div style="border-top:1px dotted #D9BFB7; padding-top:6px; margin-bottom:6px;">
+          <div style="font-weight:bold; margin-bottom:3px;">Spawn Image / GIF Sprite:</div>
+          <input type="file" id="spriteFileInput" accept="image/*" style="font-size:12px; margin-bottom:3px;">
+          <input type="text" id="spriteUrlInput" placeholder="or paste image URL..." style="font-size:12px; margin-bottom:4px;">
+          <button type="button" onclick="spawnSharedSprite()" style="width:100%;">Spawn Sprite</button>
+          <span class="ctrl-hint">Desktop: hold <strong>RMB</strong> on sprite &amp; flick to throw. Mobile: touch &amp; drag sprite to throw.</span>
+        </div>
+        <div style="margin-bottom:6px;">
+          <button type="button" onclick="spawnSharedFirework()" style="width:100%;">&#127878; Spawn Firework</button>
+          <span class="ctrl-hint">Drag any sprite onto a Firework rocket to launch it!</span>
+          <div style="margin-top:4px; text-align:right;">[<a style="color:#CC0000; font-size:11px;" onclick="clearAllSprites()">Clear Sprites</a>]</div>
         </div>
         <div style="border-top:1px dotted #D9BFB7; padding-top:6px; margin-bottom:6px;">
           <button type="button" id="snowSideBtn" onclick="triggerGlobalSnow()" style="width:100%;">&#10052; Snow for All (1m)</button>
+          <span class="ctrl-hint">Starts falling snow for every visitor for 60s.</span>
         </div>
         <div style="border-top:1px dotted #D9BFB7; padding-top:6px;">
           <div style="font-weight:bold; margin-bottom:3px;">Change Tab Icon (1m):</div>
-          <input type="file" id="tabLogoFileInput" accept="image/*" style="font-size:11px; margin-bottom:3px;">
-          <input type="text" id="tabLogoUrlInput" placeholder="or paste image URL..." style="font-size:11px; margin-bottom:4px;">
+          <input type="file" id="tabLogoFileInput" accept="image/*" style="font-size:12px; margin-bottom:3px;">
+          <input type="text" id="tabLogoUrlInput" placeholder="or paste image URL..." style="font-size:12px; margin-bottom:4px;">
           <button type="button" onclick="triggerGlobalTabLogo()" style="width:100%;">Set Tab Icon (1m)</button>
           <div id="tabLogoTimerLabel" class="muted" style="margin-top:3px;">Default tab icon active</div>
         </div>
@@ -329,25 +346,16 @@ function isFirebaseConfigured() { return CONFIG.firebaseApiKey && CONFIG.firebas
 function isImgbbConfigured() { return CONFIG.imgbbApiKey && CONFIG.imgbbApiKey.indexOf("PASTE_") === -1; }
 
 function setUploadProgress(pct, label) {
-  var box = document.getElementById("uploadProgressBox");
-  var fill = document.getElementById("uploadProgressFill");
-  var lbl = document.getElementById("uploadProgressLabel");
-  var pctEl = document.getElementById("uploadProgressPct");
+  var box = document.getElementById("uploadProgressBox"), fill = document.getElementById("uploadProgressFill"), lbl = document.getElementById("uploadProgressLabel"), pctEl = document.getElementById("uploadProgressPct");
   if (!box) return;
   if (progressHideTimer) { clearTimeout(progressHideTimer); progressHideTimer = null; }
-  if (pct === null || pct === undefined || pct < 0) {
-    box.style.display = "none";
-    if (fill) fill.style.width = "0%";
-    return;
-  }
+  if (pct === null || pct === undefined || pct < 0) { box.style.display = "none"; if (fill) fill.style.width = "0%"; return; }
   var clamped = Math.max(0, Math.min(100, Math.round(pct)));
   box.style.display = "block";
   if (fill) fill.style.width = clamped + "%";
   if (lbl && label) lbl.innerHTML = esc(label);
   if (pctEl) pctEl.innerHTML = clamped + "%";
-  if (clamped >= 100) {
-    progressHideTimer = setTimeout(function() { box.style.display = "none"; }, 1100);
-  }
+  if (clamped >= 100) progressHideTimer = setTimeout(function() { box.style.display = "none"; }, 1100);
 }
 
 function loadSavedPolicy() {
@@ -371,8 +379,7 @@ function saveAndApplyPolicy(reason) {
 
 function updatePolicyDisplay() {
   var el = document.getElementById("adaptivePolicyInfo"), mh = document.getElementById("musicPolicyHint");
-  var imgMb = (SERVICE_POLICY.imgbbMaxBytes / 1048576).toFixed(1);
-  var audKb = Math.round(SERVICE_POLICY.firebaseAudioMaxBytes / 1024);
+  var imgMb = (SERVICE_POLICY.imgbbMaxBytes / 1048576).toFixed(1), audKb = Math.round(SERVICE_POLICY.firebaseAudioMaxBytes / 1024);
   if (el) el.innerHTML = "Active limits: ImgBB " + (SERVICE_POLICY.imgbbOnline ? ("OK (" + imgMb + " MB)") : "Fallback mode") + ", Audio &le; " + audKb + " KB (auto-compressed).";
   if (mh) mh.innerHTML = "(Auto-compressed &le; " + audKb + " KB &amp; posted to /music/)";
 }
@@ -380,12 +387,9 @@ function updatePolicyDisplay() {
 function probeServicePolicies() {
   loadSavedPolicy();
   if (!isImgbbConfigured()) { SERVICE_POLICY.imgbbOnline = false; updatePolicyDisplay(); return; }
-  var testUrl = "https://api.imgbb.com/1/upload?expiration=60&key=" + encodeURIComponent(CONFIG.imgbbApiKey);
-  httpRequest("POST", testUrl, "image=R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", { "Content-Type": "application/x-www-form-urlencoded" }, function(err, res) {
+  httpRequest("POST", "https://api.imgbb.com/1/upload?expiration=60&key=" + encodeURIComponent(CONFIG.imgbbApiKey), "image=R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", { "Content-Type": "application/x-www-form-urlencoded" }, function(err, res) {
     SERVICE_POLICY.imgbbOnline = Boolean(!err && res && res.success);
-    if (!SERVICE_POLICY.imgbbOnline && SERVICE_POLICY.imgbbMaxBytes > SERVICE_POLICY.firebaseInlineImageMaxBytes) {
-      SERVICE_POLICY.imgbbMaxBytes = SERVICE_POLICY.firebaseInlineImageMaxBytes;
-    }
+    if (!SERVICE_POLICY.imgbbOnline && SERVICE_POLICY.imgbbMaxBytes > SERVICE_POLICY.firebaseInlineImageMaxBytes) SERVICE_POLICY.imgbbMaxBytes = SERVICE_POLICY.firebaseInlineImageMaxBytes;
     saveAndApplyPolicy("");
   });
 }
@@ -499,9 +503,7 @@ function httpRequest(method, url, body, headers, cb, onProgress) {
   xhr.open(method, url, true);
   if (headers) for (var k in headers) if (headers.hasOwnProperty(k)) xhr.setRequestHeader(k, headers[k]);
   if (onProgress && xhr.upload) {
-    xhr.upload.onprogress = function(ev) {
-      if (ev && ev.lengthComputable && ev.total > 0) onProgress(Math.round((ev.loaded / ev.total) * 100));
-    };
+    xhr.upload.onprogress = function(ev) { if (ev && ev.lengthComputable && ev.total > 0) onProgress(Math.round((ev.loaded / ev.total) * 100)); };
   }
   xhr.onreadystatechange = function() {
     if (xhr.readyState === 4) {
@@ -693,9 +695,7 @@ function uploadImageToImgbb(fileInput, cb, options) {
           cb(null, cUrl2);
         });
       });
-    }, function(upPct) {
-      setUploadProgress(45 + Math.round(upPct * (keepBar ? 0.40 : 0.55)), "Uploading image to ImgBB...");
-    });
+    }, function(upPct) { setUploadProgress(45 + Math.round(upPct * (keepBar ? 0.40 : 0.55)), "Uploading image to ImgBB..."); });
   }
 
   if (file.size && file.size > maxBytes) {
@@ -713,10 +713,8 @@ function uploadImageToImgbb(fileInput, cb, options) {
    AUTOMATIC AUDIO COMPRESSOR (ADAPTS TO SERVICE SIZE & PROGRESS BAR)
    ========================================================================== */
 function encodeMonoWavBase64(samples, sampleRate, bitsPerSample) {
-  var bytesPerSample = bitsPerSample === 8 ? 1 : 2;
-  var dataSize = samples.length * bytesPerSample;
-  var buf = new ArrayBuffer(44 + dataSize);
-  var v = new DataView(buf);
+  var bytesPerSample = bitsPerSample === 8 ? 1 : 2, dataSize = samples.length * bytesPerSample;
+  var buf = new ArrayBuffer(44 + dataSize), v = new DataView(buf);
   function writeStr(off, s) { for (var i = 0; i < s.length; i++) v.setUint8(off + i, s.charCodeAt(i)); }
   writeStr(0, "RIFF"); v.setUint32(4, 36 + dataSize, true); writeStr(8, "WAVE");
   writeStr(12, "fmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
@@ -754,14 +752,10 @@ function compressAudioToServiceLimit(file, targetBytes, cb) {
     var ctx = new AudioCtx();
     ctx.decodeAudioData(e.target.result, function(audioBuf) {
       setUploadProgress(48, "Encoding compressed audio...");
-      var duration = audioBuf.duration || 1;
-      var maxRawBytes = Math.max(40000, Math.floor(targetBytes * 0.72) - 64);
-      var desiredRate = Math.floor(maxRawBytes / duration);
-      var sampleRate = Math.max(8000, Math.min(22050, desiredRate));
-      var src = audioBuf.getChannelData(0);
-      var step = audioBuf.sampleRate / sampleRate;
-      var outLen = Math.min(maxRawBytes, Math.floor(src.length / step));
-      var down = new Float32Array(outLen);
+      var duration = audioBuf.duration || 1, maxRawBytes = Math.max(40000, Math.floor(targetBytes * 0.72) - 64);
+      var sampleRate = Math.max(8000, Math.min(22050, Math.floor(maxRawBytes / duration)));
+      var src = audioBuf.getChannelData(0), step = audioBuf.sampleRate / sampleRate;
+      var outLen = Math.min(maxRawBytes, Math.floor(src.length / step)), down = new Float32Array(outLen);
       for (var i = 0; i < outLen; i++) down[i] = src[Math.floor(i * step)] || 0;
       if (ctx.close) try { ctx.close(); } catch (ce) {}
       var wavData = encodeMonoWavBase64(down, sampleRate, 8);
@@ -822,9 +816,9 @@ function renderStickerPickerWidget(ctx) {
   keys.sort(function(a, b) { return (state.stickers[b].createdAt || 0) - (state.stickers[a].createdAt || 0); });
   var cur = state.selectedStickers[ctx] || "", open = !!state.openStickerPickers[ctx];
   var h = '<div id="stPreview_' + esc(ctx) + '">' + (cur ? '<img class="sticker-inline" src="' + esc(cur) + '"> <a style="font-size:11px; color:#CC0000;" onclick="clearSelectedSticker(\'' + esc(ctx) + '\')">[Remove]</a>' : '') + '</div>' +
-          '<button type="button" onclick="toggleStickerPicker(\'' + esc(ctx) + '\')">+ Pick Sticker (' + keys.length + ')</button> <a style="font-size:11px;" onclick="switchView(\'stickers\')">[Upload Sticker]</a>' +
+          '<button type="button" onclick="toggleStickerPicker(\'' + esc(ctx) + '\')">+ Pick Sticker (' + keys.length + ')</button> <a style="font-size:11px;" onclick="switchView(\'stickers\')">[Upload New Sticker]</a>' +
           '<div id="stBar_' + esc(ctx) + '" class="sticker-picker-bar" style="display:' + (open ? 'block' : 'none') + ';">';
-  if (!keys.length) h += '<span class="muted">No stickers yet.</span>';
+  if (!keys.length) h += '<span class="muted">No stickers yet. Click [Upload New Sticker] to add one!</span>';
   else for (var i = 0; i < keys.length; i++) { var st = state.stickers[keys[i]]; h += '<span class="sticker-pick-btn" onclick="selectStickerForContext(\'' + esc(ctx) + '\', \'' + esc(st.id) + '\')" title="' + esc(st.name) + '"><img src="' + esc(st.url) + '"></span>'; }
   return h + '</div>';
 }
@@ -970,21 +964,16 @@ function rebuildMusicPlaylist() {
   if (activeId) {
     for (var j = 0; j < all.length; j++) {
       if (all[j].id === activeId) {
-        musicState.currentIndex = j;
-        musicState.currentPlayingId = activeId;
-        if (sel) sel.value = String(j);
-        if (te) te.innerHTML = esc(all[j].title);
+        musicState.currentIndex = j; musicState.currentPlayingId = activeId;
+        if (sel) sel.value = String(j); if (te) te.innerHTML = esc(all[j].title);
         return;
       }
     }
   }
   if (all.length && (musicState.currentIndex < 0 || musicState.currentIndex >= all.length)) {
-    musicState.currentIndex = 0;
-    musicState.currentPlayingId = all[0].id;
+    musicState.currentIndex = 0; musicState.currentPlayingId = all[0].id;
     var au = document.getElementById("audioPlayer");
-    if (te) te.innerHTML = esc(all[0].title);
-    if (au && !au.src) au.src = all[0].src;
-    if (sel) sel.value = "0";
+    if (te) te.innerHTML = esc(all[0].title); if (au && !au.src) au.src = all[0].src; if (sel) sel.value = "0";
   }
 }
 
@@ -993,8 +982,7 @@ function musicSelectTrack(iStr) {
   musicState.currentIndex = i;
   var tr = musicState.allTracks[i], au = document.getElementById("audioPlayer"), te = document.getElementById("musicTrackTitle"), sel = document.getElementById("musicSelect");
   musicState.currentPlayingId = tr.id;
-  if (te) te.innerHTML = esc(tr.title);
-  if (sel) sel.value = String(i);
+  if (te) te.innerHTML = esc(tr.title); if (sel) sel.value = String(i);
   if (au) { au.src = tr.src; au.play(); }
 }
 function musicTogglePlay() { var a = document.getElementById("audioPlayer"); if (!a || !musicState.allTracks.length) return; if (musicState.currentIndex < 0) { musicSelectTrack(0); return; } if (a.paused) { if (!a.src) a.src = musicState.allTracks[musicState.currentIndex].src; a.play(); } else a.pause(); }
@@ -1005,9 +993,7 @@ function removeTempLocalTrack(tempId) {
   for (var i = musicState.localTracks.length - 1; i >= 0; i--) {
     if (musicState.localTracks[i].id === tempId) {
       var u = window.URL || window.webkitURL;
-      if (u && u.revokeObjectURL && musicState.localTracks[i].blobUrl) {
-        try { u.revokeObjectURL(musicState.localTracks[i].blobUrl); } catch (e) {}
-      }
+      if (u && u.revokeObjectURL && musicState.localTracks[i].blobUrl) { try { u.revokeObjectURL(musicState.localTracks[i].blobUrl); } catch (e) {} }
       musicState.localTracks.splice(i, 1);
     }
   }
@@ -1022,32 +1008,23 @@ function handleMusicFileUpload(inp) {
     if (blobUrl) {
       var guestId = "loc_" + generateId();
       musicState.localTracks.unshift({ id: guestId, title: "[Local] " + f.name, src: blobUrl, blobUrl: blobUrl, createdAt: new Date().getTime() });
-      rebuildMusicPlaylist();
-      musicSelectTrack(0);
+      rebuildMusicPlaylist(); musicSelectTrack(0);
       setUploadProgress(100, "Loaded local track (log in to upload to /music/)");
     }
     return;
   }
 
-  var tid = generateId();
-  var tempId = "uploading_" + tid;
-  var authorDisplay = state.profile.nickname || state.user.username;
-  var cloudTrackId = "t_" + tid;
-  var cloudTitle = f.name + " (" + authorDisplay + ")";
+  var tid = generateId(), tempId = "uploading_" + tid, authorDisplay = state.profile.nickname || state.user.username;
+  var cloudTrackId = "t_" + tid, cloudTitle = f.name + " (" + authorDisplay + ")";
 
   if (blobUrl) {
     musicState.localTracks.unshift({ id: tempId, title: cloudTitle, src: blobUrl, blobUrl: blobUrl, createdAt: new Date().getTime() });
-    rebuildMusicPlaylist();
-    musicSelectTrack(0);
+    rebuildMusicPlaylist(); musicSelectTrack(0);
   }
 
   function publishCompressedAudio(limitBytes) {
     compressAudioToServiceLimit(f, limitBytes, function(cErr, dataUrl) {
-      if (cErr || !dataUrl || dataUrl.indexOf("data:audio/") !== 0) {
-        setUploadProgress(-1);
-        if (cErr) showStatus(cErr, true);
-        return;
-      }
+      if (cErr || !dataUrl || dataUrl.indexOf("data:audio/") !== 0) { setUploadProgress(-1); if (cErr) showStatus(cErr, true); return; }
       var now = new Date().getTime();
       var threadObj = { id: tid, board: "music", subject: f.name, text: "Audio: " + f.name, audioData: dataUrl, audioName: f.name, uid: state.user.uid, authorName: authorDisplay, createdAt: now, bumpedAt: now };
       dbWrite("PUT", "threads/" + tid, threadObj, function(wErr) {
@@ -1057,14 +1034,8 @@ function handleMusicFileUpload(inp) {
           publishCompressedAudio(SERVICE_POLICY.firebaseAudioMaxBytes);
           return;
         }
-        if (wErr) {
-          setUploadProgress(-1);
-          showStatus(formatDbError(wErr, "Audio upload failed."), true);
-          return;
-        }
+        if (wErr) { setUploadProgress(-1); showStatus(formatDbError(wErr, "Audio upload failed."), true); return; }
 
-        // Remove temporary local track so there is ZERO [Local] entry and ZERO duplication,
-        // and seamlessly continue playback on the uploaded cloud track!
         var au = document.getElementById("audioPlayer");
         var wasPlayingTemp = Boolean(au && musicState.currentPlayingId === tempId);
         var savedTime = (wasPlayingTemp && au.currentTime) ? au.currentTime : 0;
@@ -1080,13 +1051,10 @@ function handleMusicFileUpload(inp) {
             if (musicState.allTracks[k].id === cloudTrackId) {
               musicState.currentIndex = k;
               var sel = document.getElementById("musicSelect"), te = document.getElementById("musicTrackTitle");
-              if (sel) sel.value = String(k);
-              if (te) te.innerHTML = esc(cloudTitle);
+              if (sel) sel.value = String(k); if (te) te.innerHTML = esc(cloudTitle);
               au.onloadedmetadata = function() {
                 au.onloadedmetadata = null;
-                if (savedTime > 0 && au.duration && savedTime < au.duration) {
-                  try { au.currentTime = savedTime; } catch (teErr) {}
-                }
+                if (savedTime > 0 && au.duration && savedTime < au.duration) { try { au.currentTime = savedTime; } catch (teErr) {} }
                 if (shouldResume) au.play();
               };
               au.src = dataUrl;
@@ -1094,13 +1062,10 @@ function handleMusicFileUpload(inp) {
             }
           }
         }
-
         setUploadProgress(100, "Audio uploaded to /music/!");
         showStatus("Audio uploaded to /music/!", false);
         refreshAllData(renderAll);
-      }, function(upPct) {
-        setUploadProgress(55 + Math.round(upPct * 0.43), "Uploading audio to /music/...");
-      });
+      }, function(upPct) { setUploadProgress(55 + Math.round(upPct * 0.43), "Uploading audio to /music/..."); });
     });
   }
   publishCompressedAudio(SERVICE_POLICY.firebaseAudioMaxBytes);
@@ -1108,7 +1073,7 @@ function handleMusicFileUpload(inp) {
 
 /* ==========================================================================
    OPTIMIZED REALTIME CURSORS (NO SELF-CURSOR BUG, MOBILE, SCROLL-AWARE),
-   LIVE CURSOR CHAT, SPRITES & FIREWORKS
+   NON-OVERLAPPING LIVE CURSOR CHAT, SPRITES & FIREWORKS
    ========================================================================== */
 function getViewportSize() { return { w: window.innerWidth || document.documentElement.clientWidth || 800, h: window.innerHeight || document.documentElement.clientHeight || 600 }; }
 function getScrollOffset() { return { x: window.pageXOffset || document.documentElement.scrollLeft || 0, y: window.pageYOffset || document.documentElement.scrollTop || 0 }; }
@@ -1116,11 +1081,21 @@ function getWrapRect() { var w = document.getElementById("pageWrap"); if (!w) { 
 function isTypingField() { var e = document.activeElement; return e && /^(INPUT|TEXTAREA|SELECT)$/i.test(e.tagName || ""); }
 
 function updateLocalChatBox() {
-  var box = document.getElementById("localCursorChatBox"), prev = document.getElementById("localCursorBubblePreview"), now = new Date().getTime(), cx = worldState.lastMouseX, cy = worldState.lastMouseY;
-  if (box) { box.style.display = worldState.cursorChatOpen ? "block" : "none"; if (worldState.cursorChatOpen) { box.style.left = Math.max(8, cx + 10) + "px"; box.style.top = Math.max(8, cy - 58) + "px"; } }
+  var box = document.getElementById("localCursorChatBox"), prev = document.getElementById("localCursorBubblePreview"), now = new Date().getTime(), cx = worldState.lastMouseX, cy = worldState.lastMouseY, vp = getViewportSize();
+  if (box) {
+    box.style.display = worldState.cursorChatOpen ? "block" : "none";
+    if (worldState.cursorChatOpen) {
+      box.style.left = Math.max(8, Math.min(vp.w - 310, cx + 10)) + "px";
+      box.style.bottom = Math.max(8, Math.min(vp.h - 75, vp.h - cy + 14)) + "px";
+    }
+  }
   if (prev) {
-    if (!worldState.cursorChatOpen && worldState.localChatText && worldState.localChatExpiresAt > now) { prev.style.display = "block"; prev.style.left = Math.max(8, cx + 10) + "px"; prev.style.top = Math.max(8, cy - 34) + "px"; prev.innerHTML = esc(worldState.localChatText); }
-    else prev.style.display = "none";
+    if (!worldState.cursorChatOpen && worldState.localChatText && worldState.localChatExpiresAt > now) {
+      prev.style.display = "block";
+      prev.style.left = Math.max(8, Math.min(vp.w - 220, cx + 10)) + "px";
+      prev.style.bottom = Math.max(8, Math.min(vp.h - 45, vp.h - cy + 12)) + "px";
+      prev.innerHTML = esc(worldState.localChatText);
+    } else prev.style.display = "none";
   }
 }
 
@@ -1171,7 +1146,7 @@ function handlePointerRelease() {
   var sp = worldState.sprites[worldState.grabbedSpriteId], mode = worldState.grabMode;
   worldState.grabbedSpriteId = null; worldState.grabMode = ""; if (!sp) return;
   for (var fid in worldState.fireworks) {
-    if (worldState.fireworks.hasOwnProperty(fid) && worldState.fireworks[fid] && !worldState.fireworks[fid].exploded && Math.abs(sp.x - worldState.fireworks[fid].x) < 65 && Math.abs(sp.y - worldState.fireworks[fid].y) < 75) {
+    if (worldState.fireworks.hasOwnProperty(fid) && worldState.fireworks[fid] && !worldState.fireworks[fid].exploded && Math.abs(sp.x - worldState.fireworks[fid].x) < 75 && Math.abs(sp.y - worldState.fireworks[fid].y) < 85) {
       var fw = worldState.fireworks[fid]; sp.attachedFireworkId = fid; sp.x = fw.x; sp.y = fw.y - 18; sp.vx = 0; sp.vy = 0; sp.updatedAt = new Date().getTime();
       dbWrite("PUT", "realtime/sprites/" + sp.id, sp, null);
       if (!fw.launched) { fw.launched = true; fw.launchAt = sp.updatedAt; fw.updatedAt = sp.updatedAt; dbWrite("PUT", "realtime/fireworks/" + fid, fw, null); }
@@ -1280,13 +1255,14 @@ function renderRemoteCursors() {
     var hasChat = cur.chatText && cur.chatUpdatedAt && (now - cur.chatUpdatedAt) < 12000, node = worldState.cursorNodes[cid];
     if (!node) {
       node = document.createElement("div"); node.className = "remote-cursor";
-      node.innerHTML = '<div class="cursor-chat-bubble" style="display:none;"></div><div class="remote-cursor-label"></div><svg width="16" height="20" viewBox="0 0 16 20"><polygon points="0,0 0,16 4,12 8,19 10,18 6,11 12,11" fill="#AF0A0F" stroke="#FFFFEE" stroke-width="1"/></svg>';
+      node.innerHTML = '<div class="remote-cursor-header"><div class="cursor-chat-bubble" style="display:none;"></div><div class="remote-cursor-label"></div></div><svg width="16" height="20" viewBox="0 0 16 20" style="display:block;"><polygon points="0,0 0,16 4,12 8,19 10,18 6,11 12,11" fill="#AF0A0F" stroke="#FFFFEE" stroke-width="1"/></svg>';
       layer.appendChild(node); worldState.cursorNodes[cid] = node;
     }
+    var hdr = node.firstChild, bubbleEl = hdr.childNodes[0], labelEl = hdr.childNodes[1];
     node.style.transform = "translate3d(" + sx + "px," + sy + "px,0)";
-    if (node.childNodes[1].textContent !== (cur.name || "User")) node.childNodes[1].textContent = cur.name || "User";
-    node.childNodes[0].style.display = hasChat ? "block" : "none";
-    if (hasChat && node.childNodes[0].textContent !== cur.chatText) node.childNodes[0].textContent = cur.chatText;
+    if (labelEl.textContent !== (cur.name || "User")) labelEl.textContent = cur.name || "User";
+    bubbleEl.style.display = hasChat ? "block" : "none";
+    if (hasChat && bubbleEl.textContent !== cur.chatText) bubbleEl.textContent = cur.chatText;
   }
   for (var old in worldState.cursorNodes) if (worldState.cursorNodes.hasOwnProperty(old) && !act[old]) { if (worldState.cursorNodes[old].parentNode) worldState.cursorNodes[old].parentNode.removeChild(worldState.cursorNodes[old]); delete worldState.cursorNodes[old]; }
 }
@@ -1314,7 +1290,7 @@ function syncRealtimeWorld() {
 }
 
 /* ==========================================================================
-   DATA REFRESH & POST / WALL / POLL / PROFILE ACTIONS (WITH PROGRESS)
+   DATA REFRESH & POST / WALL / POLL / PROFILE ACTIONS
    ========================================================================== */
 function refreshAllData(cb) {
   dbGet("boards", function(eB, cB) {
@@ -1500,11 +1476,11 @@ function openPublicProfile(uid) { if (uid) switchView("public_profile", uid); }
 
 function renderChrome() {
   var tCnt = 0; for (var t in state.threads) if (state.threads.hasOwnProperty(t) && state.threads[t]) tCnt++;
-  var l = '[<a onclick="switchView(\'board\',state.currentBoard)">Boards</a>] [<a onclick="switchView(\'groups\')">Groups</a>] [<a onclick="switchView(\'dms\')">DMs</a>] [<a onclick="switchView(\'stickers\')">Stickers</a>] [<a onclick="switchView(\'members\')">Members</a>] [<a onclick="switchView(\'polls\')">Polls</a>] <span class="muted">&bull; Threads: ' + tCnt + '</span>';
-  var r = state.user ? ('User: <strong>' + esc(state.profile.nickname || state.user.username) + '</strong>' + (state.user.isAdmin ? ' <span class="admin-badge">ADMIN</span>' : '') + ' [<a onclick="openPublicProfile(\'' + esc(state.user.uid) + '\')">My Wall</a>] [<a onclick="switchView(\'profile\')">Edit Profile</a>] [<a onclick="logoutUser()">Logout</a>]') : '[<a onclick="switchView(\'auth\')">Login / Register</a>]';
+  var l = '<span class="nav-pill">[<a onclick="switchView(\'board\',state.currentBoard)">Boards</a>]</span><span class="nav-pill">[<a onclick="switchView(\'groups\')">Groups</a>]</span><span class="nav-pill">[<a onclick="switchView(\'dms\')">DMs</a>]</span><span class="nav-pill">[<a onclick="switchView(\'stickers\')">Stickers</a>]</span><span class="nav-pill">[<a onclick="switchView(\'members\')">Members</a>]</span><span class="nav-pill">[<a onclick="switchView(\'polls\')">Polls</a>]</span><span class="nav-pill">[<a onclick="openCursorChat()">Cursor Chat</a>]</span> <span class="muted">&bull; Threads: ' + tCnt + '</span>';
+  var r = state.user ? ('User: <strong>' + esc(state.profile.nickname || state.user.username) + '</strong>' + (state.user.isAdmin ? ' <span class="admin-badge">ADMIN</span>' : '') + ' <span class="nav-pill">[<a onclick="openPublicProfile(\'' + esc(state.user.uid) + '\')">My Wall</a>]</span><span class="nav-pill">[<a onclick="switchView(\'profile\')">Edit Profile</a>]</span><span class="nav-pill">[<a onclick="logoutUser()">Logout</a>]</span>') : '<span class="nav-pill">[<a onclick="switchView(\'auth\')">Login / Register</a>]</span>';
   document.getElementById("topInfoBar").innerHTML = '<div class="top-bar-left">' + l + '</div><div class="top-bar-right">' + r + '</div>';
 
-  var logo = '<a class="logo-link" href="' + esc(CONFIG.mainLogoRedirectUrl) + '">' + (isValidImageSrc(state.siteLogo) ? '<img class="site-logo-img" src="' + esc(state.siteLogo) + '">' : '<div class="default-logo">&#9752; FEMBOORU</div>') + '</a><div class="muted">Ukraine &amp; Pridnestrovie</div>';
+  var logo = '<a class="logo-link" href="' + esc(CONFIG.mainLogoRedirectUrl) + '" title="Go to Main Page">' + (isValidImageSrc(state.siteLogo) ? '<img class="site-logo-img" src="' + esc(state.siteLogo) + '">' : '<div class="default-logo">&#9752; FEMBOORU</div>') + '</a><div class="muted">Ukraine &amp; Pridnestrovie &bull; Tap logo for Home</div>';
   if (state.user && state.user.isAdmin) logo += '<div style="margin-top:8px; border-top:1px dotted #D9BFB7; padding-top:6px; text-align:left;"><strong style="font-size:11px;">Admin Logo:</strong><input type="file" id="sideAdminLogoFile" accept="image/*" style="font-size:11px; margin:4px 0;"><button type="button" onclick="uploadAdminSiteLogo(\'sideAdminLogoFile\')" style="width:100%;">Upload Logo</button>' + (isValidImageSrc(state.siteLogo) ? '<div style="margin-top:4px; text-align:center;"><a style="font-size:11px; color:#CC0000;" onclick="removeAdminSiteLogo()">Reset Default</a></div>' : '') + '</div>';
   document.getElementById("leftLogoBox").innerHTML = logo;
 
@@ -1551,13 +1527,13 @@ function renderThreadBlock(t, single) {
   if (t.videoUrl) h += renderVideoHtml(t.videoUrl);
   h += '<div class="post-actions"></div>';
   var start = single ? 0 : Math.max(0, cList.length - 3);
-  if (!single && start > 0) h += '<div class="muted" style="margin-left:24px;">' + start + ' earlier replies omitted. <a onclick="switchView(\'thread\',\'' + esc(t.id) + '\')">View all</a>.</div>';
+  if (!single && start > 0) h += '<div class="muted" style="margin-left:20px;">' + start + ' earlier replies omitted. <a onclick="switchView(\'thread\',\'' + esc(t.id) + '\')">View all</a>.</div>';
   for (var k = start; k < cList.length; k++) h += renderCommentBlock(t.id, cList[k]);
   return h + '</div>';
 }
 
 function renderCommentBlock(tid, c) {
-  if (isUserBlockedByMe(c.uid)) return '<div class="blocked-notice" style="margin-left:24px;">Reply hidden.</div>';
+  if (isUserBlockedByMe(c.uid)) return '<div class="blocked-notice" style="margin-left:20px;">Reply hidden.</div>';
   var liked = state.user && c.likes && c.likes[state.user.uid], del = state.user && (state.user.uid === c.uid || state.user.isAdmin), av = (c.uid && state.users[c.uid] && state.users[c.uid].avatarUrl) || c.authorAvatar;
   var h = '<div class="reply-box"><div class="post-header">' + (isValidImageSrc(av) ? '<a onclick="openPublicProfile(\'' + esc(c.uid || "") + '\')"><img class="avatar-thumb" src="' + esc(av) + '"></a>' : '') + renderAuthorLink(c.uid, c.authorName) + (c.isAdminPost ? '<span class="admin-badge">ADMIN</span>' : '') + ' <span class="muted">' + formatTime(c.createdAt) + '</span> [<a onclick="toggleCommentLike(\'' + esc(tid) + '\',\'' + esc(c.id) + '\')">' + (liked ? 'Unlike' : 'Like') + ' (' + countLikes(c.likes) + ')</a>]' + (state.user ? ' [<a onclick="repostToMyWall(\'comment\',\'' + esc(c.id) + '\',\'' + esc(tid) + '\')">Repost</a>]' : '') + (del ? ' [<a style="color:#CC0000;" onclick="deleteComment(\'' + esc(tid) + '\',\'' + esc(c.id) + '\')">Delete</a>]' : '') + '</div>';
   if (c.stickerUrl && isValidImageSrc(c.stickerUrl)) h += '<div><img class="sticker-inline" src="' + esc(c.stickerUrl) + '"></div>';
