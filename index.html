@@ -1,10 +1,181 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>My First Page</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fembooru &mdash; UA / PMR Imageboard</title>
+<link id="siteFavicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23EEAA88'/%3E%3Ctext x='16' y='23' font-size='20' font-weight='bold' text-anchor='middle' fill='%23800000'%3E%E2%98%98%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>САЙТ ПЕРЕДЕЛЫВАЕТСЯ С НУЛЯ</h1>
+
+<canvas id="snowCanvas" class="snow-canvas"></canvas>
+<canvas id="fxCanvas" class="fx-canvas"></canvas>
+<div id="playgroundLayer" class="playground-layer"></div>
+<div id="actorsLayer" class="playground-layer"></div>
+<div id="cursorsLayer" class="playground-layer"></div>
+<div id="localCursorBubblePreview" class="local-cursor-bubble-preview"></div>
+
+<div id="localCursorChatBox" class="local-cursor-chat">
+  <div class="cursor-chat-title">Live Cursor Chat:</div>
+  <input type="text" id="cursorChatInput" maxlength="90" placeholder="Type message above cursor...">
+  <button type="button" onclick="closeCursorChat(true)">Post</button>
+  <button type="button" class="btn-danger" onclick="closeCursorChat(false)">Close</button>
+</div>
+
+<div id="qPropModal" class="q-prop-modal">
+  <div class="q-prop-head">
+    <span>&#128230; Sandbox Prop Spawner (Random Internet Images)</span>
+    <button type="button" class="btn-danger q-close-btn" onclick="togglePropMenu(false)">X</button>
+  </div>
+  <div class="q-prop-toolbar">
+    <button type="button" onclick="rerollRandomProps()">&#127922; Reroll Random Props</button>
+    <span class="muted">Tap any image to spawn a physical prop on the page.</span>
+  </div>
+  <div id="qPropGrid" class="q-prop-grid"></div>
+  <div class="q-prop-custom">
+    <strong>Custom Prop / Sprite:</strong>
+    <input type="file" id="spriteFileInput" accept="image/*">
+    <input type="text" id="spriteUrlInput" placeholder="or paste image/GIF URL..." class="q-url-input">
+    <button type="button" onclick="spawnSharedSprite()">Spawn</button>
+  </div>
+</div>
+
+<div id="mobileDpad" class="mobile-dpad">
+  <button type="button" ontouchstart="setVirtualKey('left',true)" ontouchend="setVirtualKey('left',false)" onmousedown="setVirtualKey('left',true)" onmouseup="setVirtualKey('left',false)">&larr;</button>
+  <button type="button" ontouchstart="setVirtualKey('jump',true)" ontouchend="setVirtualKey('jump',false)" onmousedown="setVirtualKey('jump',true)" onmouseup="setVirtualKey('jump',false)">Jump</button>
+  <button type="button" ontouchstart="setVirtualKey('right',true)" ontouchend="setVirtualKey('right',false)" onmousedown="setVirtualKey('right',true)" onmouseup="setVirtualKey('right',false)">&rarr;</button>
+  <button type="button" onclick="useActiveHl2Tool()">Fire Tool</button>
+</div>
+
+<div class="page-wrap" id="pageWrap">
+  <div class="top-bar" id="topInfoBar"></div>
+
+  <div class="layout-table">
+    <div class="left-sidebar">
+      <div class="side-box logo-box" id="leftLogoBox"></div>
+
+      <div class="side-box">
+        <h4>Boards</h4>
+        <ul class="board-list" id="leftBoardsList"></ul>
+      </div>
+
+      <div class="side-box">
+        <h4>Community &amp; Social</h4>
+        <div id="leftAccountLinks"></div>
+      </div>
+
+      <div class="side-box">
+        <h4>Sandbox, HL2 Tools &amp; Player</h4>
+        <div class="side-group">
+          <button type="button" onclick="togglePropMenu()" class="btn-full">&#128230; Prop Menu [Q]</button>
+          <span class="ctrl-hint">Press <strong>Q</strong> or tap to spawn random internet props.</span>
+        </div>
+
+        <div class="side-group">
+          <div class="side-label">HL2 Tools (Keys 1&ndash;5):</div>
+          <button type="button" id="toolBtn_physgun" onclick="selectHl2Tool('physgun')">1:Physgun</button>
+          <button type="button" id="toolBtn_gravgun" onclick="selectHl2Tool('gravgun')">2:GravGun</button>
+          <button type="button" id="toolBtn_crowbar" onclick="selectHl2Tool('crowbar')">3:Crowbar</button>
+          <button type="button" id="toolBtn_pistol" onclick="selectHl2Tool('pistol')">4:Pistol</button>
+          <button type="button" id="toolBtn_remover" onclick="selectHl2Tool('remover')">5:Remover</button>
+          <button type="button" onclick="rotateHeldProp()">&#8635; Spin [R]</button>
+          <span class="ctrl-hint" id="toolHelpText">Physgun: Hold RMB/touch &amp; flick props; [R] spins held prop.</span>
+        </div>
+
+        <div class="side-group side-sep">
+          <button type="button" id="actorToggleBtn" onclick="togglePlayableActor()" class="btn-full">&#127939; Spawn Player Model</button>
+          <span class="ctrl-hint">Walk &amp; jump on thread blocks with <strong>WASD</strong> / <strong>Arrows</strong>! <a onclick="toggleMobileDpad()">[Touch Pad]</a></span>
+        </div>
+
+        <div class="side-group side-sep">
+          <button type="button" onclick="spawnSharedFirework()" class="btn-half">&#127878; Firework</button>
+          <button type="button" onclick="openCursorChat()" class="btn-half">&#128172; Chat [/]</button>
+          <span class="ctrl-hint">Drag sprites onto a Firework to launch! Press <strong>Shift</strong> or <strong>/</strong> for cursor chat.</span>
+          <div class="side-right-link">[<a class="link-danger" onclick="clearAllSprites()">Clear Props</a>]</div>
+        </div>
+
+        <div class="side-sep">
+          <button type="button" id="snowSideBtn" onclick="triggerGlobalSnow()" class="btn-full">&#10052; Snow for All (1m)</button>
+          <div class="side-label side-mt">Change Tab Icon (1m):</div>
+          <input type="file" id="tabLogoFileInput" accept="image/*" class="input-compact">
+          <input type="text" id="tabLogoUrlInput" placeholder="or paste image URL..." class="input-compact">
+          <button type="button" onclick="triggerGlobalTabLogo()" class="btn-full">Set Tab Icon (1m)</button>
+          <div id="tabLogoTimerLabel" class="muted">Default tab icon active</div>
+        </div>
+      </div>
+
+      <div class="side-box">
+        <h4>About &amp; Adaptive Policy</h4>
+        <div class="muted">
+          Oriented toward people from <strong>Ukraine</strong> &amp; <strong>Pridnestrovie</strong>.<br>
+          Default language: <strong>English</strong>.<br><br>
+          <span id="adaptivePolicyInfo">Checking service limits...</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="center-main">
+      <div class="header-box">
+        <h1 class="site-title">Fembooru &mdash; UA / PMR Imageboard</h1>
+        <div class="site-subtitle">Community Imageboard Oriented Toward Ukraine &amp; Pridnestrovie &bull; English Default Interface</div>
+      </div>
+
+      <div id="statusBox" class="status-msg"></div>
+
+      <div id="uploadProgressBox" class="upload-progress-box">
+        <div class="upload-progress-top">
+          <span id="uploadProgressLabel" class="prog-left">Uploading...</span>
+          <span id="uploadProgressPct" class="prog-right">0%</span>
+        </div>
+        <div class="upload-progress-track">
+          <div id="uploadProgressFill" class="upload-progress-fill"></div>
+        </div>
+      </div>
+
+      <div id="musicWidget" class="music-widget">
+        <div class="music-widget-head">
+          <span class="music-disc">&#9835;</span>
+          <span>Radio &amp; /music/ Board Player</span>
+          <span class="eq-bars">
+            <span class="eq-bar eq-bar-1"></span>
+            <span class="eq-bar eq-bar-2"></span>
+            <span class="eq-bar eq-bar-3"></span>
+            <span class="eq-bar eq-bar-4"></span>
+          </span>
+          <span class="music-count" id="musicCountLabel">0 tracks</span>
+        </div>
+        <div class="music-now-playing">
+          <span id="musicTrackTitle" class="music-marquee">No track selected &mdash; upload audio or post on /music/</span>
+        </div>
+        <div>
+          <button type="button" onclick="musicPrev()">&laquo; Prev</button>
+          <button type="button" id="musicPlayBtn" onclick="musicTogglePlay()">Play</button>
+          <button type="button" onclick="musicNext()">Next &raquo;</button>
+          <select id="musicSelect" onchange="musicSelectTrack(this.value)" class="music-select">
+            <option value="-1">-- Playlist --</option>
+          </select>
+          <audio id="audioPlayer" controls preload="none"></audio>
+        </div>
+        <div class="music-upload-row">
+          <strong>Upload Audio:</strong>
+          <input type="file" id="musicFileInput" accept="audio/*" onchange="handleMusicFileUpload(this)" class="input-auto">
+          <span class="muted" id="musicPolicyHint">(Auto-compressed to fit service limit &amp; posted to /music/)</span>
+        </div>
+      </div>
+
+      <div id="mainContent"></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Fembooru Static Imageboard &bull; Site Commit Version: <strong><span id="siteVersionNum">...</span></strong> (<a href="https://github.com/parmanoidd/fembooru" target="_blank" rel="noopener">parmanoidd/fembooru</a>) &bull; Firebase &amp; ImgBB &bull; SeaMonkey &amp; Goanna Compatible
+  </div>
+</div>
+
+<script src="core.js"></script>
+<script src="social.js"></script>
+<script src="sandbox.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
