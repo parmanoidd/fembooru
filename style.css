@@ -1,5 +1,5 @@
 /* ==========================================================================
-   FEMBOORU CLASSIC ORANGE IMAGEBOARD THEME (SEAMONKEY / GOANNA / MOBILE SAFE)
+   FEMBOORU IMAGEBOARD STYLESHEET (SEAMONKEY / GOANNA / MODERN / MOBILE)
    ========================================================================== */
 * {
   box-sizing: border-box;
@@ -99,7 +99,7 @@ button.btn-danger {
 }
 
 /* ==========================================================================
-   CENTERED PAGE WRAPPER & TWO-COLUMN LAYOUT
+   CENTERED WRAPPER & TWO-COLUMN LAYOUT
    ========================================================================== */
 .page-wrap {
   max-width: 1180px;
@@ -141,13 +141,16 @@ button.btn-danger {
   font-weight: bold;
 }
 
-.auth-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
+.role-badge {
+  background: #800000;
+  color: #FFFFEE;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-weight: bold;
+  margin-left: 4px;
 }
 
+.auth-bar,
 #loggedOutControls,
 #loggedInControls {
   display: flex;
@@ -165,7 +168,7 @@ button.btn-danger {
 
 .progress-track {
   width: 100%;
-  height: 12px;
+  height: 11px;
   background: #F0E0D6;
   border: 1px solid #D9BFB7;
 }
@@ -174,12 +177,6 @@ button.btn-danger {
   width: 0%;
   height: 100%;
   background: #EEAA88;
-}
-
-.progress-label {
-  display: block;
-  font-size: 11px;
-  margin-top: 2px;
 }
 
 .status-banner {
@@ -207,7 +204,7 @@ button.btn-danger {
 }
 
 /* ==========================================================================
-   BOXES, SIDEBAR WIDGETS & MUSIC ANIMATION
+   SIDEBAR BOXES & MUSIC PLAYER EQUALIZER ANIMATION
    ========================================================================== */
 .side-box,
 .box-panel {
@@ -285,7 +282,6 @@ button.btn-danger {
   margin: 4px 0;
 }
 
-/* Subtle Equalizer Animation in Music Widget */
 .eq-bars {
   display: inline-flex;
   align-items: flex-end;
@@ -301,7 +297,7 @@ button.btn-danger {
 }
 
 .music-widget.is-playing .eq-bars i {
-  animation: eqPulse 0.7s infinite alternate;
+  animation: eqPulse 0.65s infinite alternate;
 }
 
 .music-widget.is-playing .eq-bars i:nth-child(2) {
@@ -358,7 +354,7 @@ button.btn-danger {
 }
 
 /* ==========================================================================
-   IMAGEBOARD THREADS, POSTS, COMMENTS & MEDIA
+   THREADS, WALL POSTS, COMMENTS & MEDIA
    ========================================================================== */
 .board-banner h1 {
   margin: 0;
@@ -444,13 +440,6 @@ button.btn-danger {
   margin: 6px 0;
 }
 
-.post-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-top: 6px;
-}
-
 .comments-box {
   margin-top: 8px;
   padding-left: 10px;
@@ -472,7 +461,7 @@ button.btn-danger {
 }
 
 /* ==========================================================================
-   PROFILE PAGE, DISCORD FAVORITE CARDS & MEMBERS DIRECTORY
+   PROFILES, DISCORD-STYLE FAVORITE CARDS & MEMBERS DIRECTORY
    ========================================================================== */
 .prof-status-bubble {
   background: #FFFFEE;
@@ -559,7 +548,6 @@ button.btn-danger {
   font-size: 11px;
 }
 
-/* Discord-Style Favorite Cards */
 .fav-card-grid {
   display: flex;
   flex-wrap: wrap;
@@ -667,14 +655,16 @@ button.btn-danger {
   margin-bottom: 4px;
 }
 
-.sticker-grid {
+.sticker-grid,
+.prop-grid {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   margin-top: 8px;
 }
 
-.sticker-card {
+.sticker-card,
+.q-prop-card {
   width: 96px;
   background: #FFFFEE;
   border: 1px solid #D9BFB7;
@@ -683,15 +673,23 @@ button.btn-danger {
   cursor: pointer;
 }
 
-.sticker-card img {
-  width: 76px;
-  height: 76px;
+.sticker-card:hover,
+.q-prop-card:hover {
+  border-color: #800000;
+  background: #EEAA88;
+}
+
+.sticker-card img,
+.q-prop-card img {
+  width: 78px;
+  height: 78px;
   object-fit: contain;
   display: block;
   margin: 0 auto 3px auto;
 }
 
-.sticker-card span {
+.sticker-card span,
+.q-prop-card span {
   display: block;
   font-size: 10px;
   overflow: hidden;
@@ -706,7 +704,7 @@ button.btn-danger {
 }
 
 /* ==========================================================================
-   wPLACE PIXEL CANVAS & RECENT CHANGES OVERLAY
+   wPLACE OPENSTREETMAP PIXEL CANVAS & TOP-RIGHT RECENT CHANGES
    ========================================================================== */
 .wplace-toolbar {
   display: flex;
@@ -736,7 +734,7 @@ button.btn-danger {
 .wplace-stage {
   position: relative;
   border: 1px solid #800000;
-  background: #FFFFFF;
+  background: #E8EFEA;
   overflow: hidden;
   margin-top: 6px;
 }
@@ -753,7 +751,7 @@ button.btn-danger {
   position: absolute;
   top: 6px;
   right: 6px;
-  width: 195px;
+  width: 200px;
   max-height: 185px;
   overflow-y: auto;
   background: rgba(255, 255, 238, 0.94);
@@ -763,7 +761,7 @@ button.btn-danger {
 }
 
 /* ==========================================================================
-   SANDBOX OVERLAYS, CURSORS, Q-MENU, MODALS & MOBILE CONTROLS
+   SANDBOX OVERLAYS, CURSORS, MODALS & MOBILE CONTROLS
    ========================================================================== */
 .overlay-canvas,
 .overlay-layer {
@@ -903,7 +901,6 @@ button.btn-danger {
   background: #32CD32;
 }
 
-.q-prop-modal,
 .modal-box {
   position: fixed;
   top: 10%;
@@ -919,55 +916,11 @@ button.btn-danger {
 }
 
 @media (max-width: 600px) {
-  .q-prop-modal,
   .modal-box {
     left: 3%;
     margin-left: 0;
     width: 94%;
   }
-}
-
-.prop-custom-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-bottom: 8px;
-}
-
-.q-prop-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.q-prop-card {
-  width: 98px;
-  background: #FFFFEE;
-  border: 1px solid #D9BFB7;
-  padding: 4px;
-  text-align: center;
-  cursor: pointer;
-}
-
-.q-prop-card:hover {
-  border-color: #800000;
-  background: #EEAA88;
-}
-
-.q-prop-card img {
-  width: 82px;
-  height: 82px;
-  object-fit: cover;
-  display: block;
-  margin: 0 auto 3px auto;
-}
-
-.q-prop-card span {
-  display: block;
-  font-size: 10px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .zoom-body {
@@ -1013,9 +966,7 @@ button.btn-danger {
   .layout-columns {
     flex-direction: column;
   }
-  .left-sidebar {
-    width: 100%;
-  }
+  .left-sidebar,
   .dm-sidebar {
     width: 100%;
   }
