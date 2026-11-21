@@ -1,6 +1,6 @@
 /* ==========================================================================
-   FEMBOORU CORE: FIREBASE AUTH/RTDB, IMGBB UPLOADER, DYNAMIC SERVICE POLICY,
-   MUSIC COMPRESSOR/PLAYER, GLOBAL EFFECTS & SHARED STATE
+   FEMBOORU CORE: FIREBASE AUTH & RTDB, IMGBB UPLOADER, DYNAMIC SERVICE
+   POLICY, MUSIC COMPRESSOR/PLAYER, GLOBAL EFFECTS & SHARED STATE
    ========================================================================== */
 var CONFIG = {
   firebaseConfig: {
@@ -15,8 +15,8 @@ var CONFIG = {
   imgbbApiKey: "120a27bcbb28d3ffd9f03bc4b32bb54f",
   superiorAdminEmail: "admin@fembooru.ua",
   githubRepo: "parmanoidd/fembooru",
-  realtimeSyncMs: 1200,
-  autoRefreshMs: 3500
+  realtimeSyncMs: 1100,
+  autoRefreshMs: 3200
 };
 
 var SERVICE_POLICY = {
@@ -36,8 +36,8 @@ var DEFAULT_BOARDS = [
   { slug: "art", title: "/art/ — Art & Stickers", desc: "Drawings, sprites, and pixelcraft." }
 ];
 
+var DEFAULT_SITE_LOGO = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='210' height='68' viewBox='0 0 210 68'%3E%3Crect width='210' height='68' fill='%23EEAA88' stroke='%23800000' stroke-width='3'/%3E%3Ctext x='105' y='34' font-family='Arial,sans-serif' font-size='22' font-weight='bold' text-anchor='middle' fill='%23800000'%3Efembooru%3C/text%3E%3Ctext x='105' y='52' font-family='Arial,sans-serif' font-size='10' text-anchor='middle' fill='%23800000'%3EUA %E2%80%A2 PMR IMAGEBOARD%3C/text%3E%3C/svg%3E";
 var DEFAULT_AVATAR_SVG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Crect width='140' height='140' fill='%23EEAA88'/%3E%3Ccircle cx='70' cy='52' r='26' fill='%23800000'/%3E%3Cpath d='M25,130 C25,95 115,95 115,130' fill='%23800000'/%3E%3C/svg%3E";
-var DEFAULT_SPRITE_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='68' height='68' viewBox='0 0 68 68'%3E%3Crect x='4' y='4' width='60' height='60' rx='10' fill='%23EEAA88' stroke='%23800000' stroke-width='3'/%3E%3Ccircle cx='24' cy='28' r='4' fill='%23800000'/%3E%3Ccircle cx='44' cy='28' r='4' fill='%23800000'/%3E%3Cpath d='M22,44 Q34,54 46,44' fill='none' stroke='%23800000' stroke-width='3'/%3E%3C/svg%3E";
 var DEFAULT_FAVICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAWklEQVR42mP8z8AARQwwBhgZGf8zMjL+Z2Ji+s/AwPCfkZHxPxMT038GBob/DAwM/xkYGP4zMDD8Z2Bg+M/AwPCfgYHhPwMDw38GBob/DAwM/4E0Ix4x3AAAmv4P6X9x5eQAAAAASUVORK5CYII=";
 
 var myClientId = "c_" + new Date().getTime().toString(36) + "_" + Math.floor(Math.random() * 99999);
@@ -77,21 +77,21 @@ var worldState = {
   cursors: {},
   cursorNodes: {},
   sprites: {},
+  spriteNodes: {},
   fireworks: {},
+  fireworkNodes: {},
   explodedFireworks: {},
   particles: [],
-  beams: [],
   hadFx: false,
   grabbedSpriteId: null,
   grabMode: "",
   throwVx: 0,
   throwVy: 0,
-  lastMouseX: 200,
-  lastMouseY: 200,
+  lastMouseX: 220,
+  lastMouseY: 220,
   lastCursorSendTime: 0,
   lastCursorRelX: -1,
   lastCursorDocY: -1,
-  lastPlaygroundHtml: "",
   cursorChatOpen: false,
   localChatText: "",
   localChatExpiresAt: 0,
@@ -104,7 +104,7 @@ var worldState = {
   actors: {},
   actorNodes: {},
   keys: { left: false, right: false, jump: false },
-  myActor: { x: 500, y: 200, vx: 0, vy: 0, facing: 1, hp: 100, grounded: false, swingUntil: 0, updatedAt: 0 }
+  myActor: { x: 460, y: 180, vx: 0, vy: 0, facing: 1, hp: 100, grounded: false, swingUntil: 0, updatedAt: 0 }
 };
 
 var wplaceState = {
@@ -512,7 +512,7 @@ function completeAuthLogin(username, email, authData) {
   loadUserProfile(function(profErr) {
     updateAuthUi();
     cleanupOrphanUserRecords(email, state.user.uid);
-    fetchAllData();
+    if (typeof fetchAllData === "function") fetchAllData();
     if (profErr) {
       showStatus("Auth succeeded, but DB write failed: " + profErr, true);
     } else {
@@ -565,7 +565,7 @@ function registerUser() {
 
 function logoutUser() {
   clearSession();
-  renderAll();
+  if (typeof renderAll === "function") renderAll();
   showStatus("Logged out.", false);
 }
 
@@ -586,7 +586,7 @@ function deleteOwnAccount() {
       if (xhr.readyState === 4) {
         delete state.users[uid];
         clearSession();
-        renderAll();
+        if (typeof renderAll === "function") renderAll();
         showStatus("Account deleted.", false);
       }
     };
@@ -600,7 +600,7 @@ function assignUserRole(newRole) {
   dbWrite("PUT", "users/" + state.viewedProfileUid + "/role", newRole, function(err) {
     if (!err) {
       if (state.users[state.viewedProfileUid]) state.users[state.viewedProfileUid].role = newRole;
-      renderPublicProfile();
+      if (typeof renderPublicProfile === "function") renderPublicProfile();
       showStatus("Role updated to " + newRole, false);
     } else {
       showStatus("Failed to update role: " + err, true);
@@ -773,9 +773,7 @@ function adminResetLogos() {
   state.siteLogo = "";
   state.tabLogoEffect = null;
   var img = document.getElementById("siteLogoImg");
-  if (img) {
-    img.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='210' height='68' viewBox='0 0 210 68'%3E%3Crect width='210' height='68' fill='%23EEAA88' stroke='%23800000' stroke-width='3'/%3E%3Ctext x='105' y='34' font-family='Arial,sans-serif' font-size='22' font-weight='bold' text-anchor='middle' fill='%23800000'%3Efembooru%3C/text%3E%3Ctext x='105' y='52' font-family='Arial,sans-serif' font-size='10' text-anchor='middle' fill='%23800000'%3EUA %E2%80%A2 PMR IMAGEBOARD%3C/text%3E%3C/svg%3E";
-  }
+  if (img) img.src = DEFAULT_SITE_LOGO;
   var fav = document.getElementById("dynamicFavicon");
   if (fav) fav.href = DEFAULT_FAVICON;
   showStatus("Site and tab logos reset to default.", false);
@@ -800,10 +798,13 @@ function syncSnowState() {
   var active = Boolean(state.snowEffect && state.snowEffect.expiresAt > now);
 
   if (!active) {
-    if (snowAnimTimer) { clearInterval(snowAnimTimer); snowAnimTimer = null; }
+    if (snowAnimTimer) {
+      clearInterval(snowAnimTimer);
+      snowAnimTimer = null;
+      snowFlakes = [];
+    }
     if (canvas && canvas.getContext) {
-      var ctx = canvas.getContext("2d");
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
     }
     if (lbl) lbl.textContent = "";
     return;
@@ -813,9 +814,18 @@ function syncSnowState() {
   if (lbl) lbl.textContent = "Snow active (" + secs + "s left) by " + (state.snowEffect.by || "user");
 
   if (!snowAnimTimer && canvas && canvas.getContext) {
+    var initW = window.innerWidth || 1000;
+    var initH = window.innerHeight || 700;
+    canvas.width = initW;
+    canvas.height = initH;
     snowFlakes = [];
-    for (var i = 0; i < 65; i++) {
-      snowFlakes.push({ x: Math.random() * 1200, y: Math.random() * 800, r: 2 + Math.random() * 3, vy: 1 + Math.random() * 2.2 });
+    for (var i = 0; i < 60; i++) {
+      snowFlakes.push({
+        x: Math.random() * initW,
+        y: Math.random() * initH,
+        r: 2 + Math.random() * 2.5,
+        vy: 1.2 + Math.random() * 1.8
+      });
     }
     snowAnimTimer = setInterval(function() {
       if (!state.snowEffect || state.snowEffect.expiresAt <= new Date().getTime()) {
@@ -824,20 +834,21 @@ function syncSnowState() {
       }
       var w = window.innerWidth || 1000;
       var h = window.innerHeight || 700;
-      if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+      if (canvas.width !== w) canvas.width = w;
+      if (canvas.height !== h) canvas.height = h;
       var c = canvas.getContext("2d");
       c.clearRect(0, 0, w, h);
-      c.fillStyle = "rgba(180, 215, 255, 0.85)";
+      c.fillStyle = "rgba(170, 210, 255, 0.85)";
       for (var j = 0; j < snowFlakes.length; j++) {
         var f = snowFlakes[j];
         f.y += f.vy;
-        f.x += Math.sin(f.y * 0.02) * 0.6;
-        if (f.y > h) { f.y = -5; f.x = Math.random() * w; }
+        f.x += Math.sin(f.y * 0.025) * 0.5;
+        if (f.y > h) { f.y = -4; f.x = Math.random() * w; }
         c.beginPath();
         c.arc(f.x, f.y, f.r, 0, Math.PI * 2, true);
         c.fill();
       }
-    }, 40);
+    }, 45);
   }
 }
 
@@ -894,7 +905,7 @@ var musicState = {
 
 function initMusicPlayer() {
   var audio = document.getElementById("audioPlayerEl");
-  var widget = document.querySelector(".music-widget");
+  var widget = document.getElementById("musicWidgetBox");
   if (!audio) return;
   audio.onplay = function() {
     var b = document.getElementById("musicPlayBtn");
