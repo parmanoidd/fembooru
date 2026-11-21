@@ -91,7 +91,6 @@ var worldState = {
   lastCursorSendTime: 0,
   lastCursorRelX: -1,
   lastCursorDocY: -1,
-  lastDragSyncTime: 0,
   lastPlaygroundHtml: "",
   cursorChatOpen: false,
   localChatText: "",
@@ -246,28 +245,29 @@ function buildDbUrl(path, useAuth) {
 }
 
 function dbGet(path, cb) {
-  var xhr = new XMLHttpRequest();
-  xhr.open("GET", buildDbUrl(path, Boolean(state.user && state.user.idToken)), true);
-  xhr.onreadystatechange = function() {
-    if (xhr.readyState !== 4) return;
-    if (xhr.status >= 200 && xhr.status < 300) {
-      var data = null;
-      try { data = JSON.parse(xhr.responseText); } catch (e) {}
-      if (cb) cb(null, data);
-    } else if (xhr.status === 401 && state.user) {
-      clearSession();
-      updateAuthUi();
-      if (cb) cb("Session expired", null);
-    } else {
-      if (cb) cb("HTTP " + xhr.status, null);
-    }
-  };
-  xhr.onerror = function() { if (cb) cb("Network error", null); };
-  xhr.send();
+  function sendGet(withAuth) {
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", buildDbUrl(path, withAuth), true);
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState !== 4) return;
+      if (xhr.status >= 200 && xhr.status < 300) {
+        var data = null;
+        try { data = JSON.parse(xhr.responseText); } catch (e) {}
+        if (cb) cb(null, data);
+      } else if (xhr.status === 401 && withAuth) {
+        ensureFreshSession(function() { sendGet(false); });
+      } else {
+        if (cb) cb("HTTP " + xhr.status, null);
+      }
+    };
+    xhr.onerror = function() { if (cb) cb("Network error", null); };
+    xhr.send();
+  }
+  sendGet(Boolean(state.user && state.user.idToken));
 }
 
 function dbWrite(method, path, payload, cb, onProgress) {
-  function execWrite() {
+  function execWrite(retried) {
     var xhr = new XMLHttpRequest();
     xhr.open(method, buildDbUrl(path, true), true);
     xhr.setRequestHeader("Content-Type", "application/json");
@@ -282,11 +282,16 @@ function dbWrite(method, path, payload, cb, onProgress) {
         var res = null;
         try { res = JSON.parse(xhr.responseText); } catch (e) {}
         if (cb) cb(null, res);
+      } else if (xhr.status === 401 && state.user && !retried) {
+        state.user.expiresAt = 0;
+        ensureFreshSession(function() {
+          if (state.user && state.user.idToken) execWrite(true);
+          else {
+            updateAuthUi();
+            if (cb) cb("Session expired — please log in again.", null);
+          }
+        });
       } else {
-        if (xhr.status === 401 && state.user) {
-          clearSession();
-          updateAuthUi();
-        }
         var errMsg = "Database error (" + xhr.status + ")";
         try {
           var parsed = JSON.parse(xhr.responseText);
@@ -299,8 +304,8 @@ function dbWrite(method, path, payload, cb, onProgress) {
     xhr.send(method === "DELETE" ? null : JSON.stringify(payload));
   }
 
-  if (state.user) ensureFreshSession(execWrite);
-  else execWrite();
+  if (state.user) ensureFreshSession(function() { execWrite(false); });
+  else execWrite(false);
 }
 
 /* ==========================================================================
@@ -321,6 +326,7 @@ function clearSession() {
   state.user = null;
   state.profile = null;
   storeRemove("session");
+  updateAuthUi();
 }
 
 function loadSession() {
@@ -329,7 +335,6 @@ function loadSession() {
   try {
     var s = JSON.parse(raw);
     var now = new Date().getTime();
-    // Auto-clear stale tokens
     if (!s || !s.uid || !s.idToken || (!s.refreshToken && (!s.expiresAt || s.expiresAt < now))) {
       clearSession();
       return;
@@ -367,7 +372,7 @@ function ensureFreshSession(cb) {
       } catch (e) {
         clearSession();
       }
-    } else {
+    } else if (xhr.status === 400 || xhr.status === 403) {
       clearSession();
     }
     if (cb) cb();
@@ -406,7 +411,6 @@ function canModerateTargetUser(targetUid) {
   if (!isStaffUser()) return false;
   if (!targetUid || targetUid === state.user.uid) return true;
   var targetRole = getUserRole(targetUid);
-  // Junior admins and moderators cannot remove each other or the superior admin
   return targetRole === "user";
 }
 
@@ -425,7 +429,7 @@ function updateAuthUi() {
   var inBox = document.getElementById("loggedInControls");
   var badge = document.getElementById("currentUserBadge");
   var adminBox = document.getElementById("adminLogoBox");
-  if (state.user) {
+  if (state.user && state.user.uid && state.user.idToken) {
     if (outBox) outBox.style.display = "none";
     if (inBox) inBox.style.display = "flex";
     var roleTag = isSuperiorAdmin() ? " [SUPERIOR ADMIN]" : (getUserRole(state.user.uid) !== "user" ? " [" + getUserRole(state.user.uid).toUpperCase() + "]" : "");
@@ -446,7 +450,7 @@ function authRequest(endpoint, email, password, cb) {
     if (xhr.readyState !== 4) return;
     var data = null;
     try { data = JSON.parse(xhr.responseText); } catch (e) {}
-    if (xhr.status === 200 && data) cb(null, data);
+    if (xhr.status === 200 && data && data.idToken) cb(null, data);
     else cb((data && data.error && data.error.message) || "Auth failed", null);
   };
   xhr.onerror = function() { cb("Network error", null); };
@@ -456,10 +460,10 @@ function authRequest(endpoint, email, password, cb) {
 function loadUserProfile(cb) {
   if (!state.user) { if (cb) cb(); return; }
   dbGet("users/" + state.user.uid, function(err, prof) {
-    if (!err && prof) {
+    if (!err && prof && prof.uid) {
       state.profile = prof;
       state.users[state.user.uid] = prof;
-      if (cb) cb();
+      if (cb) cb(null);
     } else {
       var now = new Date().getTime();
       var fresh = {
@@ -475,13 +479,14 @@ function loadUserProfile(cb) {
       };
       state.profile = fresh;
       state.users[state.user.uid] = fresh;
-      dbWrite("PUT", "users/" + state.user.uid, fresh, function() { if (cb) cb(); });
+      dbWrite("PUT", "users/" + state.user.uid, fresh, function(wErr) {
+        if (cb) cb(wErr);
+      });
     }
   });
 }
 
 function cleanupOrphanUserRecords(email, activeUid) {
-  // Ensures deleting a user from Firebase Auth allows someone else to register with the same username cleanly
   dbGet("users", function(err, allUsers) {
     if (err || !allUsers) return;
     for (var oldUid in allUsers) {
@@ -493,20 +498,26 @@ function cleanupOrphanUserRecords(email, activeUid) {
 }
 
 function completeAuthLogin(username, email, authData) {
+  var expSec = parseInt(authData.expiresIn || "3600", 10);
   state.user = {
     uid: authData.localId,
     username: username,
     email: email,
     idToken: authData.idToken,
     refreshToken: authData.refreshToken,
-    expiresAt: new Date().getTime() + (parseInt(authData.expiresIn || "3600", 10) * 1000)
+    expiresAt: new Date().getTime() + (expSec * 1000)
   };
   saveSession();
-  cleanupOrphanUserRecords(email, state.user.uid);
-  loadUserProfile(function() {
+  updateAuthUi();
+  loadUserProfile(function(profErr) {
     updateAuthUi();
+    cleanupOrphanUserRecords(email, state.user.uid);
     fetchAllData();
-    showStatus("Logged in as " + username, false);
+    if (profErr) {
+      showStatus("Auth succeeded, but DB write failed: " + profErr, true);
+    } else {
+      showStatus("Logged in as " + username, false);
+    }
   });
 }
 
@@ -554,7 +565,6 @@ function registerUser() {
 
 function logoutUser() {
   clearSession();
-  updateAuthUi();
   renderAll();
   showStatus("Logged out.", false);
 }
@@ -576,7 +586,6 @@ function deleteOwnAccount() {
       if (xhr.readyState === 4) {
         delete state.users[uid];
         clearSession();
-        updateAuthUi();
         renderAll();
         showStatus("Account deleted.", false);
       }
