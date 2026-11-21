@@ -185,6 +185,10 @@ function makeFallbackPropSvg(label) {
 }
 
 var propSearchRequestId = 0;
+var propSearchTopic = "";
+var propSearchPage = 0;
+var propSearchHasNextPage = false;
+var removedSpriteTombstones = {};
 
 function buildRandomPropCatalog() {
   var list = [];
@@ -339,6 +343,32 @@ function ensurePropTopicControls(grid) {
   status.style.cssText = "font-size:11px;color:#bbb;min-height:14px;";
   controls.appendChild(status);
 
+  var pageRow = document.createElement("div");
+  pageRow.id = "qPropPageControls";
+  pageRow.style.cssText = "display:flex;align-items:center;justify-content:center;gap:8px;width:100%;";
+  var prevPageButton = document.createElement("button");
+  prevPageButton.type = "button";
+  prevPageButton.textContent = "‹ Previous";
+  prevPageButton.style.cssText = "padding:5px 9px;background:#333;color:#eee;border:1px solid #666;border-radius:3px;cursor:pointer;";
+  prevPageButton.onclick = function() {
+    if (propSearchPage > 0) searchPropImages(propSearchTopic, propSearchPage - 1);
+  };
+  var pageLabel = document.createElement("span");
+  pageLabel.id = "qPropPageLabel";
+  pageLabel.textContent = "Page 1";
+  pageLabel.style.cssText = "font-size:11px;color:#bbb;";
+  var nextPageButton = document.createElement("button");
+  nextPageButton.type = "button";
+  nextPageButton.textContent = "Next ›";
+  nextPageButton.style.cssText = "padding:5px 9px;background:#333;color:#eee;border:1px solid #666;border-radius:3px;cursor:pointer;";
+  nextPageButton.onclick = function() {
+    if (propSearchHasNextPage) searchPropImages(propSearchTopic, propSearchPage + 1);
+  };
+  pageRow.appendChild(prevPageButton);
+  pageRow.appendChild(pageLabel);
+  pageRow.appendChild(nextPageButton);
+  controls.appendChild(pageRow);
+
   if (grid.parentNode) grid.parentNode.insertBefore(controls, grid);
   return controls;
 }
@@ -357,24 +387,33 @@ function renderPropCatalog() {
   grid.innerHTML = h;
 }
 
-function searchPropImages(topic) {
+function searchPropImages(topic, page) {
   var grid = document.getElementById("qPropGrid");
   if (!grid) return;
   ensurePropTopicControls(grid);
   var input = document.getElementById("qPropTopicInput");
   var status = document.getElementById("qPropTopicStatus");
+  var pageLabel = document.getElementById("qPropPageLabel");
+  var pageButtons = document.getElementById("qPropPageControls");
   var query = String(topic || "").replace(/^\s+|\s+$/g, "").substring(0, 80);
+  var requestedPage = (typeof page === "number" && page >= 0) ? page : 0;
+  if (query !== propSearchTopic) requestedPage = 0;
+  propSearchTopic = query;
+  propSearchPage = requestedPage;
   if (input && input.value !== query) input.value = query;
 
   var requestId = ++propSearchRequestId;
+  propSearchHasNextPage = false;
   if (status) status.textContent = query ? "Searching: " + query : "Loading random images...";
+  if (pageLabel) pageLabel.textContent = "Page " + (requestedPage + 1);
+  if (pageButtons) pageButtons.style.opacity = "0.55";
   worldState.propCatalog = buildRandomPropCatalog();
   renderPropCatalog();
 
   var xhr = new XMLHttpRequest();
   var api = "https://commons.wikimedia.org/w/api.php?action=query&";
   if (query) {
-    api += "generator=search&gsrnamespace=6&gsrlimit=10&gsrsearch=" + encodeURIComponent(query);
+    api += "generator=search&gsrnamespace=6&gsrlimit=10&gsroffset=" + (requestedPage * 10) + "&gsrsearch=" + encodeURIComponent(query);
   } else {
     api += "generator=random&grnnamespace=6&grnlimit=10";
   }
@@ -383,18 +422,20 @@ function searchPropImages(topic) {
   xhr.onreadystatechange = function() {
     if (xhr.readyState !== 4 || requestId !== propSearchRequestId) return;
     var found = [];
+    var hasNext = false;
     if (xhr.status === 200) {
       try {
         var data = JSON.parse(xhr.responseText);
+        hasNext = Boolean(data && data.continue && data.continue.gsroffset !== undefined);
         var pages = data && data.query && data.query.pages;
         if (pages) {
           for (var pid in pages) {
             if (!pages.hasOwnProperty(pid)) continue;
-            var page = pages[pid];
-            var info = page.imageinfo && page.imageinfo[0];
+            var imagePage = pages[pid];
+            var info = imagePage.imageinfo && imagePage.imageinfo[0];
             var thumb = info && (info.thumburl || info.url);
             if (thumb && /^https?:\/\//i.test(thumb)) {
-              var cleanTitle = String(page.title || "Image").replace(/^File:/i, "").replace(/\.[^.]+$/, "").substring(0, 28);
+              var cleanTitle = String(imagePage.title || "Image").replace(/^File:/i, "").replace(/\.[^.]+$/, "").substring(0, 28);
               found.push({ name: cleanTitle || "Image", url: thumb });
             }
           }
@@ -405,18 +446,26 @@ function searchPropImages(topic) {
     if (!found.length) {
       if (status) status.textContent = "No images found. Try another topic.";
       worldState.propCatalog = [];
-      for (var n = 0; n < 10; n++) {
-        worldState.propCatalog.push({ name: "No image found", url: makeFallbackPropSvg("NO IMAGE") });
-      }
     } else {
       worldState.propCatalog = found;
+      propSearchHasNextPage = hasNext && found.length > 0;
       if (status) status.textContent = "Showing " + found.length + " images" + (query ? " for: " + query : "");
+    }
+    if (pageLabel) pageLabel.textContent = "Page " + (requestedPage + 1);
+    if (pageButtons) pageButtons.style.opacity = "1";
+    var buttons = pageButtons ? pageButtons.getElementsByTagName("button") : [];
+    if (buttons.length >= 2) {
+      buttons[0].disabled = requestedPage <= 0;
+      buttons[1].disabled = !propSearchHasNextPage;
+      buttons[0].style.opacity = buttons[0].disabled ? "0.4" : "1";
+      buttons[1].style.opacity = buttons[1].disabled ? "0.4" : "1";
     }
     renderPropCatalog();
   };
   xhr.onerror = function() {
     if (requestId !== propSearchRequestId) return;
     if (status) status.textContent = "Could not load images. Check your connection.";
+    if (pageButtons) pageButtons.style.opacity = "1";
   };
   xhr.send();
 }
@@ -554,6 +603,7 @@ function applyToolToProp(sp, clientX, clientY) {
   if (worldState.activeTool === "remover") {
     spawnBurstParticles(px, py, "#FF2222", 18);
     worldState.beams.push({ x1: clientX, y1: clientY, x2: px, y2: py, color: "#FF3333", life: 10 });
+    removedSpriteTombstones[sp.id] = now;
     delete worldState.sprites[sp.id];
     dbWrite("DELETE", "realtime/sprites/" + sp.id, null, null);
     return true;
@@ -1191,11 +1241,17 @@ function syncRealtimeWorld() {
     }
 
     var rSp = rt.sprites || {};
+    for (var removedId in removedSpriteTombstones) {
+      if (removedSpriteTombstones.hasOwnProperty(removedId)) {
+        if ((now - removedSpriteTombstones[removedId]) > 900000) delete removedSpriteTombstones[removedId];
+        else if (rSp[removedId]) dbWrite("DELETE", "realtime/sprites/" + removedId, null, null);
+      }
+    }
     for (var os in worldState.sprites) {
       if (worldState.sprites.hasOwnProperty(os) && !rSp[os] && os !== worldState.grabbedSpriteId) delete worldState.sprites[os];
     }
     for (var sid in rSp) {
-      if (rSp.hasOwnProperty(sid) && rSp[sid] && sid !== worldState.grabbedSpriteId) {
+      if (rSp.hasOwnProperty(sid) && rSp[sid] && !removedSpriteTombstones[sid] && sid !== worldState.grabbedSpriteId) {
         if (rSp[sid].updatedAt && (now - rSp[sid].updatedAt) > 900000) {
           dbWrite("DELETE", "realtime/sprites/" + sid, null, null);
           continue;
