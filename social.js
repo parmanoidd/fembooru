@@ -57,7 +57,7 @@ function selectBoard(slug) {
       break;
     }
   }
-  switchView("boards");
+  if (typeof switchView === "function") switchView("boards");
 }
 
 function proposeOrCreateBoard() {
@@ -74,8 +74,10 @@ function proposeOrCreateBoard() {
   if (isSuperiorAdmin() || getUserRole(state.user.uid) === "admin") {
     dbWrite("PUT", "boards/" + slug, boardObj, function(err) {
       if (!err) {
-        if (sEl) sEl.value = ""; if (tEl) tEl.value = ""; if (dEl) dEl.value = "";
-        fetchAllData();
+        if (sEl) sEl.value = "";
+        if (tEl) tEl.value = "";
+        if (dEl) dEl.value = "";
+        if (typeof fetchAllData === "function") fetchAllData();
         showStatus("Board created immediately!", false);
       }
     });
@@ -94,8 +96,10 @@ function proposeOrCreateBoard() {
     };
     dbWrite("PUT", "polls/" + slug, pollObj, function(err) {
       if (!err) {
-        if (sEl) sEl.value = ""; if (tEl) tEl.value = ""; if (dEl) dEl.value = "";
-        fetchAllData();
+        if (sEl) sEl.value = "";
+        if (tEl) tEl.value = "";
+        if (dEl) dEl.value = "";
+        if (typeof fetchAllData === "function") fetchAllData();
         showStatus("Board proposal poll created!", false);
       }
     });
@@ -119,10 +123,12 @@ function voteBoardPoll(slug, choice) {
     var needed = Math.max(2, Math.ceil(countMapKeys(state.users) * 0.5));
     if (yesCount >= needed && yesCount > noCount) {
       dbWrite("PUT", "boards/" + slug, { slug: slug, title: poll.title, desc: poll.desc }, function() {
-        dbWrite("DELETE", "polls/" + slug, null, fetchAllData);
+        dbWrite("DELETE", "polls/" + slug, null, function() {
+          if (typeof fetchAllData === "function") fetchAllData();
+        });
         showStatus("Majority agreed! Board /" + slug + "/ is now live!", false);
       });
-    } else {
+    } else if (typeof fetchAllData === "function") {
       fetchAllData();
     }
   });
@@ -133,7 +139,7 @@ function cancelBoardPoll(slug) {
   if (!state.user || !poll) return;
   if (poll.createdBy !== state.user.uid && !isSuperiorAdmin()) return;
   dbWrite("DELETE", "polls/" + slug, null, function() {
-    fetchAllData();
+    if (typeof fetchAllData === "function") fetchAllData();
     showStatus("Board proposal cancelled.", false);
   });
 }
@@ -201,7 +207,7 @@ function createThread() {
         document.getElementById("threadVideoUrlInput").value = "";
         if (fEl) fEl.value = "";
         clearAttachedSticker("thread");
-        fetchAllData();
+        if (typeof fetchAllData === "function") fetchAllData();
         showStatus("Thread posted!", false);
       } else showStatus(err, true);
     });
@@ -298,11 +304,15 @@ function toggleThreadLike(tid) {
   var th = state.threads[tid];
   if (!th) return;
   var exists = Boolean(th.likes && th.likes[state.user.uid]);
-  dbWrite(exists ? "DELETE" : "PUT", "threads/" + tid + "/likes/" + state.user.uid, exists ? null : true, fetchAllData);
+  dbWrite(exists ? "DELETE" : "PUT", "threads/" + tid + "/likes/" + state.user.uid, exists ? null : true, function() {
+    if (typeof fetchAllData === "function") fetchAllData();
+  });
 }
 
 function deleteThread(tid) {
-  dbWrite("DELETE", "threads/" + tid, null, fetchAllData);
+  dbWrite("DELETE", "threads/" + tid, null, function() {
+    if (typeof fetchAllData === "function") fetchAllData();
+  });
 }
 
 function addThreadComment(tid) {
@@ -325,7 +335,9 @@ function addThreadComment(tid) {
   };
   dbWrite("PUT", "threads/" + tid + "/comments/" + cid, cmObj, function(err) {
     if (!err) {
-      dbWrite("PUT", "threads/" + tid + "/bumpedAt", now, fetchAllData);
+      dbWrite("PUT", "threads/" + tid + "/bumpedAt", now, function() {
+        if (typeof fetchAllData === "function") fetchAllData();
+      });
       var th = state.threads[tid];
       if (th && th.uid && th.uid !== state.user.uid) {
         pushNotification(th.uid, getDisplayUsername() + " replied to your thread.", "boards", tid);
@@ -339,11 +351,15 @@ function toggleCommentLike(tid, cid) {
   var cm = state.threads[tid] && state.threads[tid].comments && state.threads[tid].comments[cid];
   if (!cm) return;
   var exists = Boolean(cm.likes && cm.likes[state.user.uid]);
-  dbWrite(exists ? "DELETE" : "PUT", "threads/" + tid + "/comments/" + cid + "/likes/" + state.user.uid, exists ? null : true, fetchAllData);
+  dbWrite(exists ? "DELETE" : "PUT", "threads/" + tid + "/comments/" + cid + "/likes/" + state.user.uid, exists ? null : true, function() {
+    if (typeof fetchAllData === "function") fetchAllData();
+  });
 }
 
 function deleteThreadComment(tid, cid) {
-  dbWrite("DELETE", "threads/" + tid + "/comments/" + cid, null, fetchAllData);
+  dbWrite("DELETE", "threads/" + tid + "/comments/" + cid, null, function() {
+    if (typeof fetchAllData === "function") fetchAllData();
+  });
 }
 
 /* ==========================================================================
@@ -352,13 +368,13 @@ function deleteThreadComment(tid, cid) {
 function openMyProfile() {
   if (!state.user) { showStatus("Login to view/edit your profile.", true); return; }
   state.viewedProfileUid = state.user.uid;
-  switchView("profile");
+  if (typeof switchView === "function") switchView("profile");
 }
 
 function openUserProfile(uid) {
   if (!uid) return;
   state.viewedProfileUid = uid;
-  switchView("profile");
+  if (typeof switchView === "function") switchView("profile");
 }
 
 function renderPublicProfile() {
@@ -572,14 +588,16 @@ function toggleSubscribe(targetUid) {
   var exists = Boolean(state.subscriptions[state.user.uid] && state.subscriptions[state.user.uid][targetUid]);
   dbWrite(exists ? "DELETE" : "PUT", "subscriptions/" + state.user.uid + "/" + targetUid, exists ? null : true, function() {
     if (!exists) pushNotification(targetUid, getDisplayUsername() + " subscribed to you!", "profile", state.user.uid);
-    fetchAllData();
+    if (typeof fetchAllData === "function") fetchAllData();
   });
 }
 
 function toggleBlockUser(targetUid) {
   if (!state.user || !targetUid || targetUid === state.user.uid) return;
   var exists = isUserBlockedByMe(targetUid);
-  dbWrite(exists ? "DELETE" : "PUT", "blocks/" + state.user.uid + "/" + targetUid, exists ? null : true, fetchAllData);
+  dbWrite(exists ? "DELETE" : "PUT", "blocks/" + state.user.uid + "/" + targetUid, exists ? null : true, function() {
+    if (typeof fetchAllData === "function") fetchAllData();
+  });
 }
 
 /* ==========================================================================
@@ -624,7 +642,7 @@ function createWallEntry(targetUid, textId, fileId, videoId, stickerTarget) {
         if (targetUid !== state.user.uid) {
           pushNotification(targetUid, getDisplayUsername() + " wrote on your wall!", "profile", targetUid);
         }
-        fetchAllData();
+        if (typeof fetchAllData === "function") fetchAllData();
         showStatus("Posted to wall!", false);
       } else showStatus(err, true);
     });
@@ -675,7 +693,7 @@ function repostToMyWall(sourceType, targetUid, pid) {
   };
   dbWrite("PUT", "walls/" + state.user.uid + "/posts/" + newPid, repObj, function(err) {
     if (!err) {
-      fetchAllData();
+      if (typeof fetchAllData === "function") fetchAllData();
       showStatus("Reposted to your wall!", false);
     }
   });
@@ -753,11 +771,15 @@ function toggleWallPostLike(targetUid, pid) {
   var p = state.walls[targetUid] && state.walls[targetUid].posts && state.walls[targetUid].posts[pid];
   if (!p) return;
   var exists = Boolean(p.likes && p.likes[state.user.uid]);
-  dbWrite(exists ? "DELETE" : "PUT", "walls/" + targetUid + "/posts/" + pid + "/likes/" + state.user.uid, exists ? null : true, fetchAllData);
+  dbWrite(exists ? "DELETE" : "PUT", "walls/" + targetUid + "/posts/" + pid + "/likes/" + state.user.uid, exists ? null : true, function() {
+    if (typeof fetchAllData === "function") fetchAllData();
+  });
 }
 
 function deleteWallPost(targetUid, pid) {
-  dbWrite("DELETE", "walls/" + targetUid + "/posts/" + pid, null, fetchAllData);
+  dbWrite("DELETE", "walls/" + targetUid + "/posts/" + pid, null, function() {
+    if (typeof fetchAllData === "function") fetchAllData();
+  });
 }
 
 /* ==========================================================================
@@ -827,7 +849,7 @@ function createGroup() {
       document.getElementById("groupNameInput").value = "";
       document.getElementById("groupDescInput").value = "";
       state.activeGroupId = gid;
-      fetchAllData();
+      if (typeof fetchAllData === "function") fetchAllData();
     }
   });
 }
@@ -858,7 +880,9 @@ function toggleJoinActiveGroup() {
   var g = state.groups[state.activeGroupId];
   if (!g) return;
   var isMem = Boolean(g.members && g.members[state.user.uid]);
-  dbWrite(isMem ? "DELETE" : "PUT", "groups/" + state.activeGroupId + "/members/" + state.user.uid, isMem ? null : true, fetchAllData);
+  dbWrite(isMem ? "DELETE" : "PUT", "groups/" + state.activeGroupId + "/members/" + state.user.uid, isMem ? null : true, function() {
+    if (typeof fetchAllData === "function") fetchAllData();
+  });
 }
 
 function renderActiveGroup() {
@@ -920,7 +944,7 @@ function sendGroupMessage() {
         document.getElementById("groupVideoUrl").value = "";
         if (fEl) fEl.value = "";
         clearAttachedSticker("group");
-        fetchAllData();
+        if (typeof fetchAllData === "function") fetchAllData();
       }
     });
   }
@@ -931,7 +955,9 @@ function sendGroupMessage() {
 }
 
 function deleteGroupMessage(gid, mid) {
-  dbWrite("DELETE", "groups/" + gid + "/messages/" + mid, null, fetchAllData);
+  dbWrite("DELETE", "groups/" + gid + "/messages/" + mid, null, function() {
+    if (typeof fetchAllData === "function") fetchAllData();
+  });
 }
 
 function getDmConvKey(uid1, uid2) {
@@ -954,7 +980,7 @@ function startDmWithUsername() {
 function openDmWithUser(uid) {
   if (!state.user) { showStatus("Login to use DMs.", true); return; }
   state.activeDmUid = uid;
-  switchView("dms");
+  if (typeof switchView === "function") switchView("dms");
 }
 
 function renderDmList() {
@@ -1049,7 +1075,7 @@ function sendDmMessage() {
         if (fEl) fEl.value = "";
         clearAttachedSticker("dm");
         pushNotification(state.activeDmUid, "New DM from " + getDisplayUsername(), "dms", state.user.uid);
-        fetchAllData();
+        if (typeof fetchAllData === "function") fetchAllData();
       }
     });
   }
@@ -1060,7 +1086,9 @@ function sendDmMessage() {
 }
 
 function deleteDmMessage(convKey, mid) {
-  dbWrite("DELETE", "dms/" + convKey + "/messages/" + mid, null, fetchAllData);
+  dbWrite("DELETE", "dms/" + convKey + "/messages/" + mid, null, function() {
+    if (typeof fetchAllData === "function") fetchAllData();
+  });
 }
 
 /* ==========================================================================
@@ -1087,7 +1115,7 @@ function uploadPublicSticker() {
       if (!wErr) {
         document.getElementById("stickerNameInput").value = "";
         fEl.value = "";
-        fetchAllData();
+        if (typeof fetchAllData === "function") fetchAllData();
         showStatus("Sticker added to public archive!", false);
       }
     });
@@ -1249,5 +1277,7 @@ function markAllNotificationsRead() {
       patch[nid + "/read"] = true;
     }
   }
-  dbWrite("PATCH", "notifications/" + state.user.uid, patch, fetchAllData);
+  dbWrite("PATCH", "notifications/" + state.user.uid, patch, function() {
+    if (typeof fetchAllData === "function") fetchAllData();
+  });
 }
