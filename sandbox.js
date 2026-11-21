@@ -1,5 +1,5 @@
 /* ==========================================================================
-   SANDBOX PLAYGROUND: REALTIME CURSORS, CURSOR CHAT, PROP MENU (Q),
+   FEMBOORU SANDBOX: REALTIME CURSORS, CURSOR CHAT, PROP MENU (Q),
    HL2 TOOLS (1-5), SPRITES, FIREWORKS & PLAYABLE CHARACTER MODELS
    ========================================================================== */
 var HL2_TOOL_HINTS = {
@@ -62,7 +62,7 @@ function updateLocalChatBox() {
       prev.style.display = "block";
       prev.style.left = Math.max(8, Math.min(vp.w - 220, cx + 10)) + "px";
       prev.style.bottom = Math.max(8, Math.min(vp.h - 45, vp.h - cy + 12)) + "px";
-      prev.innerHTML = esc(worldState.localChatText);
+      prev.textContent = worldState.localChatText;
     } else {
       prev.style.display = "none";
     }
@@ -174,7 +174,7 @@ function renderRemoteCursors() {
 }
 
 /* ==========================================================================
-   GMOD / S&BOX PROP SPAWNER (Q MENU) — PURE RANDOM INTERNET IMAGES (NO TAGS)
+   GMOD / S&BOX PROP SPAWNER (Q MENU) — MULTI-SOURCE INTERNET IMAGES
    ========================================================================== */
 function makeFallbackPropSvg(label) {
   var txt = String(label || "PROP").substring(0, 10).replace(/[<>&'"]/g, "");
@@ -203,7 +203,6 @@ function handlePropThumbError(imgEl, idx) {
   var item = worldState.propCatalog[idx];
   var retries = parseInt(imgEl.getAttribute("data-fb-retry") || "0", 10);
 
-  // Try the other image provider once before showing the local fallback.
   if (retries < 1) {
     imgEl.setAttribute("data-fb-retry", String(retries + 1));
     var backup = item && item.url.indexOf("robohash.org") !== -1
@@ -221,155 +220,153 @@ function handlePropThumbError(imgEl, idx) {
   imgEl.src = fallback;
 }
 
+function getSavedPropTopics() {
+  var saved = [];
+  try { saved = JSON.parse(storeGet("q_prop_custom_topics") || "[]"); } catch (e) {}
+  return Array.isArray(saved) ? saved : [];
+}
+
+function renderCustomPropTopics() {
+  var topicRow = document.getElementById("qPropCustomTopics");
+  var input = document.getElementById("qPropTopicInput");
+  if (!topicRow) return;
+  var saved = getSavedPropTopics();
+  topicRow.innerHTML = "";
+  for (var i = 0; i < saved.length; i++) {
+    (function(topic, index) {
+      var chip = document.createElement("span");
+      chip.style.cssText = "display:inline-flex;align-items:center;background:#FFFFEE;border:1px solid #D9BFB7;margin:2px 4px 2px 0;";
+      var topicButton = document.createElement("button");
+      topicButton.type = "button";
+      topicButton.textContent = topic;
+      topicButton.style.cssText = "padding:3px 7px;background:transparent;color:#800000;border:0;font-size:11px;cursor:pointer;";
+      topicButton.onclick = function() {
+        if (input) input.value = topic;
+        searchPropImages(topic, 0);
+      };
+      var removeButton = document.createElement("button");
+      removeButton.type = "button";
+      removeButton.textContent = "x";
+      removeButton.style.cssText = "padding:3px 6px;background:#FFD2D2;color:#800000;border:0;border-left:1px solid #D9BFB7;font-size:11px;cursor:pointer;";
+      removeButton.onclick = function() {
+        var current = getSavedPropTopics();
+        current.splice(index, 1);
+        storeSet("q_prop_custom_topics", JSON.stringify(current));
+        renderCustomPropTopics();
+      };
+      chip.appendChild(topicButton);
+      chip.appendChild(removeButton);
+      topicRow.appendChild(chip);
+    })(saved[i], i);
+  }
+}
+
+function addCustomPropTopic(value) {
+  var input = document.getElementById("qPropTopicInput");
+  var status = document.getElementById("qPropTopicStatus");
+  var topic = String(value || "").replace(/^\s+|\s+$/g, "").substring(0, 80);
+  if (!topic) {
+    if (status) status.textContent = "Type a topic first.";
+    if (input) input.focus();
+    return;
+  }
+  var saved = getSavedPropTopics();
+  var exists = false;
+  for (var i = 0; i < saved.length; i++) {
+    if (String(saved[i]).toLowerCase() === topic.toLowerCase()) exists = true;
+  }
+  if (!exists) {
+    saved.push(topic);
+    storeSet("q_prop_custom_topics", JSON.stringify(saved));
+  }
+  renderCustomPropTopics();
+  if (input) input.value = topic;
+  searchPropImages(topic, 0);
+}
+
 function ensurePropTopicControls(grid) {
   var controls = document.getElementById("qPropTopicControls");
   if (controls) {
-    if (window.renderCustomPropTopics) window.renderCustomPropTopics();
+    renderCustomPropTopics();
     return controls;
   }
 
   controls = document.createElement("div");
   controls.id = "qPropTopicControls";
-  controls.style.cssText = "display:flex;flex-direction:column;gap:7px;margin:0 0 10px 0;width:100%;";
+  controls.style.cssText = "margin:6px 0 8px 0;padding:6px;background:#FFFFEE;border:1px solid #D9BFB7;";
 
   var searchRow = document.createElement("div");
-  searchRow.style.cssText = "display:flex;gap:5px;width:100%;";
+  searchRow.style.cssText = "display:flex;gap:4px;width:100%;margin-bottom:5px;";
+
   var input = document.createElement("input");
   input.id = "qPropTopicInput";
   input.type = "text";
-  input.placeholder = "Search image topic...";
-  input.setAttribute("aria-label", "Custom image topic");
-  input.style.cssText = "min-width:0;flex:1;padding:7px;background:#171717;color:#fff;border:1px solid #666;border-radius:3px;font:inherit;";
+  input.placeholder = "Search topic (or empty for random multi-source)...";
+  input.style.cssText = "min-width:0;flex:1;";
   input.onkeydown = function(e) {
     var ev = e || window.event;
     if ((ev.keyCode || ev.which) === 13) {
       if (ev.preventDefault) ev.preventDefault();
-      searchPropImages(input.value);
+      searchPropImages(input.value, 0);
     }
   };
+
   var searchButton = document.createElement("button");
   searchButton.type = "button";
   searchButton.textContent = "Search";
-  searchButton.style.cssText = "padding:6px 10px;background:#444;color:#fff;border:1px solid #777;border-radius:3px;cursor:pointer;";
-  searchButton.onclick = function() { searchPropImages(input.value); };
+  searchButton.onclick = function() { searchPropImages(input.value, 0); };
+
+  var addTopicButton = document.createElement("button");
+  addTopicButton.type = "button";
+  addTopicButton.textContent = "+ Topic";
+  addTopicButton.onclick = function() { addCustomPropTopic(input.value); };
+
   searchRow.appendChild(input);
   searchRow.appendChild(searchButton);
+  searchRow.appendChild(addTopicButton);
   controls.appendChild(searchRow);
 
   var topicRow = document.createElement("div");
   topicRow.id = "qPropCustomTopics";
-  topicRow.style.cssText = "display:flex;flex-wrap:wrap;gap:5px;width:100%;";
+  topicRow.style.cssText = "margin-bottom:4px;";
   controls.appendChild(topicRow);
-
-  var addTopicButton = document.createElement("button");
-  addTopicButton.type = "button";
-  addTopicButton.textContent = "Add topic";
-  addTopicButton.style.cssText = "padding:6px 10px;background:#303030;color:#eee;border:1px solid #555;border-radius:3px;cursor:pointer;";
-  addTopicButton.onclick = function() { addCustomPropTopic(input.value); };
-  searchRow.appendChild(addTopicButton);
-
-  function renderCustomTopics() {
-    var saved = [];
-    try {
-      saved = JSON.parse(storeGet("q_prop_custom_topics") || "[]");
-    } catch (e) {}
-    if (!Array.isArray(saved)) saved = [];
-    topicRow.innerHTML = "";
-    for (var i = 0; i < saved.length; i++) {
-      (function(topic, index) {
-        var chip = document.createElement("span");
-        chip.style.cssText = "display:inline-flex;align-items:center;background:#303030;border:1px solid #555;border-radius:3px;overflow:hidden;";
-        var topicButton = document.createElement("button");
-        topicButton.type = "button";
-        topicButton.textContent = topic;
-        topicButton.title = "Search this topic";
-        topicButton.style.cssText = "padding:5px 8px;background:transparent;color:#eee;border:0;font:inherit;font-size:11px;cursor:pointer;";
-        topicButton.onclick = function() {
-          input.value = topic;
-          searchPropImages(topic);
-        };
-        var removeButton = document.createElement("button");
-        removeButton.type = "button";
-        removeButton.textContent = "×";
-        removeButton.title = "Remove topic";
-        removeButton.style.cssText = "padding:3px 6px;background:#501f1f;color:#fff;border:0;border-left:1px solid #555;cursor:pointer;";
-        removeButton.onclick = function() {
-          var current = [];
-          try {
-            current = JSON.parse(storeGet("q_prop_custom_topics") || "[]");
-          } catch (e) {}
-          if (!Array.isArray(current)) current = [];
-          current.splice(index, 1);
-          storeSet("q_prop_custom_topics", JSON.stringify(current));
-          renderCustomTopics();
-        };
-        chip.appendChild(topicButton);
-        chip.appendChild(removeButton);
-        topicRow.appendChild(chip);
-      })(saved[i], i);
-    }
-  }
-
-  window.renderCustomPropTopics = renderCustomTopics;
-  renderCustomTopics();
-
-  function addCustomPropTopic(value) {
-    var topic = String(value || "").replace(/^\s+|\s+$/g, "").substring(0, 80);
-    if (!topic) {
-      if (status) status.textContent = "Type a topic first.";
-      input.focus();
-      return;
-    }
-    var saved = [];
-    try {
-      saved = JSON.parse(storeGet("q_prop_custom_topics") || "[]");
-    } catch (e) {}
-    if (!Array.isArray(saved)) saved = [];
-    var exists = false;
-    for (var i = 0; i < saved.length; i++) {
-      if (String(saved[i]).toLowerCase() === topic.toLowerCase()) exists = true;
-    }
-    if (!exists) {
-      saved.push(topic);
-      storeSet("q_prop_custom_topics", JSON.stringify(saved));
-    }
-    renderCustomTopics();
-    input.value = topic;
-    searchPropImages(topic);
-  }
 
   var status = document.createElement("div");
   status.id = "qPropTopicStatus";
-  status.style.cssText = "font-size:11px;color:#bbb;min-height:14px;";
+  status.className = "muted";
+  status.style.cssText = "min-height:14px;margin-bottom:4px;";
   controls.appendChild(status);
 
   var pageRow = document.createElement("div");
   pageRow.id = "qPropPageControls";
-  pageRow.style.cssText = "display:flex;align-items:center;justify-content:center;gap:8px;width:100%;";
+  pageRow.style.cssText = "text-align:center;";
+
   var prevPageButton = document.createElement("button");
   prevPageButton.type = "button";
-  prevPageButton.textContent = "‹ Previous";
-  prevPageButton.style.cssText = "padding:5px 9px;background:#333;color:#eee;border:1px solid #666;border-radius:3px;cursor:pointer;";
+  prevPageButton.textContent = "< Prev";
   prevPageButton.onclick = function() {
     if (propSearchPage > 0) searchPropImages(propSearchTopic, propSearchPage - 1);
   };
+
   var pageLabel = document.createElement("span");
   pageLabel.id = "qPropPageLabel";
-  pageLabel.textContent = "Page 1";
-  pageLabel.style.cssText = "font-size:11px;color:#bbb;";
+  pageLabel.textContent = " Page 1 ";
+  pageLabel.className = "muted";
+
   var nextPageButton = document.createElement("button");
   nextPageButton.type = "button";
-  nextPageButton.textContent = "Next ›";
-  nextPageButton.style.cssText = "padding:5px 9px;background:#333;color:#eee;border:1px solid #666;border-radius:3px;cursor:pointer;";
+  nextPageButton.textContent = "Next >";
   nextPageButton.onclick = function() {
     if (propSearchHasNextPage) searchPropImages(propSearchTopic, propSearchPage + 1);
   };
+
   pageRow.appendChild(prevPageButton);
   pageRow.appendChild(pageLabel);
   pageRow.appendChild(nextPageButton);
   controls.appendChild(pageRow);
 
   if (grid.parentNode) grid.parentNode.insertBefore(controls, grid);
+  renderCustomPropTopics();
   return controls;
 }
 
@@ -404,8 +401,8 @@ function searchPropImages(topic, page) {
 
   var requestId = ++propSearchRequestId;
   propSearchHasNextPage = false;
-  if (status) status.textContent = query ? "Searching: " + query : "Loading random images...";
-  if (pageLabel) pageLabel.textContent = "Page " + (requestedPage + 1);
+  if (status) status.textContent = query ? ("Searching: " + query) : "Loading random images from internet sources...";
+  if (pageLabel) pageLabel.textContent = " Page " + (requestedPage + 1) + " ";
   if (pageButtons) pageButtons.style.opacity = "0.55";
   worldState.propCatalog = buildRandomPropCatalog();
   renderPropCatalog();
@@ -413,7 +410,7 @@ function searchPropImages(topic, page) {
   var xhr = new XMLHttpRequest();
   var api = "https://commons.wikimedia.org/w/api.php?action=query&";
   if (query) {
-    api += "generator=search&gsrnamespace=6&gsrlimit=10&gsroffset=" + (requestedPage * 10) + "&gsrsearch=" + encodeURIComponent(query);
+    api += "generator=search&gsrnamespace=6&gsrlimit=12&gsroffset=" + (requestedPage * 12) + "&gsrsearch=" + encodeURIComponent(query);
   } else {
     api += "generator=random&grnnamespace=6&grnlimit=10";
   }
@@ -434,8 +431,8 @@ function searchPropImages(topic, page) {
             var imagePage = pages[pid];
             var info = imagePage.imageinfo && imagePage.imageinfo[0];
             var thumb = info && (info.thumburl || info.url);
-            if (thumb && /^https?:\/\//i.test(thumb)) {
-              var cleanTitle = String(imagePage.title || "Image").replace(/^File:/i, "").replace(/\.[^.]+$/, "").substring(0, 28);
+            if (thumb && /^https?:\/\//i.test(thumb) && /\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i.test(thumb) && found.length < 7) {
+              var cleanTitle = String(imagePage.title || "Image").replace(/^File:/i, "").replace(/\.[^.]+$/, "").substring(0, 24);
               found.push({ name: cleanTitle || "Image", url: thumb });
             }
           }
@@ -443,15 +440,31 @@ function searchPropImages(topic, page) {
       } catch (e) {}
     }
 
-    if (!found.length) {
+    // Mix in additional internet sources (Picsum, Robohash, DiceBear) so random props come from many sources
+    if (!query) {
+      var sets = ["set1", "set2", "set3", "set4"];
+      while (found.length < 10) {
+        var rnd = Math.floor(Math.random() * 999999) + 1;
+        var idx = found.length;
+        if (idx % 3 === 0) {
+          found.push({ name: "Photo #" + rnd, url: "https://picsum.photos/160/160?random=" + rnd });
+        } else if (idx % 3 === 1) {
+          found.push({ name: "Bot #" + (rnd % 999), url: "https://robohash.org/" + rnd + ".png?set=" + sets[rnd % sets.length] + "&size=160x160" });
+        } else {
+          found.push({ name: "Sprite #" + (rnd % 999), url: "https://api.dicebear.com/7.x/pixel-art/png?seed=" + rnd });
+        }
+      }
+      propSearchHasNextPage = true;
+      if (status) status.textContent = "Showing random props from multiple internet sources";
+    } else if (!found.length) {
       if (status) status.textContent = "No images found. Try another topic.";
-      worldState.propCatalog = [];
     } else {
-      worldState.propCatalog = found;
       propSearchHasNextPage = hasNext && found.length > 0;
-      if (status) status.textContent = "Showing " + found.length + " images" + (query ? " for: " + query : "");
+      if (status) status.textContent = "Showing " + found.length + " images for: " + query;
     }
-    if (pageLabel) pageLabel.textContent = "Page " + (requestedPage + 1);
+
+    worldState.propCatalog = found;
+    if (pageLabel) pageLabel.textContent = " Page " + (requestedPage + 1) + " ";
     if (pageButtons) pageButtons.style.opacity = "1";
     var buttons = pageButtons ? pageButtons.getElementsByTagName("button") : [];
     if (buttons.length >= 2) {
@@ -474,7 +487,7 @@ function rerollRandomProps() {
   var grid = document.getElementById("qPropGrid");
   if (!grid) return;
   ensurePropTopicControls(grid);
-  searchPropImages("");
+  searchPropImages("", 0);
 }
 
 function togglePropMenu(forceState) {
@@ -507,7 +520,7 @@ function spawnSharedSprite() {
 }
 
 function saveSprite(u, hasProgress) {
-  var sid = "sp_" + generateId();
+  var sid = generateId("sp");
   var obj = {
     id: sid,
     url: u,
@@ -528,13 +541,17 @@ function saveSprite(u, hasProgress) {
 }
 
 function clearAllSprites() {
+  var now = new Date().getTime();
+  for (var sid in worldState.sprites) {
+    if (worldState.sprites.hasOwnProperty(sid)) removedSpriteTombstones[sid] = now;
+  }
   worldState.sprites = {};
   worldState.grabbedSpriteId = null;
   dbWrite("DELETE", "realtime/sprites", null, null);
 }
 
 function spawnSharedFirework() {
-  var fid = "fw_" + generateId();
+  var fid = generateId("fw");
   var now = new Date().getTime();
   var fw = {
     id: fid,
@@ -561,7 +578,7 @@ function selectHl2Tool(tool) {
     if (btn) btn.className = (tools[i] === tool) ? "btn-active" : "";
   }
   var help = document.getElementById("toolHelpText");
-  if (help) help.innerHTML = esc(HL2_TOOL_HINTS[tool]);
+  if (help) help.textContent = HL2_TOOL_HINTS[tool];
   syncCursor(true);
 }
 
@@ -652,7 +669,6 @@ function useActiveHl2Tool(clickX, clickY) {
     spawnBurstParticles(tx, ty, "#FFAA00", 10);
   }
 
-  // Check hits on props near cursor
   for (var sid in worldState.sprites) {
     if (!worldState.sprites.hasOwnProperty(sid) || !worldState.sprites[sid]) continue;
     var sp = worldState.sprites[sid];
@@ -664,7 +680,6 @@ function useActiveHl2Tool(clickX, clickY) {
     }
   }
 
-  // Check hits on other players' character models (combat)
   if (tool === "crowbar" || tool === "pistol" || tool === "gravgun") {
     var dmg = (tool === "crowbar") ? 25 : (tool === "pistol" ? 20 : 10);
     for (var aid in worldState.actors) {
@@ -1081,7 +1096,6 @@ function stepWorldPhysicsAndRender() {
   stepMyActorPhysics();
   renderActorsLayer();
 
-  // Fireworks physics
   for (var fid in worldState.fireworks) {
     if (!worldState.fireworks.hasOwnProperty(fid)) continue;
     var fw = worldState.fireworks[fid];
@@ -1114,7 +1128,6 @@ function stepWorldPhysicsAndRender() {
     }
   }
 
-  // Props / Sprites physics & spinning
   for (var id in worldState.sprites) {
     if (!worldState.sprites.hasOwnProperty(id)) continue;
     var s = worldState.sprites[id];
@@ -1152,7 +1165,6 @@ function stepWorldPhysicsAndRender() {
     }
   }
 
-  // Render beams & particles on fxCanvas
   var fc = document.getElementById("fxCanvas");
   var hasActiveBeam = Boolean(worldState.grabbedSpriteId && worldState.sprites[worldState.grabbedSpriteId]);
   if (fc && fc.getContext && (worldState.particles.length || worldState.beams.length || hasActiveBeam || worldState.hadFx)) {
@@ -1199,7 +1211,6 @@ function stepWorldPhysicsAndRender() {
     worldState.hadFx = Boolean(worldState.particles.length || worldState.beams.length || hasActiveBeam);
   }
 
-  // Render fireworks and spinning props
   var layer = document.getElementById("playgroundLayer");
   if (layer) {
     var h = "";
