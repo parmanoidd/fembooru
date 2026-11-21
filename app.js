@@ -1,25 +1,21 @@
 /* ==========================================================================
-   FEMBOORU APPLICATION CONTROLLER:
-   - VIEW ROUTING, AUTO-REFRESH SYNC ENGINE & INITIALIZATION
+   FEMBOORU APPLICATION CONTROLLER: VIEW ROUTING, REALTIME SYNC, STATE
+   RECONCILIATION, HOTKEYS & BOOTSTRAP
    ========================================================================== */
 function switchView(viewName) {
-  state.view = viewName;
+  state.view = viewName || "boards";
   var sections = document.querySelectorAll(".view-section");
   for (var i = 0; i < sections.length; i++) {
-    sections[i].className = (sections[i].id === "view-" + viewName) ? "view-section active" : "view-section";
+    sections[i].className = (sections[i].id === "view-" + state.view) ? "view-section active" : "view-section";
   }
 
   var navBtns = document.querySelectorAll(".top-nav-links button");
   var viewOrder = ["boards", "wall", "profile", "members", "groups", "dms", "stickers", "wplace", "notifications"];
   for (var j = 0; j < navBtns.length; j++) {
-    navBtns[j].className = (viewOrder[j] === viewName) ? "active-nav" : "";
+    navBtns[j].className = (viewOrder[j] === state.view) ? "active-nav" : "";
   }
 
   renderBoardsSidebar();
-  renderCurrentView();
-}
-
-function renderCurrentView() {
   if (state.view === "boards") {
     renderBoardPolls();
     renderThreads();
@@ -45,176 +41,294 @@ function renderCurrentView() {
 }
 
 function renderAll() {
+  var logoImg = document.getElementById("siteLogoImg");
+  if (logoImg) {
+    var targetLogo = isValidImageSrc(state.siteLogo) ? state.siteLogo : DEFAULT_SITE_LOGO;
+    if (logoImg.src !== targetLogo) logoImg.src = targetLogo;
+  }
+
   updateAuthUi();
   renderBoardsSidebar();
-  updateNotifBadge();
   rebuildMusicPlaylist();
+  updateNotifBadge();
   syncSnowState();
   syncTabLogoState();
-  renderCurrentView();
+
+  if (state.view === "boards") {
+    renderBoardPolls();
+    renderThreads();
+  } else if (state.view === "wall") {
+    renderGlobalWall();
+  } else if (state.view === "profile") {
+    renderPublicProfile();
+  } else if (state.view === "members") {
+    renderMembersList();
+  } else if (state.view === "groups") {
+    renderGroupsList();
+    renderActiveGroup();
+  } else if (state.view === "dms") {
+    renderDmList();
+  } else if (state.view === "stickers") {
+    renderStickersArchive();
+  } else if (state.view === "wplace") {
+    renderWplaceCanvas();
+    renderWplaceRecent();
+  } else if (state.view === "notifications") {
+    renderNotifications();
+  }
 }
 
-/* ==========================================================================
-   AUTO-REFRESH DATA SYNC (BOARDS, MESSAGES, POLLS, EFFECTS, WPLACE)
-   ========================================================================== */
-function computeDataFingerprint() {
-  return [
-    state.boards.length,
-    countMapKeys(state.threads),
-    countMapKeys(state.polls),
-    countMapKeys(state.users),
-    countMapKeys(state.walls),
-    countMapKeys(state.groups),
-    countMapKeys(state.dms),
-    countMapKeys(state.stickers),
-    countMapKeys(state.music),
-    countMapKeys(state.wplacePixels),
-    state.user ? countMapKeys(state.notifications[state.user.uid]) : 0,
-    JSON.stringify(state.threads).length,
-    JSON.stringify(state.walls).length,
-    JSON.stringify(state.groups).length,
-    JSON.stringify(state.dms).length
-  ].join("|");
+function mergeBoardsList(dbBoards) {
+  var merged = [];
+  var seen = {};
+  for (var i = 0; i < DEFAULT_BOARDS.length; i++) {
+    merged.push(DEFAULT_BOARDS[i]);
+    seen[DEFAULT_BOARDS[i].slug] = true;
+  }
+  if (dbBoards && typeof dbBoards === "object") {
+    for (var slug in dbBoards) {
+      if (dbBoards.hasOwnProperty(slug) && dbBoards[slug] && !seen[slug]) {
+        merged.push(dbBoards[slug]);
+        seen[slug] = true;
+      }
+    }
+  }
+  state.boards = merged;
 }
 
-function fetchAllData() {
-  var pending = 13;
-  var dbFailed = false;
-
-  function done() {
-    pending--;
-    if (pending > 0) return;
-
-    if (!state.boards.length) {
-      state.boards = DEFAULT_BOARDS.slice(0);
-      if (isSuperiorAdmin() && !dbFailed) {
-        for (var i = 0; i < DEFAULT_BOARDS.length; i++) {
-          dbWrite("PUT", "boards/" + DEFAULT_BOARDS[i].slug, DEFAULT_BOARDS[i], null);
+function applyRealtimeSnapshot(rt, effects) {
+  var now = new Date().getTime();
+  if (rt && typeof rt === "object") {
+    // Merge remote cursors without overwriting our own live cursor
+    var incomingCursors = rt.cursors || {};
+    for (var cid in worldState.cursors) {
+      if (worldState.cursors.hasOwnProperty(cid) && cid !== myClientId && !incomingCursors[cid]) {
+        delete worldState.cursors[cid];
+      }
+    }
+    for (var icid in incomingCursors) {
+      if (incomingCursors.hasOwnProperty(icid) && icid !== myClientId && incomingCursors[icid]) {
+        if ((now - (incomingCursors[icid].updatedAt || 0)) <= 15000) {
+          worldState.cursors[icid] = incomingCursors[icid];
         }
       }
     }
 
-    var logoEl = document.getElementById("siteLogoImg");
-    if (logoEl && isValidImageSrc(state.siteLogo) && logoEl.src !== state.siteLogo) {
-      logoEl.src = state.siteLogo;
+    // Merge remote sprites without clobbering a sprite currently grabbed locally
+    var incomingSprites = rt.sprites || {};
+    for (var sid in worldState.sprites) {
+      if (worldState.sprites.hasOwnProperty(sid) && sid !== worldState.grabbedSpriteId && !incomingSprites[sid]) {
+        delete worldState.sprites[sid];
+      }
+    }
+    for (var isid in incomingSprites) {
+      if (incomingSprites.hasOwnProperty(isid) && isid !== worldState.grabbedSpriteId && incomingSprites[isid]) {
+        var localSp = worldState.sprites[isid];
+        var remSp = incomingSprites[isid];
+        if (!localSp || (remSp.updatedAt || 0) >= (localSp.updatedAt || 0)) {
+          worldState.sprites[isid] = remSp;
+        }
+      }
     }
 
-    var nextHash = computeDataFingerprint();
-    if (nextHash !== lastDataHash) {
-      lastDataHash = nextHash;
-      renderAll();
+    // Merge remote fireworks
+    var incomingFw = rt.fireworks || {};
+    for (var fid in incomingFw) {
+      if (incomingFw.hasOwnProperty(fid) && incomingFw[fid] && !worldState.explodedFireworks[fid] && !worldState.fireworks[fid]) {
+        worldState.fireworks[fid] = incomingFw[fid];
+      }
+    }
+
+    // Merge remote actors
+    var incomingActors = rt.actors || {};
+    for (var aid in worldState.actors) {
+      if (worldState.actors.hasOwnProperty(aid) && aid !== myClientId && !incomingActors[aid]) {
+        delete worldState.actors[aid];
+      }
+    }
+    for (var iaid in incomingActors) {
+      if (incomingActors.hasOwnProperty(iaid) && iaid !== myClientId && incomingActors[iaid]) {
+        if ((now - (incomingActors[iaid].updatedAt || 0)) <= 15000) {
+          worldState.actors[iaid] = incomingActors[iaid];
+        }
+      }
+    }
+  }
+
+  if (effects && typeof effects === "object") {
+    state.snowEffect = effects.snow || null;
+    state.tabLogoEffect = effects.tabLogo || null;
+    syncSnowState();
+    syncTabLogoState();
+  }
+}
+
+function syncRealtimeWorld() {
+  dbGet("realtime", function(err, rt) {
+    if (!err) {
+      dbGet("effects", function(eErr, eff) {
+        applyRealtimeSnapshot(rt, eErr ? null : eff);
+      });
+    }
+  });
+}
+
+function fetchAllData() {
+  dbGet("", function(err, root) {
+    if (err || !root || typeof root !== "object") return;
+
+    mergeBoardsList(root.boards);
+    state.threads = root.threads || {};
+    state.polls = root.polls || {};
+    state.users = root.users || {};
+    state.walls = root.walls || {};
+    state.groups = root.groups || {};
+    state.dms = root.dms || {};
+    state.stickers = root.stickers || {};
+    state.subscriptions = root.subscriptions || {};
+    state.blocks = root.blocks || {};
+    state.notifications = root.notifications || {};
+    state.music = root.music || {};
+    state.wplacePixels = (root.wplace && root.wplace.pixels) || {};
+    state.wplaceRecent = (root.wplace && root.wplace.recent) || {};
+    state.siteLogo = (root.site && root.site.logo) || "";
+
+    if (state.user && state.users[state.user.uid]) {
+      state.profile = state.users[state.user.uid];
+    }
+
+    applyRealtimeSnapshot(root.realtime, root.effects);
+
+    var snapshotSig = JSON.stringify({
+      b: state.boards.length,
+      t: state.threads,
+      p: state.polls,
+      u: state.users,
+      w: state.walls,
+      g: state.groups,
+      d: state.dms,
+      s: state.stickers,
+      sub: state.subscriptions,
+      blk: state.blocks,
+      n: state.notifications,
+      m: state.music,
+      wp: countMapKeys(state.wplacePixels),
+      wpr: countMapKeys(state.wplaceRecent),
+      logo: state.siteLogo
+    });
+
+    if (snapshotSig !== lastDataHash) {
+      lastDataHash = snapshotSig;
+      var activeEl = document.activeElement;
+      var isTypingInForm = activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA");
+      if (!isTypingInForm) {
+        renderAll();
+      } else {
+        updateNotifBadge();
+        rebuildMusicPlaylist();
+      }
+    }
+  });
+}
+
+function bindGlobalHotkeys() {
+  document.addEventListener("keydown", function(e) {
+    e = e || window.event;
+    var code = e.keyCode || e.which;
+    var key = String(e.key || "").toLowerCase();
+    var tgt = e.target || e.srcElement;
+    var tag = tgt && tgt.tagName ? tgt.tagName.toUpperCase() : "";
+    var inInput = (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT");
+
+    if (key === "shift" || code === 16) {
+      worldState.shiftDownClean = true;
     } else {
-      syncSnowState();
-      syncTabLogoState();
-      updateNotifBadge();
+      worldState.shiftDownClean = false;
     }
-  }
 
-  dbGet("boards", function(err, data) {
-    if (err) dbFailed = true;
-    var arr = [];
-    if (data && typeof data === "object") {
-      for (var k in data) {
-        if (data.hasOwnProperty(k) && data[k] && data[k].slug) arr.push(data[k]);
-      }
+    if (code === 27 || key === "escape") {
+      if (worldState.cursorChatOpen) closeCursorChatBar();
+      if (worldState.propMenuOpen) togglePropMenu(false);
+      closeStickerPicker();
+      closeZoomModal();
+      return;
     }
-    if (arr.length) state.boards = arr;
-    done();
+
+    if (inInput) return;
+
+    // [Q] Toggle Sandbox Spawnmenu
+    if (key === "q" || code === 81) {
+      if (e.preventDefault) e.preventDefault();
+      togglePropMenu();
+      return;
+    }
+
+    // [/] Open Cursor Chat
+    if (key === "/" || code === 191) {
+      if (e.preventDefault) e.preventDefault();
+      openCursorChatBar();
+      return;
+    }
+
+    // [E] Freeze / Unfreeze grabbed prop with Physgun
+    if ((key === "e" || code === 69) && worldState.grabbedSpriteId) {
+      var sp = worldState.sprites[worldState.grabbedSpriteId];
+      worldState.grabbedSpriteId = null;
+      if (sp) {
+        sp.frozen = true;
+        sp.vx = 0;
+        sp.vy = 0;
+        syncSingleSpriteToDb(sp);
+        showStatus("Prop frozen in place!", false);
+      }
+      return;
+    }
+
+    // [F] Actor melee attack
+    if (key === "f" || code === 70) {
+      triggerActorAttack();
+      return;
+    }
+
+    // [WASD] / Arrows for playable character actor
+    if (key === "a" || code === 65 || code === 37) setActorKey("left", true);
+    if (key === "d" || code === 68 || code === 39) setActorKey("right", true);
+    if (key === "w" || code === 87 || code === 38 || code === 32) setActorKey("jump", true);
   });
 
-  dbGet("threads", function(err, data) { state.threads = data || {}; done(); });
-  dbGet("polls", function(err, data) { state.polls = data || {}; done(); });
-  dbGet("users", function(err, data) {
-    state.users = data || {};
-    if (state.user && state.users[state.user.uid]) state.profile = state.users[state.user.uid];
-    done();
-  });
-  dbGet("walls", function(err, data) { state.walls = data || {}; done(); });
-  dbGet("groups", function(err, data) { state.groups = data || {}; done(); });
-  dbGet("stickers", function(err, data) { state.stickers = data || {}; done(); });
-  dbGet("subscriptions", function(err, data) { state.subscriptions = data || {}; done(); });
-  dbGet("blocks", function(err, data) { state.blocks = data || {}; done(); });
-  dbGet("music", function(err, data) { state.music = data || {}; done(); });
-  dbGet("site", function(err, data) { state.siteLogo = (data && data.logo) || ""; done(); });
-  dbGet("effects", function(err, data) {
-    state.snowEffect = (data && data.snow) || null;
-    state.tabLogoEffect = (data && data.tabLogo) || null;
-    done();
-  });
-  dbGet("wplace", function(err, data) {
-    state.wplacePixels = (data && data.pixels) || {};
-    state.wplaceRecent = (data && data.recent) || {};
-    done();
-  });
+  document.addEventListener("keyup", function(e) {
+    e = e || window.event;
+    var code = e.keyCode || e.which;
+    var key = String(e.key || "").toLowerCase();
+    var tgt = e.target || e.srcElement;
+    var tag = tgt && tgt.tagName ? tgt.tagName.toUpperCase() : "";
+    var inInput = (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT");
 
-  if (state.user && state.user.uid) {
-    dbGet("dms", function(err, data) {
-      state.dms = data || {};
-      if (state.view === "dms") renderDmList();
-    });
-    dbGet("notifications/" + state.user.uid, function(err, data) {
-      state.notifications[state.user.uid] = data || {};
-      updateNotifBadge();
-      if (state.view === "notifications") renderNotifications();
-    });
-  }
-}
-
-function syncRealtimeEntities() {
-  dbGet("realtime", function(err, data) {
-    if (err || !data) return;
-    worldState.cursors = data.cursors || {};
-    renderRemoteCursors();
-
-    var remoteSprites = data.sprites || {};
-    for (var sId in remoteSprites) {
-      if (remoteSprites.hasOwnProperty(sId) && remoteSprites[sId] && worldState.grabbedSpriteId !== sId) {
-        worldState.sprites[sId] = remoteSprites[sId];
-      }
-    }
-    for (var localSid in worldState.sprites) {
-      if (worldState.sprites.hasOwnProperty(localSid) && !remoteSprites[localSid] && worldState.grabbedSpriteId !== localSid) {
-        delete worldState.sprites[localSid];
-      }
+    if ((key === "shift" || code === 16) && worldState.shiftDownClean && !inInput) {
+      worldState.shiftDownClean = false;
+      openCursorChatBar();
+      return;
     }
 
-    var remoteFw = data.fireworks || {};
-    for (var fId in remoteFw) {
-      if (remoteFw.hasOwnProperty(fId) && remoteFw[fId] && !worldState.explodedFireworks[fId]) {
-        worldState.fireworks[fId] = remoteFw[fId];
-      }
-    }
-
-    var remoteActors = data.actors || {};
-    for (var aId in remoteActors) {
-      if (remoteActors.hasOwnProperty(aId) && remoteActors[aId] && aId !== myClientId) {
-        worldState.actors[aId] = remoteActors[aId];
-      }
-    }
-    for (var oldAid in worldState.actors) {
-      if (worldState.actors.hasOwnProperty(oldAid) && oldAid !== myClientId && !remoteActors[oldAid]) {
-        delete worldState.actors[oldAid];
-      }
-    }
+    if (key === "a" || code === 65 || code === 37) setActorKey("left", false);
+    if (key === "d" || code === 68 || code === 39) setActorKey("right", false);
+    if (key === "w" || code === 87 || code === 38 || code === 32) setActorKey("jump", false);
   });
 }
 
-/* ==========================================================================
-   APPLICATION BOOTSTRAP
-   ========================================================================== */
-function bootApplication() {
-  state.boards = DEFAULT_BOARDS.slice(0);
+function bootstrapFembooru() {
+  mergeBoardsList(null);
   loadSession();
   updateAuthUi();
   initMusicPlayer();
   initWplaceMap();
   initWorldEngine();
+  bindGlobalHotkeys();
+  refreshPropCatalog();
   probeServicePolicies();
   fetchGithubRepoVersion();
-  renderAll();
 
   ensureFreshSession(function() {
-    updateAuthUi();
     if (state.user) {
       loadUserProfile(function() {
         updateAuthUi();
@@ -225,13 +339,12 @@ function bootApplication() {
     }
   });
 
-  if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+  setInterval(syncRealtimeWorld, CONFIG.realtimeSyncMs);
   autoRefreshTimer = setInterval(fetchAllData, CONFIG.autoRefreshMs);
-  setInterval(syncRealtimeEntities, CONFIG.realtimeSyncMs);
 }
 
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", bootApplication);
+  document.addEventListener("DOMContentLoaded", bootstrapFembooru);
 } else {
-  bootApplication();
+  bootstrapFembooru();
 }
