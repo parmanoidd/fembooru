@@ -3,473 +3,472 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>fembooru — Ukraine &amp; Pridnestrovie Imageboard</title>
-  <link id="dynamicFavicon" rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAWklEQVR42mP8z8AARQwwBhgZGf8zMjL+Z2Ji+s/AwPCfkZHxPxMT038GBob/DAwM/xkYGP4zMDD8Z2Bg+M/AwPCfgYHhPwMDw38GBob/DAwM/4E0Ix4x3AAAmv4P6X9x5eQAAAAASUVORK5CYII=">
+  <title>fembooru — Imageboard &amp; Social Network</title>
+  <link id="dynamicFavicon" rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAWklEQVR42mP8z8AARQwwBhgZGf8zMjL+Z2Ji+s/AwPCfkZHxPxMT038GBob/DAwM/xkYGP4zMDD8Z2Bg+M/AwPCfgYHhPwMDw38GBob/DAwM/4E0Ix4x3AAAmv4P6X9x5eQAAAAASUVORK5CYII=">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <canvas id="snowCanvas"></canvas>
-  <canvas id="fxCanvas"></canvas>
-  <div id="cursorsLayer"></div>
-  <div id="playgroundLayer"></div>
-  <div id="actorsLayer"></div>
+  <canvas id="snowCanvas" class="overlay-canvas"></canvas>
+  <canvas id="fxCanvas" class="overlay-canvas"></canvas>
+  <div id="playgroundLayer" class="world-layer"></div>
+  <div id="actorsLayer" class="world-layer"></div>
+  <div id="cursorsLayer" class="world-layer"></div>
 
-  <div id="statusBanner"></div>
-
-  <div id="uploadProgressWrap">
-    <div id="uploadProgressLabel">Uploading... 0%</div>
-    <div class="progress-track"><div id="uploadProgressBar"></div></div>
+  <div id="cursorChatBar" class="cursor-chat-bar" style="display:none;">
+    <span>Cursor Chat:</span>
+    <input type="text" id="cursorChatInput" maxlength="80" placeholder="Type live above your cursor..." oninput="onCursorChatTyping(this.value)">
+    <button type="button" onclick="closeCursorChatBar()">Close</button>
   </div>
 
-  <!-- TOP NAVIGATION & AUTH BAR -->
-  <header class="top-bar">
-    <div class="top-nav-links">
-      <button type="button" class="active-nav" onclick="switchView('boards')">[Boards]</button>
-      <button type="button" onclick="switchView('wall')">[Wall / Stena]</button>
-      <button type="button" onclick="switchView('members')">[Members]</button>
-      <button type="button" onclick="switchView('groups')">[Groups]</button>
-      <button type="button" onclick="switchView('dms')">[DMs]</button>
-      <button type="button" onclick="switchView('stickers')">[Stickers]</button>
-      <button type="button" onclick="switchView('wplace')">[wPlace Map]</button>
-      <button type="button" onclick="switchView('notifications')">[Alerts <span id="notifBadge" style="display:none;">0</span>]</button>
-      <button type="button" onclick="openMyProfile()">[My Profile]</button>
+  <div class="page-center">
+    <header class="top-bar">
+      <div class="top-info-strip">
+        <span><b>fembooru</b> — Community Imageboard &amp; Social Network for Ukraine &amp; Pridnestrovie (EN)</span>
+        <span class="top-hotkeys">Hotkeys: <b>[Q]</b> Props • <b>[Shift]</b> or <b>[/]</b> Cursor Chat • <b>RMB</b> Throw Sprite • <b>[WASD]</b> Walk Model</span>
+      </div>
+
+      <nav class="nav-bar">
+        <div class="top-nav-links">
+          <button type="button" class="active-nav" onclick="switchView('boards')">[Boards]</button>
+          <button type="button" onclick="switchView('wall')">[Wall / Stena]</button>
+          <button type="button" onclick="openMyProfile()">[My Profile]</button>
+          <button type="button" onclick="switchView('members')">[Members]</button>
+          <button type="button" onclick="switchView('groups')">[Groups]</button>
+          <button type="button" onclick="switchView('dms')">[DMs]</button>
+          <button type="button" onclick="switchView('stickers')">[Stickers]</button>
+          <button type="button" onclick="switchView('wplace')">[WPlace Map]</button>
+          <button type="button" onclick="switchView('notifications')">[Notifications <span id="notifBadge" class="notif-badge" style="display:none;">0</span>]</button>
+        </div>
+
+        <div class="auth-panel">
+          <div id="loggedOutControls" class="auth-row">
+            <input type="text" id="authUsernameInput" placeholder="Username">
+            <input type="password" id="authPasswordInput" placeholder="Password">
+            <button type="button" onclick="loginUser()">Login</button>
+            <button type="button" onclick="registerUser()">Register</button>
+          </div>
+          <div id="loggedInControls" class="auth-row" style="display:none;">
+            <span id="currentUserBadge" class="user-badge"></span>
+            <button type="button" onclick="logoutUser()">Logout</button>
+            <button type="button" class="btn-danger" onclick="deleteOwnAccount()">Delete Account</button>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <div id="statusBanner" class="status-banner" style="display:none;"></div>
+
+    <div id="uploadProgressWrap" class="progress-wrap" style="display:none;">
+      <div id="uploadProgressLabel" class="progress-label">Uploading... 0%</div>
+      <div class="progress-track"><div id="uploadProgressBar" class="progress-bar"></div></div>
     </div>
 
-    <div class="top-auth-box">
-      <div id="loggedOutControls" class="auth-row">
-        <input type="text" id="authUsernameInput" placeholder="Username (e.g. alex)">
-        <input type="password" id="authPasswordInput" placeholder="Password (6+ chars)">
-        <button type="button" onclick="loginUser()">Login</button>
-        <button type="button" onclick="registerUser()">Register</button>
-      </div>
-      <div id="loggedInControls" class="auth-row" style="display:none;">
-        <span id="currentUserBadge"></span>
-        <button type="button" onclick="logoutUser()">Logout</button>
-        <button type="button" class="btn-danger" onclick="deleteOwnAccount()">Delete Account</button>
-      </div>
-    </div>
-  </header>
+    <div class="layout-table">
+      <aside class="left-sidebar">
+        <div class="side-box logo-box">
+          <a href="https://parmanoidd.github.io/fembooru/" title="Return to main page">
+            <img id="siteLogoImg" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='210' height='68' viewBox='0 0 210 68'%3E%3Crect width='210' height='68' fill='%23EEAA88' stroke='%23800000' stroke-width='3'/%3E%3Ctext x='105' y='34' font-family='Arial,sans-serif' font-size='22' font-weight='bold' text-anchor='middle' fill='%23800000'%3Efembooru%3C/text%3E%3Ctext x='105' y='52' font-family='Arial,sans-serif' font-size='10' text-anchor='middle' fill='%23800000'%3EUA %E2%80%A2 PMR IMAGEBOARD%3C/text%3E%3C/svg%3E" alt="fembooru">
+          </a>
+          <div id="adminLogoBox" class="admin-logo-controls" style="display:none;">
+            <div class="mini-title">Superior Admin Logo</div>
+            <input type="file" id="adminLogoFile" accept="image/*,.gif,.apng,.webp,.avif,.mng,.bpg,.flif,.svg">
+            <input type="text" id="adminLogoUrl" placeholder="Or direct logo URL">
+            <div class="btn-row">
+              <button type="button" onclick="adminUpdateSiteLogo()">Set Logo</button>
+              <button type="button" class="btn-danger" onclick="adminResetLogos()">Reset Logos</button>
+            </div>
+          </div>
+        </div>
 
-  <!-- MAIN 2-COLUMN LAYOUT (LEFT SIDEBAR + CENTER CONTENT) -->
-  <div class="page-layout">
-    <aside class="left-sidebar">
-      <!-- LOGO (REDIRECTS TO MAIN PAGE) -->
-      <div class="side-box logo-box">
-        <a href="https://parmanoidd.github.io/fembooru/" title="fembooru Main Page">
-          <img id="siteLogoImg" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='210' height='68' viewBox='0 0 210 68'%3E%3Crect width='210' height='68' fill='%23EEAA88' stroke='%23800000' stroke-width='3'/%3E%3Ctext x='105' y='34' font-family='Arial,sans-serif' font-size='22' font-weight='bold' text-anchor='middle' fill='%23800000'%3Efembooru%3C/text%3E%3Ctext x='105' y='52' font-family='Arial,sans-serif' font-size='10' text-anchor='middle' fill='%23800000'%3EUA %E2%80%A2 PMR IMAGEBOARD%3C/text%3E%3C/svg%3E" alt="fembooru">
-        </a>
-        <div class="region-note">Oriented for Ukraine &amp; Pridnestrovie (EN default)</div>
-        <div id="adminLogoBox" style="display:none;margin-top:6px;">
-          <div class="mini-title">Admin Logo Control</div>
-          <input type="file" id="adminLogoFile" accept="image/*">
-          <input type="text" id="adminLogoUrl" placeholder="Or direct logo URL">
+        <div class="side-box">
+          <div class="side-header">Boards</div>
+          <div id="boardsList" class="boards-nav"></div>
+          <div class="side-subform">
+            <div class="mini-title">New Board / Poll</div>
+            <input type="text" id="newBoardSlug" placeholder="Slug (e.g. games)">
+            <input type="text" id="newBoardTitle" placeholder="Board title">
+            <input type="text" id="newBoardDesc" placeholder="Short description">
+            <button type="button" onclick="proposeOrCreateBoard()">Create / Propose</button>
+          </div>
+        </div>
+
+        <div class="side-box music-widget">
+          <div class="side-header">
+            <span class="music-disc">&#9673;</span> Music Radio
+            <span class="eq-bars"><i></i><i></i><i></i><i></i></span>
+          </div>
+          <div id="musicNowPlaying" class="now-playing">No track selected</div>
+          <audio id="audioPlayerEl" controls preload="none" style="width:100%;height:30px;"></audio>
           <div class="btn-row">
-            <button type="button" onclick="adminUpdateSiteLogo()">Set Logo</button>
-            <button type="button" class="btn-danger" onclick="adminResetLogos()">Reset Logos</button>
+            <button type="button" onclick="prevMusicTrack()">Prev</button>
+            <button type="button" id="musicPlayBtn" onclick="toggleMusicPlay()">Play</button>
+            <button type="button" onclick="nextMusicTrack()">Next</button>
           </div>
-        </div>
-      </div>
-
-      <!-- BOARDS LIST & PROPOSAL POLLS -->
-      <div class="side-box">
-        <div class="side-header">Boards</div>
-        <div id="boardsList" class="boards-nav"></div>
-        <div class="side-subbox">
-          <div class="mini-title">Propose / Create Board</div>
-          <input type="text" id="newBoardSlug" placeholder="slug (e.g. tech)">
-          <input type="text" id="newBoardTitle" placeholder="Board title">
-          <input type="text" id="newBoardDesc" placeholder="Description">
-          <button type="button" onclick="proposeOrCreateBoard()">Submit Proposal</button>
-          <div id="boardPollsBox"></div>
-        </div>
-      </div>
-
-      <!-- MUSIC PLAYER WIDGET -->
-      <div class="side-box music-widget">
-        <div class="side-header">
-          <span>Music Radio</span>
-          <span class="eq-bars"><i></i><i></i><i></i><i></i></span>
-        </div>
-        <div id="musicNowPlaying" class="now-playing">No track selected</div>
-        <audio id="audioPlayerEl" preload="none"></audio>
-        <div class="btn-row">
-          <button type="button" onclick="prevMusicTrack()">&lt;&lt;</button>
-          <button type="button" id="musicPlayBtn" onclick="toggleMusicPlay()">Play</button>
-          <button type="button" onclick="nextMusicTrack()">&gt;&gt;</button>
-        </div>
-        <div class="side-subbox">
-          <input type="text" id="musicTitleInput" placeholder="Track name (optional)">
-          <input type="file" id="musicFileInput" accept="audio/*">
-          <button type="button" onclick="uploadMusicTrack()">Upload Audio</button>
-        </div>
-        <div id="musicPlaylist" class="music-playlist"></div>
-      </div>
-
-      <!-- GLOBAL 1-MINUTE EFFECTS -->
-      <div class="side-box">
-        <div class="side-header">Global 1-Min Effects</div>
-        <button type="button" onclick="triggerGlobalSnow()">Enable Snow (1 min)</button>
-        <div id="snowTimerText" class="muted"></div>
-        <div class="side-subbox">
-          <div class="mini-title">Change Tab Icon (1 min)</div>
-          <input type="file" id="tabIconFileInput" accept="image/*">
-          <input type="text" id="tabIconUrlInput" placeholder="Or icon image URL">
-          <button type="button" onclick="triggerGlobalTabIcon()">Set Tab Icon</button>
-          <div id="tabIconTimerText" class="muted"></div>
-        </div>
-      </div>
-
-      <!-- SANDBOX / SPRITES / TOOLS CONTROLS -->
-      <div class="side-box">
-        <div class="side-header">Playground &amp; Tools</div>
-        <div class="btn-row">
-          <button type="button" onclick="togglePropMenu()">Prop Menu [Q]</button>
-          <button type="button" onclick="spawnFirework()">Firework</button>
-        </div>
-        <div class="btn-row" style="margin-top:4px;">
-          <button type="button" id="toggleActorBtn" onclick="togglePlayerActor()">Spawn Model (WASD)</button>
-          <button type="button" class="btn-danger" onclick="clearAllWorldProps()">Clear Props</button>
-        </div>
-        <div class="side-subbox">
-          <div class="mini-title">Spawn Custom Sprite (RMB Throw)</div>
-          <input type="file" id="spriteUploadInput" accept="image/*">
-          <input type="text" id="spriteUrlInput" placeholder="Or sprite/GIF URL">
-          <button type="button" onclick="spawnSpriteFromFile()">Spawn Sprite</button>
-        </div>
-        <div class="muted" style="margin-top:4px;">Press <b>Shift</b> or <b>/</b> to chat above cursor. Hold <b>RMB</b> on sprite to throw.</div>
-      </div>
-    </aside>
-
-    <!-- CENTER CONTENT COLUMN -->
-    <main class="center-column">
-      <!-- VIEW 1: IMAGEBOARD THREADS -->
-      <section id="view-boards" class="view-section active">
-        <div class="box-panel">
-          <div class="box-header">
-            <span id="currentBoardTitle">/b/ — Random</span>
-            <span id="currentBoardDesc" class="muted">General discussion and media</span>
+          <div class="side-subform">
+            <input type="text" id="musicTitleInput" placeholder="Track title (optional)">
+            <input type="file" id="musicFileInput" accept="audio/*">
+            <button type="button" onclick="uploadMusicTrack()">Upload Track</button>
           </div>
-          <div class="box-body">
-            <div class="form-row">
-              <input type="text" id="threadSubjectInput" placeholder="Subject (optional)">
-              <input type="text" id="threadVideoUrlInput" placeholder="Video URL (YouTube / MP4 / WebM link)">
-            </div>
-            <textarea id="threadTextInput" rows="3" placeholder="Write post text..."></textarea>
-            <div class="form-row">
-              <input type="file" id="threadImageInput" accept="image/*">
-              <input type="hidden" id="threadStickerUrl">
-              <button type="button" onclick="openStickerPicker('thread')">+ Sticker</button>
-              <button type="button" class="btn-primary" onclick="createThread()">New Thread</button>
-            </div>
-            <div id="threadStickerPreview" class="sticker-attach-preview"></div>
-          </div>
+          <div id="musicPlaylist" class="music-playlist"></div>
         </div>
-        <div id="threadsContainer"></div>
-      </section>
 
-      <!-- VIEW 2: GLOBAL WALL ("STENA") -->
-      <section id="view-wall" class="view-section">
-        <div class="box-panel">
-          <div class="box-header">
-            <span>Global Wall (Stena)</span>
-            <div>
-              <button type="button" id="wallFilterAllBtn" class="btn-active" onclick="setWallFeedFilter('all')">All Posts</button>
-              <button type="button" id="wallFilterSubBtn" onclick="setWallFeedFilter('subs')">Subscriptions</button>
+        <div class="side-box">
+          <div class="side-header">Sandbox &amp; Effects</div>
+          <div class="btn-row">
+            <button type="button" onclick="togglePropMenu()">Props [Q]</button>
+            <button type="button" onclick="openCursorChatBar()">Chat [/]</button>
+          </div>
+          <div class="btn-row">
+            <button type="button" onclick="spawnFirework()">Firework</button>
+            <button type="button" id="toggleActorBtn" onclick="togglePlayerActor()">Spawn Model (WASD)</button>
+          </div>
+          <div class="mobile-actor-pad">
+            <button type="button" ontouchstart="setActorKey('left',true)" ontouchend="setActorKey('left',false)" onmousedown="setActorKey('left',true)" onmouseup="setActorKey('left',false)">&larr;</button>
+            <button type="button" ontouchstart="setActorKey('jump',true)" ontouchend="setActorKey('jump',false)" onmousedown="setActorKey('jump',true)" onmouseup="setActorKey('jump',false)">Jump</button>
+            <button type="button" ontouchstart="setActorKey('right',true)" ontouchend="setActorKey('right',false)" onmousedown="setActorKey('right',true)" onmouseup="setActorKey('right',false)">&rarr;</button>
+            <button type="button" onclick="triggerActorAttack()">Hit [F]</button>
+          </div>
+          <div class="side-subform">
+            <div class="mini-title">Spawn Sprite / GIF</div>
+            <input type="file" id="spriteUploadInput" accept="image/*,.gif,.apng,.webp,.avif,.mng,.bpg,.flif,.svg">
+            <input type="text" id="spriteUrlInput" placeholder="Or image/GIF URL">
+            <div class="btn-row">
+              <button type="button" onclick="spawnSpriteFromFile()">Spawn</button>
+              <button type="button" class="btn-danger" onclick="clearAllWorldProps()">Clear</button>
             </div>
           </div>
-          <div class="box-body">
-            <textarea id="globalWallText" rows="2" placeholder="Share something on your wall..."></textarea>
-            <div class="form-row">
-              <input type="file" id="globalWallFile" accept="image/*">
-              <input type="text" id="globalWallVideo" placeholder="Video link (optional)">
-              <input type="hidden" id="globalWallSticker">
-              <button type="button" onclick="openStickerPicker('globalWall')">+ Sticker</button>
-              <button type="button" class="btn-primary" onclick="postToGlobalWall()">Post to Wall</button>
-            </div>
-            <div id="globalWallStickerPreview" class="sticker-attach-preview"></div>
+          <div class="side-subform">
+            <div class="mini-title">Global 1-Min Effects</div>
+            <button type="button" onclick="triggerGlobalSnow()">Enable Snow (1m)</button>
+            <div id="snowTimerText" class="muted"></div>
+            <input type="file" id="tabIconFileInput" accept="image/*,.gif,.apng,.webp,.avif,.mng,.bpg,.flif,.svg">
+            <input type="text" id="tabIconUrlInput" placeholder="Tab icon URL">
+            <button type="button" onclick="triggerGlobalTabIcon()">Set Tab Icon (1m)</button>
+            <div id="tabIconTimerText" class="muted"></div>
           </div>
         </div>
-        <div id="wallPostsContainer"></div>
-      </section>
+      </aside>
 
-      <!-- VIEW 3: MEMBERS DIRECTORY & PREFERENCE SEARCH -->
-      <section id="view-members" class="view-section">
-        <div class="box-panel">
-          <div class="box-header"><span>Members Directory &amp; Preference Search</span></div>
-          <div class="box-body">
-            <div class="filter-grid">
-              <input type="text" id="memberFilterName" placeholder="Name / Username" oninput="renderMembersList()">
-              <input type="text" id="memberFilterPronouns" placeholder="Pronouns (e.g. he/him, she/her)" oninput="renderMembersList()">
-              <input type="text" id="memberFilterCity" placeholder="City / Hometown" oninput="renderMembersList()">
-              <input type="text" id="memberFilterRelation" placeholder="Relationship" oninput="renderMembersList()">
-              <input type="text" id="memberFilterPolitics" placeholder="Political views" oninput="renderMembersList()">
-              <input type="text" id="memberFilterInterest" placeholder="Interests / Favorites" oninput="renderMembersList()">
+      <main class="center-column">
+        <!-- BOARDS VIEW -->
+        <section id="view-boards" class="view-section active">
+          <div class="box-panel">
+            <div class="box-header">
+              <span id="currentBoardTitle">/b/ — Random</span>
+              <span id="currentBoardDesc" class="muted">General discussion, media, and threads.</span>
             </div>
-            <div id="membersDirectoryGrid" class="members-grid"></div>
+            <div class="box-body">
+              <div id="boardPollsBox"></div>
+              <div class="composer-box">
+                <div class="form-row">
+                  <input type="text" id="threadSubjectInput" placeholder="Subject">
+                  <input type="text" id="threadVideoUrlInput" placeholder="Video or Audio link (YouTube / direct URL)">
+                </div>
+                <textarea id="threadTextInput" rows="3" placeholder="Comment / Thread text..."></textarea>
+                <div class="form-row">
+                  <input type="file" id="threadImageInput" accept="image/*,.gif,.apng,.webp,.avif,.mng,.bpg,.flif,.svg">
+                  <input type="hidden" id="threadStickerUrl">
+                  <button type="button" onclick="openStickerPicker('thread')">+ Sticker</button>
+                  <button type="button" class="btn-primary" onclick="createThread()">Post Thread</button>
+                </div>
+                <div id="threadStickerPreview" class="sticker-attach-preview"></div>
+              </div>
+            </div>
           </div>
-        </div>
-      </section>
+          <div id="threadsContainer"></div>
+        </section>
 
-      <!-- VIEW 4: GROUPS -->
-      <section id="view-groups" class="view-section">
-        <div class="box-panel">
-          <div class="box-header"><span>Community Groups</span></div>
-          <div class="box-body">
-            <div class="form-row">
-              <input type="text" id="groupNameInput" placeholder="New group name">
-              <input type="text" id="groupDescInput" placeholder="Group description">
-              <button type="button" class="btn-primary" onclick="createGroup()">Create Group</button>
+        <!-- GLOBAL WALL (STENA) VIEW -->
+        <section id="view-wall" class="view-section">
+          <div class="box-panel">
+            <div class="box-header">
+              <span>Wall (Stena) Feed</span>
+              <span>
+                <button type="button" id="wallFilterAllBtn" class="btn-active" onclick="setWallFeedFilter('all')">All Posts</button>
+                <button type="button" id="wallFilterSubBtn" onclick="setWallFeedFilter('subs')">Subscriptions</button>
+              </span>
             </div>
-            <div id="groupsList" class="groups-grid"></div>
-          </div>
-        </div>
-        <div id="activeGroupView" class="box-panel" style="display:none;">
-          <div class="box-header">
-            <span id="activeGroupTitle">Group Chat</span>
-            <button type="button" id="groupJoinLeaveBtn" onclick="toggleJoinActiveGroup()">Join / Leave</button>
-          </div>
-          <div class="box-body">
-            <div id="groupMessagesList" class="chat-feed"></div>
-            <div class="form-row">
-              <input type="text" id="groupMsgInput" placeholder="Write group message...">
-              <input type="file" id="groupImgFile" accept="image/*">
-              <input type="text" id="groupVideoUrl" placeholder="Video URL">
-              <input type="hidden" id="groupStickerUrl">
-              <button type="button" onclick="openStickerPicker('group')">+ Sticker</button>
-              <button type="button" class="btn-primary" onclick="sendGroupMessage()">Send</button>
-            </div>
-            <div id="groupStickerPreview" class="sticker-attach-preview"></div>
-          </div>
-        </div>
-      </section>
-
-      <!-- VIEW 5: DIRECT MESSAGES (DMs) -->
-      <section id="view-dms" class="view-section">
-        <div class="box-panel">
-          <div class="box-header"><span>Direct Messages</span></div>
-          <div class="box-body dm-layout">
-            <div class="dm-sidebar">
+            <div class="box-body">
+              <textarea id="globalWallText" rows="2" placeholder="Write something on your wall..."></textarea>
               <div class="form-row">
-                <input type="text" id="dmNewTargetInput" placeholder="Username...">
-                <button type="button" onclick="startDmWithUsername()">Chat</button>
+                <input type="file" id="globalWallFile" accept="image/*,.gif,.apng,.webp,.avif,.mng,.bpg,.flif,.svg">
+                <input type="text" id="globalWallVideo" placeholder="Video URL">
+                <input type="hidden" id="globalWallSticker">
+                <button type="button" onclick="openStickerPicker('globalWall')">+ Sticker</button>
+                <button type="button" class="btn-primary" onclick="postToGlobalWall()">Post to Wall</button>
               </div>
-              <div id="dmThreadsList"></div>
-            </div>
-            <div class="dm-main">
-              <div id="dmActiveHeader" class="mini-title">Select a user</div>
-              <div id="dmMessagesList" class="chat-feed"></div>
-              <div class="form-row">
-                <input type="text" id="dmMsgInput" placeholder="Direct message...">
-                <input type="file" id="dmImgFile" accept="image/*">
-                <input type="text" id="dmVideoUrl" placeholder="Video URL">
-                <input type="hidden" id="dmStickerUrl">
-                <button type="button" onclick="openStickerPicker('dm')">+ Sticker</button>
-                <button type="button" class="btn-primary" onclick="sendDmMessage()">Send</button>
-              </div>
-              <div id="dmStickerPreview" class="sticker-attach-preview"></div>
+              <div id="globalWallStickerPreview" class="sticker-attach-preview"></div>
             </div>
           </div>
-        </div>
-      </section>
+          <div id="wallPostsContainer"></div>
+        </section>
 
-      <!-- VIEW 6: PUBLIC STICKERS ARCHIVE -->
-      <section id="view-stickers" class="view-section">
-        <div class="box-panel">
-          <div class="box-header"><span>Public Stickers Archive (Static &amp; Animated)</span></div>
-          <div class="box-body">
-            <div class="form-row">
-              <input type="text" id="stickerNameInput" placeholder="Sticker name">
-              <input type="file" id="stickerFileInput" accept="image/*">
-              <button type="button" class="btn-primary" onclick="uploadPublicSticker()">Upload Sticker</button>
+        <!-- PROFILE VIEW -->
+        <section id="view-profile" class="view-section">
+          <div class="box-panel">
+            <div class="box-header">
+              <span id="profHeaderTitle">User Profile</span>
+              <span id="profSubStats" class="muted"></span>
             </div>
-            <div id="stickersArchiveGrid" class="stickers-grid"></div>
-          </div>
-        </div>
-      </section>
+            <div class="box-body">
+              <div id="profStatusBanner" class="status-quote"></div>
+              <div class="profile-top-grid">
+                <div class="profile-avatar-col">
+                  <img id="profViewAvatar" class="profile-avatar" src="" alt="Avatar" onclick="openZoomModal(this.src,'Avatar','')">
+                  <div id="profActionButtons" class="btn-col"></div>
+                  <div id="superiorAdminRoleBar" class="role-assign-box" style="display:none;">
+                    <div class="mini-title">Assign Role</div>
+                    <button type="button" onclick="assignUserRole('user')">User</button>
+                    <button type="button" onclick="assignUserRole('moderator')">Moderator</button>
+                    <button type="button" onclick="assignUserRole('admin')">Jr Admin</button>
+                  </div>
+                </div>
+                <div class="profile-details-col">
+                  <h2 id="profViewDisplayName" class="profile-name"></h2>
+                  <table class="info-table">
+                    <tr><th>Pronouns:</th><td id="profViewPronouns"></td></tr>
+                    <tr><th>Relationship:</th><td id="profViewRelationship"></td></tr>
+                    <tr><th>Registration date:</th><td id="profViewRegDate"></td></tr>
+                    <tr><th>Hometown:</th><td id="profViewHometown"></td></tr>
+                    <tr><th>Political views:</th><td id="profViewPolitics"></td></tr>
+                    <tr><th>Birth date:</th><td id="profViewBirthDate"></td></tr>
+                  </table>
 
-      <!-- VIEW 7: PUBLIC WPLACE / GEOPIXELS MAP -->
-      <section id="view-wplace" class="view-section">
-        <div class="box-panel">
-          <div class="box-header">
-            <span>wPlace Geo-Pixel Canvas (OpenStreetMap)</span>
-            <span id="wplaceCoords" class="muted">Lat: 48.4000, Lon: 31.1000</span>
-          </div>
-          <div class="box-body">
-            <div class="wplace-toolbar">
-              <div id="wplacePalette" class="palette-row"></div>
-              <input type="color" id="wplaceCustomColor" value="#800000" onchange="wplaceState.selectedColor=this.value">
-              <button type="button" id="wplacePanBtn" onclick="toggleWplacePan()">Pan Mode</button>
-              <button type="button" onclick="zoomWplace(1)">Zoom +</button>
-              <button type="button" onclick="zoomWplace(-1)">Zoom -</button>
-              <button type="button" onclick="jumpWplaceTo(48.4, 31.1, 12)">UA / PMR</button>
-            </div>
-            <div class="form-row" style="margin-top:6px;">
-              <span class="mini-title">One-Click Pixel-Art Stamp:</span>
-              <input type="file" id="wplaceImageFile" accept="image/*">
-              <button type="button" class="btn-primary" onclick="stampImageToWplace()">Draw Image to Map</button>
-            </div>
-            <div class="wplace-wrap">
-              <canvas id="wplaceCanvas" width="760" height="440"></canvas>
-              <div class="wplace-recent-box">
-                <div class="mini-title">Recent Map Changes</div>
-                <div id="wplaceRecentList"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+                  <div class="section-divider">Information &bull; Contact information</div>
+                  <table class="info-table">
+                    <tr><th>Personal website:</th><td id="profViewWebsite"></td></tr>
+                    <tr><th>City:</th><td id="profViewCity"></td></tr>
+                  </table>
 
-      <!-- VIEW 8: NOTIFICATIONS -->
-      <section id="view-notifications" class="view-section">
-        <div class="box-panel">
-          <div class="box-header">
-            <span>Notifications</span>
-            <button type="button" onclick="markAllNotificationsRead()">Mark All Read</button>
-          </div>
-          <div class="box-body" id="notificationsList"></div>
-        </div>
-      </section>
-
-      <!-- VIEW 9: PUBLIC PROFILE & STENA WALL -->
-      <section id="view-profile" class="view-section">
-        <div class="box-panel">
-          <div class="box-header">
-            <span id="profHeaderTitle">User Profile</span>
-            <div id="profActionButtons"></div>
-          </div>
-          <div class="box-body">
-            <div id="profStatusBanner" class="status-quote"></div>
-            <div class="profile-top-grid">
-              <div class="profile-avatar-col">
-                <img id="profViewAvatar" src="" alt="Avatar">
-                <div id="profViewDisplayName" class="prof-name"></div>
-                <div id="profSubStats" class="muted"></div>
-                <div id="superiorAdminRoleBar" style="display:none;margin-top:6px;">
-                  <div class="mini-title">Superior Admin Role Control</div>
-                  <button type="button" onclick="assignUserRole('user')">User</button>
-                  <button type="button" onclick="assignUserRole('moderator')">Moderator</button>
-                  <button type="button" onclick="assignUserRole('admin')">Junior Admin</button>
+                  <div class="section-divider">Personal information</div>
+                  <table class="info-table">
+                    <tr><th>Interests:</th><td id="profViewInterests"></td></tr>
+                    <tr><th>About:</th><td id="profViewAbout"></td></tr>
+                  </table>
+                  <div id="profViewCustomFields"></div>
                 </div>
               </div>
-              <div class="profile-details-col">
-                <table class="info-table">
-                  <tr><th>Pronouns:</th><td id="profViewPronouns"></td></tr>
-                  <tr><th>Relationship:</th><td id="profViewRelationship"></td></tr>
-                  <tr><th>Registration date:</th><td id="profViewRegDate"></td></tr>
-                  <tr><th>Hometown:</th><td id="profViewHometown"></td></tr>
-                  <tr><th>Political views:</th><td id="profViewPolitics"></td></tr>
-                  <tr><th>Birth date:</th><td id="profViewBirthDate"></td></tr>
-                </table>
 
-                <div class="section-divider">Information — Contact information</div>
-                <table class="info-table">
-                  <tr><th>Personal website:</th><td id="profViewWebsite"></td></tr>
-                  <tr><th>City:</th><td id="profViewCity"></td></tr>
-                </table>
+              <div class="section-divider">Favorites</div>
+              <div id="profFavoritesCards" class="fav-cards-row"></div>
 
-                <div class="section-divider">Personal information</div>
-                <table class="info-table">
-                  <tr><th>Interests:</th><td id="profViewInterests"></td></tr>
-                  <tr><th>About:</th><td id="profViewAbout"></td></tr>
-                </table>
-                <div id="profViewCustomFields"></div>
+              <div id="myProfileEditor" class="profile-editor" style="display:none;">
+                <div class="section-divider">Edit Profile</div>
+                <div class="form-grid">
+                  <label>Status message: <input type="text" id="editProfStatus"></label>
+                  <label>Display name: <input type="text" id="editProfDisplayName"></label>
+                  <label>Upload Avatar: <input type="file" id="editProfAvatarFile" accept="image/*,.gif,.apng,.webp,.avif,.mng,.bpg,.flif,.svg"></label>
+                  <label>Or Avatar URL: <input type="text" id="editProfAvatarUrl"></label>
+                  <label>Pronouns: <input type="text" id="editProfPronouns"></label>
+                  <label>Relationship: <input type="text" id="editProfRelationship"></label>
+                  <label>Hometown: <input type="text" id="editProfHometown"></label>
+                  <label>Political views: <input type="text" id="editProfPolitics"></label>
+                  <label>Birth date: <input type="text" id="editProfBirthDate" placeholder="YYYY-MM-DD"></label>
+                  <label>Personal website: <input type="text" id="editProfWebsite"></label>
+                  <label>City: <input type="text" id="editProfCity"></label>
+                  <label>Interests: <input type="text" id="editProfInterests"></label>
+                </div>
+                <label class="full-label">About: <textarea id="editProfAbout" rows="2"></textarea></label>
 
-                <div class="section-divider">Favorites</div>
-                <div id="profFavoritesCards" class="favorites-cards-grid"></div>
-              </div>
-            </div>
+                <div class="mini-title" style="margin-top:8px;">Favorite Cards (Title + Image URL)</div>
+                <div class="form-grid">
+                  <label>Favorite Film: <input type="text" id="editFavFilmTitle"></label>
+                  <label>Film Cover URL: <input type="text" id="editFavFilmImg"></label>
+                  <label>Favorite TV-Show: <input type="text" id="editFavShowTitle"></label>
+                  <label>TV-Show Cover URL: <input type="text" id="editFavShowImg"></label>
+                  <label>Favorite Book: <input type="text" id="editFavBookTitle"></label>
+                  <label>Book Cover URL: <input type="text" id="editFavBookImg"></label>
+                  <label>Favorite Game: <input type="text" id="editFavGameTitle"></label>
+                  <label>Game Cover URL: <input type="text" id="editFavGameImg"></label>
+                </div>
 
-            <!-- SELF PROFILE EDITOR -->
-            <div id="myProfileEditor" class="profile-editor-box" style="display:none;">
-              <div class="section-divider">Edit My Profile</div>
-              <div class="filter-grid">
-                <input type="text" id="editProfStatus" placeholder="Status (short feeling/mood above profile)">
-                <input type="text" id="editProfDisplayName" placeholder="Display Name">
-                <input type="text" id="editProfAvatarUrl" placeholder="Avatar URL (or upload below)">
-                <input type="file" id="editProfAvatarFile" accept="image/*">
-                <input type="text" id="editProfPronouns" placeholder="Pronouns">
-                <input type="text" id="editProfRelationship" placeholder="Relationship">
-                <input type="text" id="editProfHometown" placeholder="Hometown">
-                <input type="text" id="editProfPolitics" placeholder="Political views">
-                <input type="text" id="editProfBirthDate" placeholder="Birth date">
-                <input type="text" id="editProfWebsite" placeholder="Personal website">
-                <input type="text" id="editProfCity" placeholder="City">
-                <input type="text" id="editProfInterests" placeholder="Interests">
-              </div>
-              <textarea id="editProfAbout" rows="2" placeholder="About me..."></textarea>
-
-              <div class="mini-title" style="margin-top:6px;">Favorite Cards (Title + Cover Image URL)</div>
-              <div class="filter-grid">
-                <input type="text" id="editFavFilmTitle" placeholder="Favorite Film title">
-                <input type="text" id="editFavFilmImg" placeholder="Favorite Film cover URL">
-                <input type="text" id="editFavShowTitle" placeholder="Favorite TV-show title">
-                <input type="text" id="editFavShowImg" placeholder="Favorite TV-show cover URL">
-                <input type="text" id="editFavBookTitle" placeholder="Favorite Book title">
-                <input type="text" id="editFavBookImg" placeholder="Favorite Book cover URL">
-                <input type="text" id="editFavGameTitle" placeholder="Favorite Game title">
-                <input type="text" id="editFavGameImg" placeholder="Favorite Game cover URL">
+                <div class="mini-title" style="margin-top:8px;">Custom Options</div>
+                <div id="customFieldsEditor"></div>
+                <div class="btn-row" style="margin-top:8px;">
+                  <button type="button" onclick="addCustomProfileFieldRow()">+ Add Custom Option</button>
+                  <button type="button" class="btn-primary" onclick="saveMyProfile()">Save Profile</button>
+                </div>
               </div>
 
-              <div class="mini-title" style="margin-top:6px;">Custom Profile Options</div>
-              <div id="customFieldsEditor"></div>
-              <div class="btn-row" style="margin-top:6px;">
-                <button type="button" onclick="addCustomProfileFieldRow()">+ Add Custom Option</button>
-                <button type="button" class="btn-primary" onclick="saveMyProfile()">Save Profile</button>
-              </div>
-            </div>
-
-            <!-- PROFILE WALL ("STENA") -->
-            <div class="section-divider" id="profileWallTitle">Wall (Stena)</div>
-            <div class="wall-composer">
+              <div class="section-divider" id="profileWallTitle">Wall (Stena)</div>
               <textarea id="profileWallText" rows="2" placeholder="Write on this wall..."></textarea>
               <div class="form-row">
-                <input type="file" id="profileWallFile" accept="image/*">
+                <input type="file" id="profileWallFile" accept="image/*,.gif,.apng,.webp,.avif,.mng,.bpg,.flif,.svg">
                 <input type="text" id="profileWallVideo" placeholder="Video URL">
                 <input type="hidden" id="profileWallSticker">
                 <button type="button" onclick="openStickerPicker('profileWall')">+ Sticker</button>
                 <button type="button" class="btn-primary" onclick="postToUserWall()">Post on Wall</button>
               </div>
               <div id="profileWallStickerPreview" class="sticker-attach-preview"></div>
+              <div id="profileWallPosts"></div>
             </div>
-            <div id="profileWallPosts"></div>
           </div>
-        </div>
-      </section>
-    </main>
+        </section>
+
+        <!-- MEMBERS SEARCH VIEW -->
+        <section id="view-members" class="view-section">
+          <div class="box-panel">
+            <div class="box-header"><span>Members Directory &amp; Preference Search</span></div>
+            <div class="box-body">
+              <div class="form-grid">
+                <input type="text" id="memberFilterName" placeholder="Name / Username" oninput="renderMembersList()">
+                <input type="text" id="memberFilterPronouns" placeholder="Pronouns" oninput="renderMembersList()">
+                <input type="text" id="memberFilterCity" placeholder="City / Hometown" oninput="renderMembersList()">
+                <input type="text" id="memberFilterRelation" placeholder="Relationship" oninput="renderMembersList()">
+                <input type="text" id="memberFilterPolitics" placeholder="Political views" oninput="renderMembersList()">
+                <input type="text" id="memberFilterInterest" placeholder="Interests / Favorites" oninput="renderMembersList()">
+              </div>
+              <div id="membersDirectoryGrid" class="members-grid"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- GROUPS VIEW -->
+        <section id="view-groups" class="view-section">
+          <div class="box-panel">
+            <div class="box-header"><span>Community Groups</span></div>
+            <div class="box-body">
+              <div class="form-row">
+                <input type="text" id="groupNameInput" placeholder="Group name">
+                <input type="text" id="groupDescInput" placeholder="Group description">
+                <button type="button" class="btn-primary" onclick="createGroup()">Create Group</button>
+              </div>
+              <div id="groupsList" class="groups-grid"></div>
+            </div>
+          </div>
+
+          <div id="activeGroupView" class="box-panel" style="display:none;">
+            <div class="box-header">
+              <span id="activeGroupTitle">Group Chat</span>
+              <button type="button" id="groupJoinLeaveBtn" onclick="toggleJoinActiveGroup()">Join Group</button>
+            </div>
+            <div class="box-body">
+              <div id="groupMessagesList" class="chat-feed"></div>
+              <div class="form-row">
+                <input type="text" id="groupMsgInput" placeholder="Message group...">
+                <input type="file" id="groupImgFile" accept="image/*,.gif,.apng,.webp,.avif,.mng,.bpg,.flif,.svg">
+                <input type="text" id="groupVideoUrl" placeholder="Video URL">
+                <input type="hidden" id="groupStickerUrl">
+                <button type="button" onclick="openStickerPicker('group')">+ Sticker</button>
+                <button type="button" class="btn-primary" onclick="sendGroupMessage()">Send</button>
+              </div>
+              <div id="groupStickerPreview" class="sticker-attach-preview"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- DIRECT MESSAGES VIEW -->
+        <section id="view-dms" class="view-section">
+          <div class="box-panel">
+            <div class="box-header"><span>Direct Messages</span></div>
+            <div class="box-body">
+              <div class="form-row">
+                <input type="text" id="dmNewTargetInput" placeholder="Enter username to message...">
+                <button type="button" onclick="startDmWithUsername()">Open Chat</button>
+              </div>
+              <div class="dm-layout">
+                <div id="dmThreadsList" class="dm-sidebar"></div>
+                <div class="dm-main">
+                  <div id="dmActiveHeader" class="mini-title">Select a user</div>
+                  <div id="dmMessagesList" class="chat-feed"></div>
+                  <div class="form-row">
+                    <input type="text" id="dmMsgInput" placeholder="Write private message...">
+                    <input type="file" id="dmImgFile" accept="image/*,.gif,.apng,.webp,.avif,.mng,.bpg,.flif,.svg">
+                    <input type="text" id="dmVideoUrl" placeholder="Video URL">
+                    <input type="hidden" id="dmStickerUrl">
+                    <button type="button" onclick="openStickerPicker('dm')">+ Sticker</button>
+                    <button type="button" class="btn-primary" onclick="sendDmMessage()">Send</button>
+                  </div>
+                  <div id="dmStickerPreview" class="sticker-attach-preview"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- STICKERS ARCHIVE VIEW -->
+        <section id="view-stickers" class="view-section">
+          <div class="box-panel">
+            <div class="box-header"><span>Public Stickers Archive</span></div>
+            <div class="box-body">
+              <div class="form-row">
+                <input type="text" id="stickerNameInput" placeholder="Sticker name">
+                <input type="file" id="stickerFileInput" accept="image/*,.gif,.apng,.webp,.avif,.mng,.bpg,.flif,.svg">
+                <button type="button" class="btn-primary" onclick="uploadPublicSticker()">Upload Public Sticker</button>
+              </div>
+              <div id="stickersArchiveGrid" class="stickers-grid"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- WPLACE MAP VIEW -->
+        <section id="view-wplace" class="view-section">
+          <div class="box-panel">
+            <div class="box-header">
+              <span>WPlace / GeoPixels Map</span>
+              <span id="wplaceCoords" class="muted">Lat: 48.4000, Lon: 31.1000</span>
+            </div>
+            <div class="box-body">
+              <div class="form-row">
+                <div id="wplacePalette" class="palette-row"></div>
+                <input type="color" id="wplaceCustomColor" value="#800000" onchange="pickWplaceColor(this.value, null)">
+                <button type="button" id="wplacePanBtn" onclick="toggleWplacePan()">Pan Mode</button>
+                <button type="button" onclick="zoomWplace(2)">Zoom +</button>
+                <button type="button" onclick="zoomWplace(-2)">Zoom -</button>
+                <button type="button" onclick="jumpWplaceTo(50.45, 30.52, 14)">Kyiv</button>
+                <button type="button" onclick="jumpWplaceTo(46.84, 29.63, 14)">Tiraspol</button>
+              </div>
+              <div class="form-row">
+                <span>One-click image to map pixel-art:</span>
+                <input type="file" id="wplaceImageFile" accept="image/*,.gif,.apng,.webp,.avif,.mng,.bpg,.flif,.svg">
+                <button type="button" class="btn-primary" onclick="stampImageToWplace()">Draw Image on Map</button>
+              </div>
+              <div class="wplace-wrap">
+                <canvas id="wplaceCanvas" width="760" height="440"></canvas>
+                <div class="wplace-recent-box">
+                  <div class="mini-title">Recent Changes</div>
+                  <div id="wplaceRecentList"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- NOTIFICATIONS VIEW -->
+        <section id="view-notifications" class="view-section">
+          <div class="box-panel">
+            <div class="box-header">
+              <span>Notifications</span>
+              <button type="button" onclick="markAllNotificationsRead()">Mark All Read</button>
+            </div>
+            <div class="box-body">
+              <div id="notificationsList"></div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <footer class="site-footer">
+      <span id="siteVersion">fembooru</span> &bull; Static Imageboard &amp; Social Network
+    </footer>
   </div>
 
-  <!-- FLOATING REALTIME CURSOR CHAT INPUT BAR -->
-  <div id="cursorChatBar" style="display:none;">
-    <span>Cursor Chat:</span>
-    <input type="text" id="cursorChatInput" maxlength="80" placeholder="Type live above cursor..." oninput="onCursorChatTyping(this.value)">
-    <button type="button" onclick="closeCursorChatBar()">Close</button>
-  </div>
-
-  <!-- MOBILE ON-SCREEN CONTROLS (PLAYER MODEL & QUICK SANDBOX) -->
-  <div id="mobileGameControls">
-    <button type="button" ontouchstart="setActorKey('left',true)" ontouchend="setActorKey('left',false)" onmousedown="setActorKey('left',true)" onmouseup="setActorKey('left',false)">&lt;</button>
-    <button type="button" ontouchstart="setActorKey('right',true)" ontouchend="setActorKey('right',false)" onmousedown="setActorKey('right',true)" onmouseup="setActorKey('right',false)">&gt;</button>
-    <button type="button" ontouchstart="setActorKey('jump',true)" ontouchend="setActorKey('jump',false)" onmousedown="setActorKey('jump',true)" onmouseup="setActorKey('jump',false)">Jump</button>
-    <button type="button" onclick="triggerActorAttack()">Hit</button>
-    <button type="button" onclick="togglePropMenu()">Props</button>
-    <button type="button" onclick="openCursorChatBar()">Chat</button>
-  </div>
-
-  <!-- GMOD / S&BOX PROP MENU & HL2 TOOLS MODAL -->
+  <!-- GMOD / S&BOX PROP & TOOL MENU -->
   <div id="propMenuModal" class="modal-backdrop" style="display:none;" onclick="if(event.target===this)togglePropMenu(false)">
-    <div class="modal-window">
+    <div class="modal-box">
       <div class="box-header">
-        <span>Sandbox Prop Menu &amp; HL2 Tools [Q]</span>
-        <button type="button" onclick="togglePropMenu(false)">X</button>
+        <span>Sandbox Spawnmenu &amp; HL2 Tools [Q]</span>
+        <button type="button" onclick="togglePropMenu(false)">Close</button>
       </div>
       <div class="box-body">
         <div class="btn-row" style="margin-bottom:8px;">
-          <button type="button" class="tool-btn active-tool" data-tool="physgun" onclick="selectSandboxTool('physgun')">Physgun (Drag/Wheel Rotate)</button>
+          <button type="button" class="tool-btn active-tool" data-tool="physgun" onclick="selectSandboxTool('physgun')">Physgun (Drag / Scroll Rotate / [E] Freeze)</button>
           <button type="button" class="tool-btn" data-tool="gravgun" onclick="selectSandboxTool('gravgun')">Gravity Gun (Punt)</button>
-          <button type="button" class="tool-btn" data-tool="crowbar" onclick="selectSandboxTool('crowbar')">Crowbar (Melee/Hit)</button>
-          <button type="button" class="tool-btn" data-tool="thruster" onclick="selectSandboxTool('thruster')">Thruster (Launch)</button>
+          <button type="button" class="tool-btn" data-tool="crowbar" onclick="selectSandboxTool('crowbar')">Crowbar (Fight [F])</button>
+          <button type="button" class="tool-btn" data-tool="thruster" onclick="selectSandboxTool('thruster')">Thruster</button>
           <button type="button" class="tool-btn" data-tool="remover" onclick="selectSandboxTool('remover')">Remover</button>
-          <button type="button" onclick="refreshPropCatalog()">New Random Props</button>
+          <button type="button" onclick="refreshPropCatalog()">Randomize Props</button>
         </div>
         <div id="propMenuGrid" class="props-grid"></div>
       </div>
@@ -478,10 +477,10 @@
 
   <!-- STICKER PICKER MODAL -->
   <div id="stickerPickerModal" class="modal-backdrop" style="display:none;" onclick="if(event.target===this)closeStickerPicker()">
-    <div class="modal-window">
+    <div class="modal-box">
       <div class="box-header">
-        <span>Select Public Sticker</span>
-        <button type="button" onclick="closeStickerPicker()">X</button>
+        <span>Select a Public Sticker</span>
+        <button type="button" onclick="closeStickerPicker()">Close</button>
       </div>
       <div class="box-body">
         <div id="stickerPickerGrid" class="stickers-grid"></div>
@@ -489,25 +488,19 @@
     </div>
   </div>
 
-  <!-- MEDIA & FAVORITE CARD ZOOM MODAL -->
+  <!-- MEDIA ZOOM MODAL -->
   <div id="mediaZoomModal" class="modal-backdrop" style="display:none;" onclick="if(event.target===this)closeZoomModal()">
-    <div class="modal-window zoom-window">
+    <div class="modal-box zoom-box">
       <div class="box-header">
         <span id="zoomModalTitle">Preview</span>
-        <button type="button" onclick="closeZoomModal()">X</button>
+        <button type="button" onclick="closeZoomModal()">Close</button>
       </div>
       <div class="box-body" style="text-align:center;">
-        <img id="zoomModalImg" src="" alt="Zoomed">
+        <img id="zoomModalImg" src="" alt="Zoom" style="max-width:100%;max-height:72vh;">
         <div id="zoomModalDesc" class="muted" style="margin-top:6px;"></div>
       </div>
     </div>
   </div>
-
-  <!-- FOOTER WITH LIVE GITHUB COMMIT VERSION -->
-  <footer class="site-footer">
-    <span>fembooru — Ukraine &amp; Pridnestrovie Imageboard</span> •
-    <span id="siteVersion">fembooru</span>
-  </footer>
 
   <script src="core.js"></script>
   <script src="social.js"></script>
