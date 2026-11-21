@@ -23,8 +23,8 @@
   <div class="page-center">
     <header class="top-bar">
       <div class="top-info-strip">
-        <span><b>fembooru</b> — Community Imageboard &amp; Social Network for Ukraine &amp; Pridnestrovie (EN)</span>
-        <span class="top-hotkeys">Hotkeys: <b>[Q]</b> Props • <b>[Shift]</b> or <b>[/]</b> Cursor Chat • <b>RMB</b> Throw Sprite • <b>[WASD]</b> Walk Model</span>
+        <span><b>fembooru</b> — Imageboard &amp; Social Network for Ukraine &amp; Pridnestrovie (Default: English)</span>
+        <span class="top-hotkeys">Controls: <b>[Q]</b> Props • <b>[Shift]</b> / <b>[/]</b> Cursor Chat • <b>RMB</b> Throw Sprite • <b>[WASD]</b> Walk</span>
       </div>
 
       <nav class="nav-bar">
@@ -84,7 +84,7 @@
           <div class="side-header">Boards</div>
           <div id="boardsList" class="boards-nav"></div>
           <div class="side-subform">
-            <div class="mini-title">New Board / Poll</div>
+            <div class="mini-title">Create / Propose Board</div>
             <input type="text" id="newBoardSlug" placeholder="Slug (e.g. games)">
             <input type="text" id="newBoardTitle" placeholder="Board title">
             <input type="text" id="newBoardDesc" placeholder="Short description">
@@ -92,9 +92,9 @@
           </div>
         </div>
 
-        <div class="side-box music-widget">
+        <div id="musicWidgetBox" class="side-box music-widget">
           <div class="side-header">
-            <span class="music-disc">&#9673;</span> Music Radio
+            <span><span class="music-disc">&#9673;</span> Music Radio</span>
             <span class="eq-bars"><i></i><i></i><i></i><i></i></span>
           </div>
           <div id="musicNowPlaying" class="now-playing">No track selected</div>
@@ -417,6 +417,7 @@
                 <button type="button" onclick="zoomWplace(-2)">Zoom -</button>
                 <button type="button" onclick="jumpWplaceTo(50.45, 30.52, 14)">Kyiv</button>
                 <button type="button" onclick="jumpWplaceTo(46.84, 29.63, 14)">Tiraspol</button>
+                <button type="button" onclick="jumpWplaceTo(46.48, 30.72, 14)">Odesa</button>
               </div>
               <div class="form-row">
                 <span>One-click image to map pixel-art:</span>
