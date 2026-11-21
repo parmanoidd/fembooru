@@ -542,10 +542,6 @@ function registerUser() {
     showStatus("Username required and password must be at least 6 characters.", true);
     return;
   }
-  if (email === CONFIG.superiorAdminEmail) {
-    showStatus("Reserved admin account.", true);
-    return;
-  }
   authRequest("accounts:signUp", email, pass, function(err, data) {
     if (!err && data) {
       if (pEl) pEl.value = "";
