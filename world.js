@@ -2,13 +2,6 @@
    FEMBOORU REALTIME WORLD: CURSORS & CURSOR CHAT, THROWABLE SPRITES,
    FIREWORKS, GMOD PROP MENU & HL2 TOOLS, WALKABLE USER MODEL & WPLACE MAP
    ========================================================================== */
-var PROP_SOURCES = [
-  "https://cataas.com/cat?width=120&height=120&r=",
-  "https://picsum.photos/seed/fb",
-  "https://robohash.org/fembooru_",
-  "https://api.dicebear.com/9.x/pixel-art/svg?seed=fb_"
-];
-
 function buildPropCatalog() {
   var list = [];
   var seedBase = Math.floor(Math.random() * 9000) + 100;
@@ -185,7 +178,6 @@ function onSpriteMouseDown(e, sid) {
   var btn = e.button;
   if (btn === 2 || worldState.activeTool === "physgun" || worldState.activeTool === "gravgun") {
     if (worldState.activeTool === "gravgun" && btn === 0) {
-      // Punt sprite away
       sp.frozen = false;
       sp.vx = (sp.x - worldState.lastMouseX) * 0.35 || 14;
       sp.vy = -12;
@@ -229,7 +221,6 @@ function releaseGrabbedSprite() {
   sp.vrot = sp.vx * 0.6;
   sp.updatedAt = new Date().getTime();
 
-  // Check if dropped onto a firework
   for (var fid in worldState.fireworks) {
     if (!worldState.fireworks.hasOwnProperty(fid) || !worldState.fireworks[fid]) continue;
     var fw = worldState.fireworks[fid];
@@ -276,7 +267,6 @@ function triggerActorAttack() {
   if (!worldState.actorEnabled) return;
   var me = worldState.myActor;
   me.swingUntil = new Date().getTime() + 300;
-  // Kick nearby sprites
   for (var sid in worldState.sprites) {
     if (!worldState.sprites.hasOwnProperty(sid) || !worldState.sprites[sid]) continue;
     var sp = worldState.sprites[sid];
@@ -288,7 +278,6 @@ function triggerActorAttack() {
       dbWrite("PUT", "realtime/sprites/" + sid, sp, null);
     }
   }
-  // Fight other player models in melee range
   for (var cid in worldState.actors) {
     if (!worldState.actors.hasOwnProperty(cid) || cid === myClientId || !worldState.actors[cid]) continue;
     var other = worldState.actors[cid];
@@ -326,7 +315,6 @@ function getSolidPlatforms() {
       });
     }
   }
-  // Also allow jumping on other users' live cursors!
   for (var cid in worldState.cursors) {
     if (worldState.cursors.hasOwnProperty(cid) && cid !== myClientId && worldState.cursors[cid]) {
       var c = worldState.cursors[cid];
@@ -345,7 +333,6 @@ function stepPhysicsLoop() {
   var docH = Math.max(document.documentElement.scrollHeight || 900, window.innerHeight || 700);
   var dirtySprites = false;
 
-  // 1. Update sprites physics
   for (var sid in worldState.sprites) {
     if (!worldState.sprites.hasOwnProperty(sid) || !worldState.sprites[sid]) continue;
     var sp = worldState.sprites[sid];
@@ -380,7 +367,6 @@ function stepPhysicsLoop() {
     dirtySprites = true;
   }
 
-  // 2. Update fireworks
   for (var fid in worldState.fireworks) {
     if (!worldState.fireworks.hasOwnProperty(fid) || !worldState.fireworks[fid]) continue;
     var fw = worldState.fireworks[fid];
@@ -412,7 +398,6 @@ function stepPhysicsLoop() {
     dirtySprites = true;
   }
 
-  // 3. Update walkable player model
   if (worldState.actorEnabled) {
     var me = worldState.myActor;
     var prevY = me.y;
@@ -449,7 +434,6 @@ function stepPhysicsLoop() {
       me.grounded = true;
     }
 
-    // Kick sprites when walking into them
     for (var sKey in worldState.sprites) {
       if (worldState.sprites.hasOwnProperty(sKey) && worldState.sprites[sKey]) {
         var spr = worldState.sprites[sKey];
@@ -506,7 +490,6 @@ function renderFxCanvas() {
   ctx.clearRect(0, 0, w, h);
   var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
 
-  // Physgun beam
   if (hasBeams) {
     var target = worldState.sprites[worldState.grabbedSpriteId];
     ctx.strokeStyle = "#00BFFF";
@@ -667,7 +650,6 @@ function renderCursorsDom() {
 
   for (var cid in worldState.cursors) {
     if (!worldState.cursors.hasOwnProperty(cid) || !worldState.cursors[cid]) continue;
-    // Never show user's own cursor (prevents self-cursor ghost bug on page refresh)
     if (cid === myClientId) continue;
     var cur = worldState.cursors[cid];
     if (now - (cur.updatedAt || 0) > 12000) continue;
@@ -738,7 +720,6 @@ function syncRealtimeWorld() {
   dbGet("realtime", function(err, data) {
     if (err || !data) return;
     if (data.cursors) {
-      // Remove any stale node of our own clientId if present
       delete data.cursors[myClientId];
       worldState.cursors = data.cursors;
       renderCursorsDom();
@@ -838,7 +819,6 @@ function initWplaceControls() {
   canvas.onmouseleave = canvas.onmouseup;
   canvas.oncontextmenu = function() { return false; };
 
-  // Touch support for wPlace canvas
   canvas.addEventListener("touchstart", function(e) {
     if (!e.touches || !e.touches[0]) return;
     e.preventDefault();
@@ -882,7 +862,6 @@ function initWplaceControls() {
     wplaceState.lastDrawnKey = "";
   });
 
-  // Default center on Ukraine / Pridnestrovie (~48.4 N, 31.1 E)
   jumpWplaceTo(48.4, 31.1, 12);
 }
 
@@ -1025,7 +1004,6 @@ function renderWplaceCanvas() {
   ctx.fillStyle = "#DCE8F2";
   ctx.fillRect(0, 0, w, h);
 
-  // Draw OpenStreetMap tiles aligned with current geo-offset
   var osmZoom = Math.max(3, Math.min(14, Math.floor(wplaceState.zoom / 2.2) + 2));
   var centerLat = -wplaceState.offsetY / 20;
   var centerLon = wplaceState.offsetX / 20;
@@ -1050,7 +1028,6 @@ function renderWplaceCanvas() {
     }
   }
 
-  // Subtle geo-grid
   var cell = Math.max(4, wplaceState.zoom);
   ctx.strokeStyle = "rgba(128, 0, 0, 0.14)";
   ctx.lineWidth = 1;
@@ -1071,7 +1048,6 @@ function renderWplaceCanvas() {
     ctx.stroke();
   }
 
-  // Render geo-anchored pixels
   for (var key in state.wplacePixels) {
     if (!state.wplacePixels.hasOwnProperty(key) || !state.wplacePixels[key]) continue;
     var px = state.wplacePixels[key];
