@@ -89,7 +89,6 @@ function fetchAllData() {
       return;
     }
 
-    // Seed default boards once if DB has none
     if (!root.boards) {
       var seedObj = {};
       for (var i = 0; i < DEFAULT_BOARDS.length; i++) {
@@ -129,13 +128,11 @@ function fetchAllData() {
       state.profile = state.users[state.user.uid];
     }
 
-    // Update effects and badges on every poll
     syncSnowState();
     syncTabLogoState();
     updateNotifBadge();
     updateAuthUi();
 
-    // Only re-render DOM views if data changed (keeps active inputs/scroll smooth)
     var hash = [
       countMapKeys(state.threads),
       JSON.stringify(state.threads).length,
@@ -164,7 +161,6 @@ function isTypingInField(el) {
 }
 
 function bindGlobalEvents() {
-  // Mouse tracking across document
   document.addEventListener("mousemove", function(e) {
     e = e || window.event;
     handlePointerMove(e.clientX, e.clientY);
@@ -174,7 +170,6 @@ function bindGlobalEvents() {
     releaseGrabbedSprite();
   });
 
-  // Mobile touch tracking for live cursors & sprite dragging
   document.addEventListener("touchstart", function(e) {
     if (e.touches && e.touches[0]) {
       handlePointerMove(e.touches[0].clientX, e.touches[0].clientY);
@@ -191,7 +186,6 @@ function bindGlobalEvents() {
     releaseGrabbedSprite();
   }, { passive: true });
 
-  // Rotate grabbed sprite with mouse wheel
   document.addEventListener("wheel", function(e) {
     if (worldState.grabbedSpriteId && worldState.sprites[worldState.grabbedSpriteId]) {
       var sp = worldState.sprites[worldState.grabbedSpriteId];
@@ -199,7 +193,6 @@ function bindGlobalEvents() {
     }
   }, { passive: true });
 
-  // Keyboard shortcuts: Q (Prop Menu), Shift or / (Cursor Chat), WASD/Arrows (Player Model)
   document.addEventListener("keydown", function(e) {
     e = e || window.event;
     var key = e.key || "";
@@ -215,7 +208,6 @@ function bindGlobalEvents() {
 
     if (isTypingInField(e.target || e.srcElement)) return;
 
-    // Track clean Shift tap for cursor chat
     if (key === "Shift" || code === 16) {
       worldState.shiftDownClean = true;
       return;
@@ -223,26 +215,22 @@ function bindGlobalEvents() {
       worldState.shiftDownClean = false;
     }
 
-    // "/" opens real-time cursor chat
     if (key === "/" || code === 191) {
       if (e.preventDefault) e.preventDefault();
       openCursorChatBar();
       return;
     }
 
-    // "Q" toggles GMod-style Prop Menu
     if (key === "q" || key === "Q" || code === 81) {
       togglePropMenu();
       return;
     }
 
-    // "F" swings weapon / kicks with player model
     if (key === "f" || key === "F" || code === 70) {
       triggerActorAttack();
       return;
     }
 
-    // "E" freezes/unfreezes grabbed prop
     if ((key === "e" || key === "E" || code === 69) && worldState.grabbedSpriteId) {
       var gSp = worldState.sprites[worldState.grabbedSpriteId];
       if (gSp) {
@@ -254,7 +242,6 @@ function bindGlobalEvents() {
       return;
     }
 
-    // Walkable model controls (WASD / Arrows / Space)
     if (worldState.actorEnabled) {
       if (key === "a" || key === "A" || key === "ArrowLeft" || code === 65 || code === 37) {
         setActorKey("left", true);
@@ -287,7 +274,6 @@ function bindGlobalEvents() {
     }
   });
 
-  // Clean up own realtime cursor & actor immediately on unload/refresh
   window.addEventListener("beforeunload", function() {
     try {
       var xhr1 = new XMLHttpRequest();
@@ -323,11 +309,8 @@ function initApp() {
     fetchAllData();
   }
 
-  // Auto-refresh messages, boards, walls & notifications
   autoRefreshTimer = setInterval(fetchAllData, CONFIG.autoRefreshMs);
-  // Fast realtime loop for cursors, sprites, fireworks & actors
   setInterval(syncRealtimeWorld, CONFIG.realtimeSyncMs);
-  // 30 FPS physics & visual FX step
   setInterval(stepPhysicsLoop, 33);
 }
 
