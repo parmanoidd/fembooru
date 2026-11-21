@@ -1,80 +1,301 @@
 /* ==========================================================================
-   FEMBOORU REALTIME SANDBOX & WPLACE MAP:
-   - REALTIME CURSORS WITH SCROLL-AWARE COORDINATES & LIVE CHAT (SHIFT OR /)
-   - SPRITES/GIFS WITH RMB THROWING, FIREWORKS & GMOD/HL2 TOOLS (PHYSGUN, ETC.)
-   - RANDOMIZED INTERNET PROP MENU [Q] & WALKABLE/JUMPABLE WASD USER MODEL
-   - PUBLIC WPLACE / GEOPIXELS OPENSTREETMAP PIXEL ENGINE
+   FEMBOORU REALTIME WORLD & WPLACE: MOUSE CURSORS, CURSOR CHAT, WIKIPEDIA
+   PROP SPAWNMENU [Q], HL2 TOOLS, SMOOTH 60FPS PHYSICS, ACTORS & GEOPIXELS
    ========================================================================== */
+var WIKIPEDIA_PROP_TITLES = [
+  "Traffic cone", "Rubber duck", "Microwave oven", "Watermelon",
+  "Shopping cart", "Computer monitor", "Chair", "Bicycle",
+  "Toaster", "Acoustic guitar", "Barrel", "Anvil",
+  "Teapot", "Cactus", "Globe", "Vending machine",
+  "Fire extinguisher", "Lawn mower", "Boombox", "Typewriter",
+  "Bowling ball", "Couch", "Lamp", "Alarm clock",
+  "Telescope", "Skateboard", "Camera", "Drum kit",
+  "Chessboard", "Electric fan", "Radio", "Umbrella",
+  "Suitcase", "Safe", "Refrigerator", "Washing machine",
+  "Hard hat", "Megaphone", "Trophy", "Sandcastle",
+  "Garden gnome", "Teddy bear", "Potted plant", "Desk"
+];
+
+var WIKIPEDIA_FALLBACK_PROPS = [
+  { title: "Traffic cone", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Traffic_cone.jpg/180px-Traffic_cone.jpg" },
+  { title: "Rubber duck", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Rubber_duck_assisting_with_debugging.jpg/180px-Rubber_duck_assisting_with_debugging.jpg" },
+  { title: "Watermelon", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/Taiwan_2009_Tainan_City_Organic_Farm_Watermelon_FRD_7962.jpg/180px-Taiwan_2009_Tainan_City_Organic_Farm_Watermelon_FRD_7962.jpg" },
+  { title: "Shopping cart", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Shopping_cart_with_food_clip_art.svg/180px-Shopping_cart_with_food_clip_art.svg.png" },
+  { title: "Toaster", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/2-slice_toaster.jpg/180px-2-slice_toaster.jpg" },
+  { title: "Anvil", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Anvil_42.jpg/180px-Anvil_42.jpg" },
+  { title: "Teapot", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/A_small_cup_of_tea.JPG/180px-A_small_cup_of_tea.JPG" },
+  { title: "Globe", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9f/Geo_Globe.jpg/180px-Geo_Globe.jpg" },
+  { title: "Fire extinguisher", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/FireExtinguisherABC.jpg/180px-FireExtinguisherABC.jpg" },
+  { title: "Typewriter", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/22/Olivetti_Lettera_22.jpg/180px-Olivetti_Lettera_22.jpg" },
+  { title: "Garden gnome", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Gartenzwerg.jpg/180px-Gartenzwerg.jpg" },
+  { title: "Bicycle", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/Left_side_of_Flying_Pigeon.jpg/180px-Left_side_of_Flying_Pigeon.jpg" }
+];
+
 var WPLACE_COLORS = [
-  "#800000", "#D96B27", "#FFD700", "#117743", "#0066CC",
-  "#663399", "#CC1105", "#FFFFFF", "#888888", "#111111"
+  "#000000", "#555555", "#AAAAAA", "#FFFFFF",
+  "#800000", "#CC1105", "#D96B27", "#FFD700",
+  "#117743", "#2E8B57", "#008080", "#1E90FF",
+  "#000080", "#6A0DAD", "#FF69B4", "#8B4513"
 ];
 
-var CURATED_PROPS = [
-  { name: "Wooden Crate", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Wooden_box_icon.svg/120px-Wooden_box_icon.svg.png" },
-  { name: "Traffic Cone", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/Traffic_cone_icon.svg/120px-Traffic_cone_icon.svg.png" },
-  { name: "Rubber Duck", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Rubber_duck_icon.svg/120px-Rubber_duck_icon.svg.png" },
-  { name: "Watermelon", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/Watermelon_icon.svg/120px-Watermelon_icon.svg.png" },
-  { name: "Hazard Barrel", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Biohazard_symbol.svg/120px-Biohazard_symbol.svg.png" },
-  { name: "CRT Monitor", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/Desktop_computer_clipart_-_Yellow_theme.svg/120px-Desktop_computer_clipart_-_Yellow_theme.svg.png" }
-];
-
-var wplaceTileCache = {};
+var worldAnimRaf = null;
+var lastFrameMs = 0;
 
 /* ==========================================================================
-   REALTIME CURSORS & LIVE CURSOR CHAT (SHIFT OR /)
+   WIKIPEDIA API PROP CATALOG & SPAWNMENU [Q]
    ========================================================================== */
-function getPageShellMetrics() {
-  var shell = document.querySelector(".page-center");
-  if (!shell) return { left: 0, width: Math.max(320, window.innerWidth || 1000) };
-  var rect = shell.getBoundingClientRect();
-  return {
-    left: rect.left + (window.pageXOffset || document.documentElement.scrollLeft || 0),
-    width: Math.max(320, rect.width || 1000)
-  };
+function makePropFallbackSvg(label) {
+  var shortTxt = String(label || "PROP").substring(0, 14);
+  return "data:image/svg+xml," + encodeURIComponent(
+    "<svg xmlns='http://www.w3.org/2000/svg' width='96' height='96' viewBox='0 0 96 96'>" +
+    "<rect width='96' height='96' fill='#F0E0D6' stroke='#800000' stroke-width='3'/>" +
+    "<rect x='14' y='18' width='68' height='44' fill='#EEAA88' stroke='#800000' stroke-width='2'/>" +
+    "<text x='48' y='44' font-family='Arial,sans-serif' font-size='10' font-weight='bold' text-anchor='middle' fill='#800000'>" + esc(shortTxt) + "</text>" +
+    "<text x='48' y='80' font-family='Arial,sans-serif' font-size='9' text-anchor='middle' fill='#6E5248'>WIKIPEDIA PROP</text>" +
+    "</svg>"
+  );
 }
 
-function pointerToWorldCoords(clientX, clientY) {
-  var scrollX = window.pageXOffset || document.documentElement.scrollLeft || 0;
-  var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
-  var docX = clientX + scrollX;
-  var docY = clientY + scrollY;
-  var m = getPageShellMetrics();
-  var relX = (docX - m.left) / m.width;
-  return { docX: docX, docY: docY, relX: Math.round(relX * 10000) / 10000 };
-}
+function togglePropMenu(forceOpen) {
+  var modal = document.getElementById("propMenuModal");
+  if (!modal) return;
+  if (typeof forceOpen === "boolean") worldState.propMenuOpen = forceOpen;
+  else worldState.propMenuOpen = !worldState.propMenuOpen;
 
-function relXToDocX(relX) {
-  var m = getPageShellMetrics();
-  return Math.round(m.left + (relX * m.width));
-}
-
-function sendCursorUpdate(force) {
-  var now = new Date().getTime();
-  if (!force && (now - worldState.lastCursorSendTime) < 420) return;
-  var coords = pointerToWorldCoords(worldState.lastMouseX, worldState.lastMouseY);
-  var chatActive = worldState.localChatText && worldState.localChatExpiresAt > now;
-  if (!force &&
-      Math.abs(coords.relX - worldState.lastCursorRelX) < 0.004 &&
-      Math.abs(coords.docY - worldState.lastCursorDocY) < 6 &&
-      !chatActive) {
-    return;
+  modal.style.display = worldState.propMenuOpen ? "block" : "none";
+  if (worldState.propMenuOpen) {
+    if (!worldState.propCatalog || !worldState.propCatalog.length) {
+      refreshPropCatalog();
+    } else {
+      renderPropMenu();
+    }
   }
-  worldState.lastCursorSendTime = now;
-  worldState.lastCursorRelX = coords.relX;
-  worldState.lastCursorDocY = coords.docY;
+}
 
-  var payload = {
-    clientId: myClientId,
-    uid: state.user ? state.user.uid : "",
-    name: getDisplayUsername(),
-    relX: coords.relX,
-    docY: Math.round(coords.docY),
-    chat: chatActive ? worldState.localChatText : "",
-    chatExpiresAt: chatActive ? worldState.localChatExpiresAt : 0,
+function refreshPropCatalog() {
+  var grid = document.getElementById("propMenuGrid");
+  if (!worldState.propCatalog || !worldState.propCatalog.length) {
+    worldState.propCatalog = WIKIPEDIA_FALLBACK_PROPS.slice(0);
+    renderPropMenu();
+  } else if (grid) {
+    grid.innerHTML = "<div class='muted'>Fetching random Wikipedia prop thumbnails...</div>";
+  }
+
+  var pool = WIKIPEDIA_PROP_TITLES.slice(0);
+  for (var i = pool.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = pool[i];
+    pool[i] = pool[j];
+    pool[j] = tmp;
+  }
+  var picked = pool.slice(0, 22);
+  var apiUrl = "https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&redirects=1&prop=pageimages&piprop=thumbnail&pithumbsize=180&titles=" +
+    encodeURIComponent(picked.join("|"));
+
+  var xhr = new XMLHttpRequest();
+  xhr.open("GET", apiUrl, true);
+  xhr.onreadystatechange = function() {
+    if (xhr.readyState !== 4) return;
+    var loaded = [];
+    if (xhr.status === 200) {
+      try {
+        var json = JSON.parse(xhr.responseText);
+        var pages = json && json.query && json.query.pages;
+        if (pages) {
+          for (var pid in pages) {
+            if (pages.hasOwnProperty(pid) && pages[pid] && pages[pid].thumbnail && pages[pid].thumbnail.source) {
+              loaded.push({
+                title: pages[pid].title || "Wikipedia Prop",
+                url: pages[pid].thumbnail.source
+              });
+            }
+          }
+        }
+      } catch (e) {}
+    }
+    if (loaded.length >= 4) {
+      worldState.propCatalog = loaded;
+    } else if (!worldState.propCatalog || !worldState.propCatalog.length) {
+      worldState.propCatalog = WIKIPEDIA_FALLBACK_PROPS.slice(0);
+    }
+    renderPropMenu();
+  };
+  xhr.onerror = function() {
+    if (!worldState.propCatalog || !worldState.propCatalog.length) {
+      worldState.propCatalog = WIKIPEDIA_FALLBACK_PROPS.slice(0);
+    }
+    renderPropMenu();
+  };
+  xhr.send();
+}
+
+function renderPropMenu() {
+  var grid = document.getElementById("propMenuGrid");
+  if (!grid) return;
+  var list = worldState.propCatalog || [];
+  var h = "";
+  for (var i = 0; i < list.length; i++) {
+    var item = list[i];
+    var fallback = makePropFallbackSvg(item.title);
+    h += "<div class='prop-card' title='" + esc(item.title) + "' onclick=\"spawnCatalogProp(" + i + ")\">" +
+           "<img src='" + esc(item.url) + "' referrerpolicy='no-referrer' alt='" + esc(item.title) + "' onerror=\"this.onerror=null;this.src='" + esc(fallback) + "'\">" +
+           "<span>" + esc(item.title) + "</span>" +
+         "</div>";
+  }
+  grid.innerHTML = h || "<span class='muted'>No props loaded.</span>";
+}
+
+function spawnCatalogProp(idx) {
+  var item = worldState.propCatalog && worldState.propCatalog[idx];
+  if (!item) return;
+  var docW = Math.max(320, document.documentElement.clientWidth || window.innerWidth || 900);
+  var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+  var spawnX = Math.max(40, Math.min(docW - 120, worldState.lastMouseX - 36));
+  var spawnY = Math.max(60, scrollY + worldState.lastMouseY - 36);
+  spawnWorldSprite(item.url, item.title, spawnX, spawnY, (Math.random() - 0.5) * 140, -120);
+  togglePropMenu(false);
+}
+
+function selectSandboxTool(toolName) {
+  worldState.activeTool = toolName || "physgun";
+  var btns = document.querySelectorAll(".tool-btn");
+  for (var i = 0; i < btns.length; i++) {
+    var t = btns[i].getAttribute("data-tool");
+    if (t === worldState.activeTool) btns[i].className = "tool-btn active-tool";
+    else btns[i].className = "tool-btn";
+  }
+  showStatus("Tool selected: " + worldState.activeTool.toUpperCase(), false);
+}
+
+/* ==========================================================================
+   WORLD SPRITES / PROPS (SPAWN, DRAG, ROTATE, FREEZE, PUNT, THRUSTER, REMOVE)
+   ========================================================================== */
+function spawnWorldSprite(url, label, x, y, vx, vy) {
+  if (!isValidImageSrc(url)) return;
+  var sid = generateId("sp");
+  var now = new Date().getTime();
+  var sp = {
+    id: sid,
+    url: url,
+    label: label || "Prop",
+    x: typeof x === "number" ? x : 240,
+    y: typeof y === "number" ? y : 200,
+    vx: typeof vx === "number" ? vx : 0,
+    vy: typeof vy === "number" ? vy : 0,
+    rot: 0,
+    frozen: false,
+    thruster: false,
+    by: getDisplayUsername(),
     updatedAt: now
   };
-  dbWrite("PUT", "realtime/cursors/" + myClientId, payload, null);
+  worldState.sprites[sid] = sp;
+  syncSingleSpriteToDb(sp);
+}
+
+function syncSingleSpriteToDb(sp) {
+  if (!sp || !sp.id) return;
+  sp.updatedAt = new Date().getTime();
+  dbWrite("PUT", "realtime/sprites/" + sp.id, sp, null);
+}
+
+function spawnSpriteFromFile() {
+  var fEl = document.getElementById("spriteUploadInput");
+  var uEl = document.getElementById("spriteUrlInput");
+  var direct = uEl ? safeUrl(uEl.value) : "";
+  var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+
+  if (fEl && fEl.files && fEl.files[0]) {
+    uploadImageToImgbb(fEl, function(err, url) {
+      if (!err && url) {
+        fEl.value = "";
+        spawnWorldSprite(url, "Custom Sprite", 260, scrollY + 180, 60, -140);
+        showStatus("Sprite spawned!", false);
+      } else {
+        showStatus(err || "Sprite upload failed", true);
+      }
+    }, { isSticker: true });
+  } else if (direct) {
+    if (uEl) uEl.value = "";
+    spawnWorldSprite(direct, "Custom Sprite", 260, scrollY + 180, 60, -140);
+    showStatus("Sprite spawned!", false);
+  } else {
+    showStatus("Choose a sprite image or enter an image URL.", true);
+  }
+}
+
+function clearAllWorldProps() {
+  worldState.sprites = {};
+  var layer = document.getElementById("playgroundLayer");
+  if (layer) layer.innerHTML = "";
+  worldState.spriteNodes = {};
+  dbWrite("DELETE", "realtime/sprites", null, function() {
+    showStatus("Cleared all sandbox props.", false);
+  });
+}
+
+function handleWorldPropPointerDown(sid, e) {
+  e = e || window.event;
+  if (e.preventDefault) e.preventDefault();
+  if (e.stopPropagation) e.stopPropagation();
+
+  var sp = worldState.sprites[sid];
+  if (!sp) return;
+  var tool = worldState.activeTool || "physgun";
+
+  if (tool === "remover") {
+    delete worldState.sprites[sid];
+    if (worldState.spriteNodes[sid] && worldState.spriteNodes[sid].parentNode) {
+      worldState.spriteNodes[sid].parentNode.removeChild(worldState.spriteNodes[sid]);
+    }
+    delete worldState.spriteNodes[sid];
+    dbWrite("DELETE", "realtime/sprites/" + sid, null, null);
+    spawnSparkBurst(sp.x + 32, sp.y + 32, "#CC1105", 10);
+    return;
+  }
+
+  if (tool === "gravgun") {
+    sp.frozen = false;
+    var angle = Math.atan2((sp.y + 32) - (e.pageY || e.clientY), (sp.x + 32) - (e.pageX || e.clientX));
+    sp.vx = Math.cos(angle) * 780;
+    sp.vy = Math.sin(angle) * 780 - 220;
+    spawnSparkBurst(sp.x + 32, sp.y + 32, "#FF9900", 14);
+    syncSingleSpriteToDb(sp);
+    return;
+  }
+
+  if (tool === "crowbar") {
+    sp.frozen = false;
+    sp.vx = (Math.random() > 0.5 ? 1 : -1) * 440;
+    sp.vy = -360;
+    sp.rot = (sp.rot || 0) + 35;
+    spawnSparkBurst(sp.x + 32, sp.y + 32, "#FFD700", 12);
+    syncSingleSpriteToDb(sp);
+    return;
+  }
+
+  if (tool === "thruster") {
+    sp.frozen = false;
+    sp.thruster = !sp.thruster;
+    spawnSparkBurst(sp.x + 32, sp.y + 52, "#1E90FF", 10);
+    syncSingleSpriteToDb(sp);
+    showStatus(sp.thruster ? "Thruster ON!" : "Thruster OFF.", false);
+    return;
+  }
+
+  // Default: physgun grab
+  worldState.grabbedSpriteId = sid;
+  sp.frozen = false;
+  sp.vx = 0;
+  sp.vy = 0;
+}
+
+/* ==========================================================================
+   MOUSE CURSORS (CLASSIC ARROW POINTER) & LIVE CURSOR CHAT
+   ========================================================================== */
+function createMouseCursorSvg() {
+  return "<svg class='cursor-mouse-icon' width='16' height='22' viewBox='0 0 16 22' xmlns='http://www.w3.org/2000/svg'>" +
+    "<polygon points='1,1 1,18 5,14 8,21 11,19 8,13 14,13' fill='#FFFFFF' stroke='#000000' stroke-width='1.5' stroke-linejoin='round'/>" +
+  "</svg>";
 }
 
 function openCursorChatBar() {
@@ -83,8 +304,8 @@ function openCursorChatBar() {
   if (!bar || !inp) return;
   worldState.cursorChatOpen = true;
   bar.style.display = "flex";
-  inp.focus();
-  inp.select();
+  inp.value = worldState.localChatText || "";
+  setTimeout(function() { inp.focus(); }, 10);
 }
 
 function closeCursorChatBar() {
@@ -96,392 +317,148 @@ function closeCursorChatBar() {
 function onCursorChatTyping(val) {
   worldState.localChatText = String(val || "").substring(0, 80);
   worldState.localChatExpiresAt = new Date().getTime() + 8000;
-  sendCursorUpdate(true);
+  sendCursorPresence(true);
 }
 
-function renderRemoteCursors() {
-  var layer = document.getElementById("cursorsLayer");
-  if (!layer) return;
+function sendCursorPresence(force) {
   var now = new Date().getTime();
-  var activeIds = {};
-  var prevClientId = storeGet("prevClientId") || "";
+  if (!force && (now - worldState.lastCursorSendTime) < 260) return;
+  worldState.lastCursorSendTime = now;
 
-  for (var cId in worldState.cursors) {
-    if (!worldState.cursors.hasOwnProperty(cId)) continue;
-    var c = worldState.cursors[cId];
-    if (!c || !c.updatedAt || (now - c.updatedAt) > 15000) continue;
-    if (cId === myClientId || cId === prevClientId) continue;
-    if (state.user && c.uid && c.uid === state.user.uid) continue;
+  var docW = Math.max(320, document.documentElement.clientWidth || window.innerWidth || 1000);
+  var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+  var relX = Math.max(0, Math.min(1, worldState.lastMouseX / docW));
+  var docY = Math.max(0, Math.round(scrollY + worldState.lastMouseY));
+  var activeChat = (worldState.localChatExpiresAt > now) ? worldState.localChatText : "";
 
-    activeIds[cId] = true;
-    var node = worldState.cursorNodes[cId];
-    if (!node) {
-      node = document.createElement("div");
-      node.className = "remote-cursor";
-      node.innerHTML =
-        "<div class='cursor-chat-bubble' style='display:none;'></div>" +
-        "<div class='cursor-name-tag'></div>" +
-        "<div class='cursor-arrow'></div>";
-      layer.appendChild(node);
-      worldState.cursorNodes[cId] = node;
-    }
-
-    var px = relXToDocX(c.relX || 0.5);
-    var py = c.docY || 100;
-    node.style.left = px + "px";
-    node.style.top = py + "px";
-
-    var tag = node.querySelector(".cursor-name-tag");
-    if (tag && tag.textContent !== (c.name || "Anon")) tag.textContent = c.name || "Anon";
-
-    var bubble = node.querySelector(".cursor-chat-bubble");
-    if (bubble) {
-      if (c.chat && c.chatExpiresAt > now) {
-        bubble.style.display = "block";
-        if (bubble.textContent !== c.chat) bubble.textContent = c.chat;
-      } else {
-        bubble.style.display = "none";
-      }
-    }
-  }
-
-  for (var existingId in worldState.cursorNodes) {
-    if (worldState.cursorNodes.hasOwnProperty(existingId) && !activeIds[existingId]) {
-      var dead = worldState.cursorNodes[existingId];
-      if (dead && dead.parentNode) dead.parentNode.removeChild(dead);
-      delete worldState.cursorNodes[existingId];
-    }
-  }
-}
-
-/* ==========================================================================
-   SPRITES / GIFS, RMB THROWING, FIREWORKS & GMOD / HL2 TOOLS
-   ========================================================================== */
-function spawnSpriteEntity(url, label) {
-  if (!isValidImageSrc(url)) {
-    showStatus("Provide a valid image or GIF URL.", true);
-    return;
-  }
-  var id = generateId("sp");
-  var coords = pointerToWorldCoords(worldState.lastMouseX, worldState.lastMouseY);
-  var obj = {
-    id: id,
-    url: url,
-    name: label || "Sprite",
-    x: Math.round(coords.docX),
-    y: Math.round(coords.docY),
-    vx: (Math.random() - 0.5) * 4,
-    vy: -2,
-    rot: 0,
-    vrot: 0,
-    frozen: false,
-    attachedFireworkId: "",
-    by: getDisplayUsername(),
-    updatedAt: new Date().getTime()
-  };
-  worldState.sprites[id] = obj;
-  dbWrite("PUT", "realtime/sprites/" + id, obj, null);
-}
-
-function spawnSpriteFromFile() {
-  var fEl = document.getElementById("spriteUploadInput");
-  var uEl = document.getElementById("spriteUrlInput");
-  var direct = uEl ? safeUrl(uEl.value) : "";
-
-  if (fEl && fEl.files && fEl.files[0]) {
-    uploadImageToImgbb(fEl, function(err, url) {
-      if (!err && url) {
-        fEl.value = "";
-        spawnSpriteEntity(url, "Sprite");
-        showStatus("Sprite spawned for everyone!", false);
-      } else {
-        showStatus(err || "Sprite upload failed.", true);
-      }
-    });
-  } else if (direct) {
-    if (uEl) uEl.value = "";
-    spawnSpriteEntity(direct, "Sprite");
-    showStatus("Sprite spawned for everyone!", false);
-  } else {
-    showStatus("Select an image/GIF or enter a URL.", true);
-  }
-}
-
-function spawnFirework() {
-  var id = generateId("fw");
-  var coords = pointerToWorldCoords(worldState.lastMouseX, worldState.lastMouseY);
-  var now = new Date().getTime();
-  var fw = {
-    id: id,
-    x: Math.round(coords.docX),
-    y: Math.round(coords.docY + 80),
-    vy: -7.5,
-    fuseAt: now + 2600,
-    by: getDisplayUsername(),
+  var payload = {
+    id: myClientId,
+    name: getDisplayUsername(),
+    relX: Math.round(relX * 10000) / 10000,
+    y: docY,
+    chat: activeChat,
     updatedAt: now
   };
-  worldState.fireworks[id] = fw;
-  dbWrite("PUT", "realtime/fireworks/" + id, fw, null);
-  showStatus("Firework launched! Drag a sprite onto it to ride up!", false);
+  worldState.cursors[myClientId] = payload;
+  dbWrite("PUT", "realtime/cursors/" + myClientId, payload, null);
 }
 
-function clearAllWorldProps() {
-  worldState.sprites = {};
-  worldState.fireworks = {};
-  dbWrite("DELETE", "realtime/sprites", null, null);
-  dbWrite("DELETE", "realtime/fireworks", null, null);
-  showStatus("Cleared world sprites and fireworks.", false);
-}
-
-function selectSandboxTool(toolName) {
-  worldState.activeTool = toolName;
-  var btns = document.querySelectorAll(".tool-btn");
-  for (var i = 0; i < btns.length; i++) {
-    var t = btns[i].getAttribute("data-tool");
-    btns[i].className = (t === toolName) ? "tool-btn active-tool" : "tool-btn";
-  }
-}
-
-function togglePropMenu(forceState) {
-  var modal = document.getElementById("propMenuModal");
-  if (!modal) return;
-  worldState.propMenuOpen = (typeof forceState === "boolean") ? forceState : !worldState.propMenuOpen;
-  modal.style.display = worldState.propMenuOpen ? "block" : "none";
-  if (worldState.propMenuOpen && !worldState.propCatalog.length) {
-    refreshPropCatalog();
-  }
-}
-
-function refreshPropCatalog() {
-  var grid = document.getElementById("propMenuGrid");
-  if (!grid) return;
-  var items = [];
-  for (var i = 0; i < CURATED_PROPS.length; i++) {
-    items.push(CURATED_PROPS[i]);
-  }
-  var seeds = ["crate", "barrel", "cyber", "ua", "cat", "bot", "pixel", "orb"];
-  for (var j = 0; j < 6; j++) {
-    var seed = seeds[Math.floor(Math.random() * seeds.length)] + "_" + Math.floor(Math.random() * 9999);
-    items.push({
-      name: "Random Prop #" + (j + 1),
-      url: "https://robohash.org/" + encodeURIComponent(seed) + ".png?size=96x96"
-    });
-  }
-  worldState.propCatalog = items;
-
-  var h = "";
-  for (var k = 0; k < items.length; k++) {
-    h += "<div class='prop-card' onclick=\"spawnSpriteEntity('" + esc(items[k].url) + "','" + esc(items[k].name) + "')\">" +
-           "<img src='" + esc(items[k].url) + "' alt='prop'>" +
-           "<span>" + esc(items[k].name) + "</span>" +
-         "</div>";
-  }
-  grid.innerHTML = h;
-
-  var xhr = new XMLHttpRequest();
-  xhr.open("GET", "https://commons.wikimedia.org/w/api.php?action=query&generator=random&grnnamespace=6&grnlimit=6&prop=imageinfo&iiprop=url&iiurlwidth=120&format=json&origin=*", true);
-  xhr.onreadystatechange = function() {
-    if (xhr.readyState === 4 && xhr.status === 200) {
-      try {
-        var data = JSON.parse(xhr.responseText);
-        var pages = data && data.query && data.query.pages;
-        if (!pages) return;
-        var extraHtml = "";
-        for (var pid in pages) {
-          if (!pages.hasOwnProperty(pid)) continue;
-          var pg = pages[pid];
-          var ii = pg.imageinfo && pg.imageinfo[0];
-          var thumb = ii && (ii.thumburl || ii.url);
-          if (thumb && /\.(png|jpg|jpeg|gif|webp|svg)$/i.test(thumb)) {
-            var cleanTitle = String(pg.title || "Wiki Prop").replace(/^File:/i, "").substring(0, 22);
-            extraHtml += "<div class='prop-card' onclick=\"spawnSpriteEntity('" + esc(thumb) + "','" + esc(cleanTitle) + "')\">" +
-                           "<img src='" + esc(thumb) + "' alt='prop'>" +
-                           "<span>" + esc(cleanTitle) + "</span>" +
-                         "</div>";
-          }
-        }
-        if (extraHtml && grid) grid.innerHTML += extraHtml;
-      } catch (e) {}
-    }
+/* ==========================================================================
+   FIREWORKS & CANVAS PARTICLE EFFECTS
+   ========================================================================== */
+function spawnFirework() {
+  var docW = Math.max(320, document.documentElement.clientWidth || window.innerWidth || 1000);
+  var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+  var winH = window.innerHeight || 700;
+  var fid = generateId("fw");
+  var now = new Date().getTime();
+  var fw = {
+    id: fid,
+    x: Math.round(120 + Math.random() * Math.max(200, docW - 240)),
+    y: Math.round(scrollY + winH - 30),
+    targetY: Math.round(scrollY + 90 + Math.random() * Math.max(120, winH * 0.42)),
+    color: ["#CC1105", "#FF8C00", "#1E90FF", "#2E8B57", "#9932CC"][Math.floor(Math.random() * 5)],
+    by: getDisplayUsername(),
+    createdAt: now
   };
-  xhr.send();
+  worldState.fireworks[fid] = fw;
+  dbWrite("PUT", "realtime/fireworks/" + fid, fw, null);
 }
 
-function handleSpriteMouseDown(e, spriteId) {
-  e = e || window.event;
-  if (e.preventDefault) e.preventDefault();
-  if (e.stopPropagation) e.stopPropagation();
-  var sp = worldState.sprites[spriteId];
-  if (!sp) return;
-
-  if (e.button === 2) {
-    worldState.grabbedSpriteId = spriteId;
-    worldState.grabMode = "rmb";
-    sp.frozen = false;
-    sp.attachedFireworkId = "";
-    worldState.throwVx = 0;
-    worldState.throwVy = 0;
-    return;
-  }
-
-  var tool = worldState.activeTool;
-  if (tool === "physgun") {
-    worldState.grabbedSpriteId = spriteId;
-    worldState.grabMode = "physgun";
-    sp.frozen = false;
-    sp.attachedFireworkId = "";
-  } else if (tool === "gravgun") {
-    var coords = pointerToWorldCoords(e.clientX, e.clientY);
-    var dx = (sp.x + 32) - coords.docX;
-    var dy = (sp.y + 32) - coords.docY;
-    var dist = Math.max(12, Math.sqrt(dx * dx + dy * dy));
-    sp.frozen = false;
-    sp.vx = (dx / dist) * 18;
-    sp.vy = (dy / dist) * 18 - 6;
-    sp.vrot = (Math.random() - 0.5) * 20;
-    dbWrite("PUT", "realtime/sprites/" + spriteId, sp, null);
-  } else if (tool === "crowbar") {
-    sp.frozen = false;
-    sp.vx = (Math.random() - 0.5) * 16;
-    sp.vy = -12;
-    sp.vrot = 15;
-    spawnExplosionParticles(sp.x + 30, sp.y + 30, "#FFD700", 10);
-    dbWrite("PUT", "realtime/sprites/" + spriteId, sp, null);
-  } else if (tool === "thruster") {
-    sp.frozen = false;
-    sp.vy = -16;
-    sp.vrot += 6;
-    spawnExplosionParticles(sp.x + 30, sp.y + 50, "#FF6600", 12);
-    dbWrite("PUT", "realtime/sprites/" + spriteId, sp, null);
-  } else if (tool === "remover") {
-    spawnExplosionParticles(sp.x + 30, sp.y + 30, "#00BFFF", 14);
-    delete worldState.sprites[spriteId];
-    dbWrite("DELETE", "realtime/sprites/" + spriteId, null, null);
-  }
-}
-
-function spawnExplosionParticles(x, y, color, count) {
-  for (var i = 0; i < (count || 24); i++) {
-    var ang = Math.random() * Math.PI * 2;
-    var spd = 2 + Math.random() * 8;
+function spawnSparkBurst(docX, docY, color, count) {
+  var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+  var vxBase = docX;
+  var vyBase = docY - scrollY;
+  var n = count || 18;
+  for (var i = 0; i < n; i++) {
+    var ang = (Math.PI * 2 * i) / n + (Math.random() * 0.25);
+    var spd = 70 + Math.random() * 210;
     worldState.particles.push({
-      x: x,
-      y: y,
+      x: vxBase,
+      y: vyBase,
       vx: Math.cos(ang) * spd,
-      vy: Math.sin(ang) * spd - 2,
-      life: 35 + Math.floor(Math.random() * 20),
-      color: color || ["#FF4500", "#FFD700", "#00BFFF", "#FF1493"][i % 4]
+      vy: Math.sin(ang) * spd,
+      life: 0.55 + Math.random() * 0.45,
+      maxLife: 1.0,
+      color: color || "#FFD700",
+      size: 2.5 + Math.random() * 2.5
     });
   }
 }
 
 /* ==========================================================================
-   WALKABLE & JUMPABLE USER MODEL (WASD / ARROWS / JUMP ON BLOCKS & CURSORS)
+   PLAYABLE 2D CHARACTER ACTOR (WASD + JUMP + [F] ATTACK)
    ========================================================================== */
 function togglePlayerActor() {
   worldState.actorEnabled = !worldState.actorEnabled;
   var btn = document.getElementById("toggleActorBtn");
   if (btn) btn.textContent = worldState.actorEnabled ? "Despawn Model" : "Spawn Model (WASD)";
+
   if (worldState.actorEnabled) {
-    var coords = pointerToWorldCoords(worldState.lastMouseX, worldState.lastMouseY);
-    worldState.myActor.x = Math.max(40, Math.round(coords.docX));
-    worldState.myActor.y = Math.max(40, Math.round(coords.docY - 60));
+    var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+    worldState.myActor.x = 460;
+    worldState.myActor.y = scrollY + 180;
     worldState.myActor.vx = 0;
     worldState.myActor.vy = 0;
     worldState.myActor.hp = 100;
-    syncMyActor(true);
+    syncMyActorToDb(true);
+    showStatus("Model spawned! Use [W][A][S][D] or Arrows to move, [F] to hit.", false);
   } else {
+    delete worldState.actors[myClientId];
+    if (worldState.actorNodes[myClientId] && worldState.actorNodes[myClientId].parentNode) {
+      worldState.actorNodes[myClientId].parentNode.removeChild(worldState.actorNodes[myClientId]);
+    }
+    delete worldState.actorNodes[myClientId];
     dbWrite("DELETE", "realtime/actors/" + myClientId, null, null);
   }
 }
 
 function setActorKey(dir, isDown) {
-  worldState.keys[dir] = isDown;
+  if (worldState.keys && worldState.keys.hasOwnProperty(dir)) {
+    worldState.keys[dir] = Boolean(isDown);
+  }
 }
 
 function triggerActorAttack() {
   if (!worldState.actorEnabled) return;
   var now = new Date().getTime();
   worldState.myActor.swingUntil = now + 260;
-  var ax = worldState.myActor.x + 18;
-  var ay = worldState.myActor.y + 20;
+  var hitX = worldState.myActor.x + (worldState.myActor.facing > 0 ? 34 : -14);
+  var hitY = worldState.myActor.y + 20;
+  spawnSparkBurst(hitX, hitY, "#FFD700", 10);
 
+  // Knock nearby props
   for (var sid in worldState.sprites) {
     if (!worldState.sprites.hasOwnProperty(sid) || !worldState.sprites[sid]) continue;
     var sp = worldState.sprites[sid];
-    var dx = (sp.x + 32) - ax;
-    var dy = (sp.y + 32) - ay;
-    if (Math.abs(dx) < 85 && Math.abs(dy) < 85) {
+    var dx = (sp.x + 30) - hitX;
+    var dy = (sp.y + 30) - hitY;
+    if ((dx * dx + dy * dy) < 6400) {
       sp.frozen = false;
-      sp.vx = (dx >= 0 ? 1 : -1) * 15;
-      sp.vy = -11;
-      sp.vrot = (dx >= 0 ? 14 : -14);
-      dbWrite("PUT", "realtime/sprites/" + sid, sp, null);
-      spawnExplosionParticles(sp.x + 32, sp.y + 32, "#FFD700", 8);
+      sp.vx = worldState.myActor.facing * 420;
+      sp.vy = -260;
+      syncSingleSpriteToDb(sp);
     }
   }
-
-  for (var aid in worldState.actors) {
-    if (!worldState.actors.hasOwnProperty(aid) || aid === myClientId) continue;
-    var other = worldState.actors[aid];
-    if (!other || (now - (other.updatedAt || 0)) > 12000) continue;
-    if (Math.abs(other.x - worldState.myActor.x) < 60 && Math.abs(other.y - worldState.myActor.y) < 60) {
-      var nextHp = Math.max(0, (other.hp || 100) - 25);
-      spawnExplosionParticles(other.x + 18, other.y + 18, "#CC1105", 14);
-      dbWrite("PATCH", "realtime/actors/" + aid, {
-        hp: nextHp === 0 ? 100 : nextHp,
-        vx: worldState.myActor.facing * 14,
-        vy: -10
-      }, null);
-    }
-  }
-  syncMyActor(true);
+  syncMyActorToDb(true);
 }
 
-function getSolidPlatforms() {
-  var scrollX = window.pageXOffset || document.documentElement.scrollLeft || 0;
-  var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
-  var plats = [];
-  var nodes = document.querySelectorAll(".thread-item, .wall-post-card, .box-panel, .side-box, button");
-  for (var i = 0; i < nodes.length; i++) {
-    var r = nodes[i].getBoundingClientRect();
-    if (r.width > 12 && r.height > 10 && r.bottom > -100 && r.top < (window.innerHeight + 200)) {
-      plats.push({
-        left: r.left + scrollX,
-        right: r.right + scrollX,
-        top: r.top + scrollY
-      });
-    }
-  }
-  for (var cId in worldState.cursors) {
-    if (!worldState.cursors.hasOwnProperty(cId) || cId === myClientId) continue;
-    var c = worldState.cursors[cId];
-    if (c && (new Date().getTime() - (c.updatedAt || 0)) < 12000) {
-      var cx = relXToDocX(c.relX || 0.5);
-      plats.push({ left: cx - 18, right: cx + 38, top: c.docY || 100 });
-    }
-  }
-  return plats;
-}
-
-function syncMyActor(force) {
+function syncMyActorToDb(force) {
   if (!worldState.actorEnabled) return;
   var now = new Date().getTime();
-  if (!force && (now - worldState.lastActorSendTime) < 420) return;
+  if (!force && (now - worldState.lastActorSendTime) < 220) return;
   worldState.lastActorSendTime = now;
-  var a = worldState.myActor;
-  var av = (state.profile && isValidImageSrc(state.profile.avatar)) ? state.profile.avatar : DEFAULT_AVATAR_SVG;
+
+  var avatar = (state.profile && isValidImageSrc(state.profile.avatar)) ? state.profile.avatar : DEFAULT_AVATAR_SVG;
   var payload = {
-    clientId: myClientId,
+    id: myClientId,
     name: getDisplayUsername(),
-    avatar: av,
-    x: Math.round(a.x),
-    y: Math.round(a.y),
-    vx: Math.round(a.vx * 10) / 10,
-    vy: Math.round(a.vy * 10) / 10,
-    facing: a.facing,
-    hp: a.hp,
-    swingUntil: a.swingUntil,
+    avatar: avatar,
+    x: Math.round(worldState.myActor.x),
+    y: Math.round(worldState.myActor.y),
+    facing: worldState.myActor.facing,
+    hp: worldState.myActor.hp,
+    swingUntil: worldState.myActor.swingUntil,
     updatedAt: now
   };
   worldState.actors[myClientId] = payload;
@@ -489,270 +466,385 @@ function syncMyActor(force) {
 }
 
 /* ==========================================================================
-   WORLD PHYSICS & RENDER LOOP
+   60FPS WORLD ENGINE (SMOOTH DOM POOLING + LERP, ZERO-JITTER ANIMATION)
    ========================================================================== */
-function stepWorldSimulation() {
-  var now = new Date().getTime();
-  var docW = Math.max(document.documentElement.scrollWidth || 1000, window.innerWidth || 1000);
-  var docH = Math.max(document.documentElement.scrollHeight || 1200, window.innerHeight || 800);
-  var pointerCoords = pointerToWorldCoords(worldState.lastMouseX, worldState.lastMouseY);
+function initWorldEngine() {
+  document.addEventListener("mousemove", function(e) {
+    e = e || window.event;
+    var prevX = worldState.lastMouseX;
+    var prevY = worldState.lastMouseY;
+    worldState.lastMouseX = e.clientX;
+    worldState.lastMouseY = e.clientY;
+    worldState.throwVx = (e.clientX - prevX) * 28;
+    worldState.throwVy = (e.clientY - prevY) * 28;
 
-  // 1. Step Fireworks
-  for (var fwId in worldState.fireworks) {
-    if (!worldState.fireworks.hasOwnProperty(fwId) || !worldState.fireworks[fwId]) continue;
-    var fw = worldState.fireworks[fwId];
-    fw.y += (fw.vy || -7.5);
-    if (now >= (fw.fuseAt || 0) || fw.y < 30) {
-      if (!worldState.explodedFireworks[fwId]) {
-        worldState.explodedFireworks[fwId] = true;
-        spawnExplosionParticles(fw.x, Math.max(30, fw.y), null, 32);
-        for (var spId in worldState.sprites) {
-          if (worldState.sprites.hasOwnProperty(spId) && worldState.sprites[spId] && worldState.sprites[spId].attachedFireworkId === fwId) {
-            var rider = worldState.sprites[spId];
-            rider.attachedFireworkId = "";
-            rider.vx = (Math.random() - 0.5) * 14;
-            rider.vy = -8 - Math.random() * 6;
-            rider.vrot = (Math.random() - 0.5) * 24;
-            dbWrite("PUT", "realtime/sprites/" + spId, rider, null);
-          }
-        }
-      }
-      delete worldState.fireworks[fwId];
-      dbWrite("DELETE", "realtime/fireworks/" + fwId, null, null);
-    }
-  }
-
-  // 2. Step Sprites
-  for (var sId in worldState.sprites) {
-    if (!worldState.sprites.hasOwnProperty(sId) || !worldState.sprites[sId]) continue;
-    var sp = worldState.sprites[sId];
-    if (worldState.grabbedSpriteId === sId) {
-      var targetX = pointerCoords.docX - 32;
-      var targetY = pointerCoords.docY - 32;
-      worldState.throwVx = (targetX - sp.x) * 0.65;
-      worldState.throwVy = (targetY - sp.y) * 0.65;
-      sp.x = targetX;
-      sp.y = targetY;
+    if (worldState.grabbedSpriteId && worldState.sprites[worldState.grabbedSpriteId]) {
+      var sp = worldState.sprites[worldState.grabbedSpriteId];
+      var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+      sp.x = Math.round(e.clientX - 32);
+      sp.y = Math.round(scrollY + e.clientY - 32);
       sp.vx = 0;
       sp.vy = 0;
-      for (var fKey in worldState.fireworks) {
-        if (worldState.fireworks.hasOwnProperty(fKey) && worldState.fireworks[fKey]) {
-          var candFw = worldState.fireworks[fKey];
-          if (Math.abs(candFw.x - sp.x) < 60 && Math.abs(candFw.y - sp.y) < 60) {
-            sp.attachedFireworkId = fKey;
-            worldState.grabbedSpriteId = null;
-            dbWrite("PUT", "realtime/sprites/" + sId, sp, null);
-            break;
-          }
-        }
-      }
-    } else if (sp.attachedFireworkId && worldState.fireworks[sp.attachedFireworkId]) {
-      var hostFw = worldState.fireworks[sp.attachedFireworkId];
-      sp.x = hostFw.x - 24;
-      sp.y = hostFw.y - 24;
-      sp.rot = (sp.rot || 0) + 8;
-    } else if (!sp.frozen) {
-      sp.vy = (sp.vy || 0) + 0.35;
-      sp.x = (sp.x || 0) + (sp.vx || 0);
-      sp.y = (sp.y || 0) + (sp.vy || 0);
-      sp.rot = (sp.rot || 0) + (sp.vrot || 0);
-      sp.vx = (sp.vx || 0) * 0.985;
-      sp.vrot = (sp.vrot || 0) * 0.96;
+    }
 
-      if (sp.x < 0) { sp.x = 0; sp.vx = Math.abs(sp.vx) * 0.7; }
-      if (sp.x > docW - 76) { sp.x = docW - 76; sp.vx = -Math.abs(sp.vx) * 0.7; }
-      if (sp.y < 0) { sp.y = 0; sp.vy = Math.abs(sp.vy) * 0.6; }
-      if (sp.y > docH - 80) {
-        sp.y = docH - 80;
-        sp.vy = -Math.abs(sp.vy) * 0.45;
-        if (Math.abs(sp.vy) < 1.2) sp.vy = 0;
+    sendCursorPresence(false);
+  });
+
+  document.addEventListener("mouseup", function() {
+    if (worldState.grabbedSpriteId) {
+      var sp = worldState.sprites[worldState.grabbedSpriteId];
+      worldState.grabbedSpriteId = null;
+      if (sp) {
+        sp.vx = Math.max(-900, Math.min(900, worldState.throwVx));
+        sp.vy = Math.max(-900, Math.min(900, worldState.throwVy));
+        syncSingleSpriteToDb(sp);
       }
+    }
+  });
+
+  document.addEventListener("wheel", function(e) {
+    if (worldState.grabbedSpriteId && worldState.sprites[worldState.grabbedSpriteId]) {
+      var sp = worldState.sprites[worldState.grabbedSpriteId];
+      sp.rot = ((sp.rot || 0) + (e.deltaY > 0 ? 18 : -18)) % 360;
+    }
+  }, { passive: true });
+
+  document.addEventListener("contextmenu", function(e) {
+    var tgt = e.target || e.srcElement;
+    var tag = tgt && tgt.tagName ? tgt.tagName.toUpperCase() : "";
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "A" || tag === "BUTTON" || tag === "CANVAS" || tag === "IMG") return;
+    if (e.preventDefault) e.preventDefault();
+    var cat = (worldState.propCatalog && worldState.propCatalog.length) ? worldState.propCatalog : WIKIPEDIA_FALLBACK_PROPS;
+    var pick = cat[Math.floor(Math.random() * cat.length)];
+    var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+    spawnWorldSprite(pick.url, pick.title, e.clientX - 28, scrollY + e.clientY - 28, (Math.random() - 0.5) * 420, -280);
+  });
+
+  lastFrameMs = new Date().getTime();
+  function tickWorld() {
+    var now = new Date().getTime();
+    var dt = Math.min(0.05, Math.max(0.004, (now - lastFrameMs) / 1000));
+    lastFrameMs = now;
+
+    stepWorldPhysics(dt, now);
+    renderWorldDom(dt, now);
+    renderFxParticles(dt);
+
+    worldAnimRaf = window.requestAnimationFrame(tickWorld);
+  }
+  if (window.requestAnimationFrame) {
+    worldAnimRaf = window.requestAnimationFrame(tickWorld);
+  } else {
+    setInterval(tickWorld, 33);
+  }
+}
+
+function stepWorldPhysics(dt, now) {
+  var docW = Math.max(320, document.documentElement.clientWidth || window.innerWidth || 1000);
+  var floorY = Math.max(600, (document.documentElement.scrollHeight || 900) - 86);
+
+  // Step sprites
+  for (var sid in worldState.sprites) {
+    if (!worldState.sprites.hasOwnProperty(sid) || !worldState.sprites[sid]) continue;
+    var sp = worldState.sprites[sid];
+    if (sid === worldState.grabbedSpriteId || sp.frozen) continue;
+
+    if (sp.thruster) {
+      sp.vy -= 920 * dt;
+      sp.vx += Math.sin(now * 0.01) * 140 * dt;
+    } else {
+      sp.vy += 680 * dt;
+    }
+
+    sp.x += (sp.vx || 0) * dt;
+    sp.y += (sp.vy || 0) * dt;
+    sp.vx *= (1 - 0.6 * dt);
+
+    if (sp.x < 8) { sp.x = 8; sp.vx = Math.abs(sp.vx) * 0.72; }
+    if (sp.x > docW - 84) { sp.x = docW - 84; sp.vx = -Math.abs(sp.vx) * 0.72; }
+    if (sp.y < 10) { sp.y = 10; sp.vy = Math.abs(sp.vy) * 0.6; }
+    if (sp.y > floorY) {
+      sp.y = floorY;
+      sp.vy = -Math.abs(sp.vy) * 0.52;
+      sp.vx *= 0.86;
+      if (Math.abs(sp.vy) < 24) sp.vy = 0;
     }
   }
 
-  // 3. Step Local Walkable Player Actor
+  // Step fireworks
+  for (var fid in worldState.fireworks) {
+    if (!worldState.fireworks.hasOwnProperty(fid) || !worldState.fireworks[fid]) continue;
+    var fw = worldState.fireworks[fid];
+    if (worldState.explodedFireworks[fid]) continue;
+    fw.y -= 340 * dt;
+    if (fw.y <= (fw.targetY || 140) || (now - (fw.createdAt || now)) > 2600) {
+      worldState.explodedFireworks[fid] = true;
+      spawnSparkBurst(fw.x, fw.y, fw.color || "#FFD700", 26);
+      delete worldState.fireworks[fid];
+      dbWrite("DELETE", "realtime/fireworks/" + fid, null, null);
+    }
+  }
+
+  // Step local player actor
   if (worldState.actorEnabled) {
     var a = worldState.myActor;
-    var prevBottom = a.y + 42;
-    if (worldState.keys.left) { a.vx = -4.5; a.facing = -1; }
-    else if (worldState.keys.right) { a.vx = 4.5; a.facing = 1; }
-    else { a.vx *= 0.75; }
+    var moveSpeed = 260;
+    if (worldState.keys.left) { a.vx = -moveSpeed; a.facing = -1; }
+    else if (worldState.keys.right) { a.vx = moveSpeed; a.facing = 1; }
+    else { a.vx *= (1 - 10 * dt); }
 
     if (worldState.keys.jump && a.grounded) {
-      a.vy = -10.5;
+      a.vy = -440;
       a.grounded = false;
     }
+    a.vy += 980 * dt;
+    a.x += a.vx * dt;
+    a.y += a.vy * dt;
 
-    a.vy += 0.52;
-    a.x += a.vx;
-    a.y += a.vy;
-    a.grounded = false;
-
-    if (a.x < 8) a.x = 8;
-    if (a.x > docW - 44) a.x = docW - 44;
-
-    if (a.vy >= 0) {
-      var plats = getSolidPlatforms();
-      var footLeft = a.x + 6;
-      var footRight = a.x + 30;
-      var nextBottom = a.y + 42;
-      for (var p = 0; p < plats.length; p++) {
-        var pl = plats[p];
-        if (footRight >= pl.left && footLeft <= pl.right && prevBottom <= pl.top + 8 && nextBottom >= pl.top) {
-          a.y = pl.top - 42;
-          a.vy = 0;
-          a.grounded = true;
-          break;
-        }
-      }
-    }
-
-    if (a.y > docH - 46) {
-      a.y = docH - 46;
+    var actorFloor = Math.max(400, (document.documentElement.scrollHeight || 800) - 52);
+    if (a.x < 10) a.x = 10;
+    if (a.x > docW - 46) a.x = docW - 46;
+    if (a.y >= actorFloor) {
+      a.y = actorFloor;
       a.vy = 0;
       a.grounded = true;
     }
+    syncMyActorToDb(false);
+  }
+}
 
-    // Auto-kick sprites when walking into them
-    for (var ksId in worldState.sprites) {
-      if (!worldState.sprites.hasOwnProperty(ksId) || !worldState.sprites[ksId]) continue;
-      var ksp = worldState.sprites[ksId];
-      if (Math.abs((ksp.x + 32) - (a.x + 18)) < 38 && Math.abs((ksp.y + 32) - (a.y + 22)) < 38 && Math.abs(a.vx) > 1.2) {
-        ksp.frozen = false;
-        ksp.vx = a.facing * 11;
-        ksp.vy = -7;
-        ksp.vrot = a.facing * 12;
-        dbWrite("PUT", "realtime/sprites/" + ksId, ksp, null);
+function renderWorldDom(dt, now) {
+  var docW = Math.max(320, document.documentElement.clientWidth || window.innerWidth || 1000);
+  var lerpAlpha = Math.min(1, dt * 14);
+
+  // 1. Render Sprites (Persistent DOM Nodes)
+  var spLayer = document.getElementById("playgroundLayer");
+  if (spLayer) {
+    for (var sid in worldState.spriteNodes) {
+      if (worldState.spriteNodes.hasOwnProperty(sid) && !worldState.sprites[sid]) {
+        if (worldState.spriteNodes[sid].parentNode) worldState.spriteNodes[sid].parentNode.removeChild(worldState.spriteNodes[sid]);
+        delete worldState.spriteNodes[sid];
       }
     }
-    syncMyActor(false);
-  }
-
-  renderPlaygroundDOM();
-  renderActorsDOM();
-  renderFxCanvas(pointerCoords);
-}
-
-function renderPlaygroundDOM() {
-  var layer = document.getElementById("playgroundLayer");
-  if (!layer) return;
-  var h = "";
-  for (var sId in worldState.sprites) {
-    if (!worldState.sprites.hasOwnProperty(sId) || !worldState.sprites[sId]) continue;
-    var sp = worldState.sprites[sId];
-    if (!isValidImageSrc(sp.url)) continue;
-    var style = "left:" + Math.round(sp.x) + "px;top:" + Math.round(sp.y) + "px;transform:rotate(" + Math.round(sp.rot || 0) + "deg);";
-    if (sp.frozen) style += "outline:2px solid #00BFFF;";
-    h += "<img class='world-sprite' src='" + esc(sp.url) + "' style='" + style + "' oncontextmenu='return false;' onmousedown=\"handleSpriteMouseDown(event,'" + esc(sId) + "')\" ontouchstart=\"handleSpriteMouseDown(event,'" + esc(sId) + "')\" title='RMB: Throw | Physgun: Drag/Wheel Rotate/[E] Freeze'>";
-  }
-  for (var fId in worldState.fireworks) {
-    if (!worldState.fireworks.hasOwnProperty(fId) || !worldState.fireworks[fId]) continue;
-    var fw = worldState.fireworks[fId];
-    h += "<div class='world-firework' style='left:" + Math.round(fw.x) + "px;top:" + Math.round(fw.y) + "px;'>FIREWORK</div>";
-  }
-  if (h !== worldState.lastPlaygroundHtml) {
-    layer.innerHTML = h;
-    worldState.lastPlaygroundHtml = h;
-  }
-}
-
-function renderActorsDOM() {
-  var layer = document.getElementById("actorsLayer");
-  if (!layer) return;
-  var now = new Date().getTime();
-  var active = {};
-
-  for (var aId in worldState.actors) {
-    if (!worldState.actors.hasOwnProperty(aId)) continue;
-    var a = worldState.actors[aId];
-    if (!a || (now - (a.updatedAt || 0)) > 12000) continue;
-    if (aId === myClientId && !worldState.actorEnabled) continue;
-
-    active[aId] = true;
-    var node = worldState.actorNodes[aId];
-    if (!node) {
-      node = document.createElement("div");
-      node.className = "player-actor";
-      node.innerHTML =
-        "<div class='actor-tag'></div>" +
-        "<img class='actor-head' src='" + DEFAULT_AVATAR_SVG + "' alt='head'>" +
-        "<div class='actor-body'></div>" +
-        "<div class='actor-weapon'></div>";
-      layer.appendChild(node);
-      worldState.actorNodes[aId] = node;
-    }
-
-    node.style.left = Math.round(a.x || 0) + "px";
-    node.style.top = Math.round(a.y || 0) + "px";
-    var tag = node.querySelector(".actor-tag");
-    if (tag) tag.textContent = (a.name || "Player") + " (" + (a.hp || 100) + ")";
-    var head = node.querySelector(".actor-head");
-    if (head && isValidImageSrc(a.avatar) && head.src !== a.avatar) head.src = a.avatar;
-    var wep = node.querySelector(".actor-weapon");
-    if (wep) {
-      var swinging = (a.swingUntil || 0) > now;
-      wep.style.left = (a.facing === -1) ? "-6px" : "24px";
-      wep.style.transform = swinging ? "rotate(" + (a.facing === -1 ? "-65deg" : "65deg") + ")" : "rotate(0deg)";
+    for (var id in worldState.sprites) {
+      if (!worldState.sprites.hasOwnProperty(id) || !worldState.sprites[id]) continue;
+      var sp = worldState.sprites[id];
+      var node = worldState.spriteNodes[id];
+      if (!node) {
+        node = document.createElement("img");
+        node.className = "world-sprite";
+        node.setAttribute("referrerpolicy", "no-referrer");
+        node.src = sp.url;
+        node.title = (sp.label || "Prop") + " (by " + (sp.by || "Anon") + ")";
+        (function(spriteId) {
+          node.onmousedown = function(ev) { handleWorldPropPointerDown(spriteId, ev); };
+          node.ontouchstart = function(ev) { handleWorldPropPointerDown(spriteId, ev); };
+        })(id);
+        spLayer.appendChild(node);
+        worldState.spriteNodes[id] = node;
+      }
+      node.style.left = Math.round(sp.x) + "px";
+      node.style.top = Math.round(sp.y) + "px";
+      node.style.transform = "rotate(" + Math.round(sp.rot || 0) + "deg)";
+      node.style.outline = sp.frozen ? "2px solid #1E90FF" : "none";
     }
   }
 
-  for (var oldId in worldState.actorNodes) {
-    if (worldState.actorNodes.hasOwnProperty(oldId) && !active[oldId]) {
-      var el = worldState.actorNodes[oldId];
-      if (el && el.parentNode) el.parentNode.removeChild(el);
-      delete worldState.actorNodes[oldId];
+  // 2. Render Fireworks (Persistent DOM Nodes)
+  if (spLayer) {
+    for (var fnId in worldState.fireworkNodes) {
+      if (worldState.fireworkNodes.hasOwnProperty(fnId) && !worldState.fireworks[fnId]) {
+        if (worldState.fireworkNodes[fnId].parentNode) worldState.fireworkNodes[fnId].parentNode.removeChild(worldState.fireworkNodes[fnId]);
+        delete worldState.fireworkNodes[fnId];
+      }
+    }
+    for (var fid in worldState.fireworks) {
+      if (!worldState.fireworks.hasOwnProperty(fid) || !worldState.fireworks[fid]) continue;
+      var fw = worldState.fireworks[fid];
+      var fNode = worldState.fireworkNodes[fid];
+      if (!fNode) {
+        fNode = document.createElement("div");
+        fNode.className = "world-firework";
+        fNode.textContent = "FW";
+        spLayer.appendChild(fNode);
+        worldState.fireworkNodes[fid] = fNode;
+      }
+      fNode.style.left = Math.round(fw.x) + "px";
+      fNode.style.top = Math.round(fw.y) + "px";
+    }
+  }
+
+  // 3. Render Remote Mouse Cursors + Local Chat Bubble (Smooth LERP)
+  var curLayer = document.getElementById("cursorsLayer");
+  if (curLayer) {
+    for (var cId in worldState.cursorNodes) {
+      if (worldState.cursorNodes.hasOwnProperty(cId)) {
+        var cData = worldState.cursors[cId];
+        var isStale = !cData || ((now - (cData.updatedAt || 0)) > 15000);
+        var hideLocal = (cId === myClientId && !(worldState.localChatExpiresAt > now && worldState.localChatText));
+        if (isStale || hideLocal) {
+          if (worldState.cursorNodes[cId].parentNode) worldState.cursorNodes[cId].parentNode.removeChild(worldState.cursorNodes[cId]);
+          delete worldState.cursorNodes[cId];
+        }
+      }
+    }
+
+    for (var cid in worldState.cursors) {
+      if (!worldState.cursors.hasOwnProperty(cid) || !worldState.cursors[cid]) continue;
+      var cur = worldState.cursors[cid];
+      if ((now - (cur.updatedAt || 0)) > 15000) continue;
+
+      var isMe = (cid === myClientId);
+      if (isMe && !(worldState.localChatExpiresAt > now && worldState.localChatText)) continue;
+
+      var targetX = isMe ? worldState.lastMouseX : Math.round((cur.relX || 0) * docW);
+      var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+      var targetY = isMe ? (scrollY + worldState.lastMouseY) : (cur.y || 0);
+
+      var cNode = worldState.cursorNodes[cid];
+      if (!cNode) {
+        cNode = document.createElement("div");
+        cNode.className = "remote-cursor";
+        cNode.innerHTML =
+          (isMe ? "" : createMouseCursorSvg()) +
+          "<div class='cursor-hud'>" +
+            "<div class='cursor-chat-bubble' style='display:none;'></div>" +
+            "<div class='cursor-name-tag'></div>" +
+          "</div>";
+        cNode._curX = targetX;
+        cNode._curY = targetY;
+        curLayer.appendChild(cNode);
+        worldState.cursorNodes[cid] = cNode;
+      }
+
+      if (isMe) {
+        cNode._curX = targetX;
+        cNode._curY = targetY;
+      } else {
+        cNode._curX += (targetX - cNode._curX) * lerpAlpha;
+        cNode._curY += (targetY - cNode._curY) * lerpAlpha;
+      }
+
+      cNode.style.left = Math.round(cNode._curX) + "px";
+      cNode.style.top = Math.round(cNode._curY) + "px";
+
+      var nameEl = cNode.querySelector(".cursor-name-tag");
+      if (nameEl) {
+        nameEl.style.display = isMe ? "none" : "inline-block";
+        if (!isMe && nameEl.textContent !== (cur.name || "Anon")) {
+          nameEl.textContent = cur.name || "Anon";
+        }
+      }
+
+      var chatEl = cNode.querySelector(".cursor-chat-bubble");
+      var chatMsg = isMe ? ((worldState.localChatExpiresAt > now) ? worldState.localChatText : "") : (cur.chat || "");
+      if (chatEl) {
+        if (chatMsg) {
+          chatEl.style.display = "block";
+          if (chatEl.textContent !== chatMsg) chatEl.textContent = chatMsg;
+        } else {
+          chatEl.style.display = "none";
+        }
+      }
+    }
+  }
+
+  // 4. Render 2D Player Actors (Smooth LERP)
+  var actLayer = document.getElementById("actorsLayer");
+  if (actLayer) {
+    for (var aNodeId in worldState.actorNodes) {
+      if (worldState.actorNodes.hasOwnProperty(aNodeId)) {
+        var aInfo = worldState.actors[aNodeId];
+        if (!aInfo || ((now - (aInfo.updatedAt || 0)) > 15000)) {
+          if (worldState.actorNodes[aNodeId].parentNode) worldState.actorNodes[aNodeId].parentNode.removeChild(worldState.actorNodes[aNodeId]);
+          delete worldState.actorNodes[aNodeId];
+        }
+      }
+    }
+
+    for (var aid in worldState.actors) {
+      if (!worldState.actors.hasOwnProperty(aid) || !worldState.actors[aid]) continue;
+      var act = worldState.actors[aid];
+      if ((now - (act.updatedAt || 0)) > 15000) continue;
+      var isSelf = (aid === myClientId);
+      var ax = isSelf ? worldState.myActor.x : (act.x || 300);
+      var ay = isSelf ? worldState.myActor.y : (act.y || 200);
+      var facing = isSelf ? worldState.myActor.facing : (act.facing || 1);
+      var swinging = isSelf ? (worldState.myActor.swingUntil > now) : ((act.swingUntil || 0) > now);
+
+      var aNode = worldState.actorNodes[aid];
+      if (!aNode) {
+        aNode = document.createElement("div");
+        aNode.className = "player-actor";
+        aNode.innerHTML =
+          "<div class='actor-tag'></div>" +
+          "<img class='actor-head' src='" + esc(isValidImageSrc(act.avatar) ? act.avatar : DEFAULT_AVATAR_SVG) + "' alt='head'>" +
+          "<div class='actor-body'></div>" +
+          "<div class='actor-weapon'></div>";
+        aNode._ax = ax;
+        aNode._ay = ay;
+        actLayer.appendChild(aNode);
+        worldState.actorNodes[aid] = aNode;
+      }
+
+      if (isSelf) {
+        aNode._ax = ax;
+        aNode._ay = ay;
+      } else {
+        aNode._ax += (ax - aNode._ax) * lerpAlpha;
+        aNode._ay += (ay - aNode._ay) * lerpAlpha;
+      }
+
+      aNode.style.left = Math.round(aNode._ax) + "px";
+      aNode.style.top = Math.round(aNode._ay) + "px";
+      var tagEl = aNode.querySelector(".actor-tag");
+      if (tagEl && tagEl.textContent !== (act.name || "Player")) tagEl.textContent = act.name || "Player";
+      var wepEl = aNode.querySelector(".actor-weapon");
+      if (wepEl) {
+        wepEl.style.left = facing > 0 ? "24px" : "-6px";
+        wepEl.style.transform = swinging ? ("rotate(" + (facing > 0 ? "55deg" : "-55deg") + ")") : "rotate(0deg)";
+      }
     }
   }
 }
 
-function renderFxCanvas(pointerCoords) {
+function renderFxParticles(dt) {
   var canvas = document.getElementById("fxCanvas");
   if (!canvas || !canvas.getContext) return;
-  var hasBeam = Boolean(worldState.grabbedSpriteId && worldState.grabMode === "physgun" && worldState.sprites[worldState.grabbedSpriteId]);
-  if (!worldState.particles.length && !hasBeam) {
-    if (worldState.hadFx) {
-      canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
-      worldState.hadFx = false;
-    }
-    return;
-  }
-  worldState.hadFx = true;
+  if (!worldState.particles.length && !worldState.hadFx) return;
+
   var w = window.innerWidth || 1000;
   var h = window.innerHeight || 700;
-  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+  if (canvas.width !== w) canvas.width = w;
+  if (canvas.height !== h) canvas.height = h;
   var ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, w, h);
 
-  var scrollX = window.pageXOffset || document.documentElement.scrollLeft || 0;
-  var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
-
-  if (hasBeam) {
-    var sp = worldState.sprites[worldState.grabbedSpriteId];
-    ctx.strokeStyle = "#00BFFF";
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(worldState.lastMouseX, worldState.lastMouseY);
-    ctx.lineTo((sp.x + 32) - scrollX, (sp.y + 32) - scrollY);
-    ctx.stroke();
+  if (!worldState.particles.length) {
+    worldState.hadFx = false;
+    return;
   }
+  worldState.hadFx = true;
 
   for (var i = worldState.particles.length - 1; i >= 0; i--) {
-    var pt = worldState.particles[i];
-    pt.x += pt.vx;
-    pt.y += pt.vy;
-    pt.vy += 0.25;
-    pt.life--;
-    if (pt.life <= 0) {
+    var p = worldState.particles[i];
+    p.life -= dt;
+    if (p.life <= 0) {
       worldState.particles.splice(i, 1);
       continue;
     }
-    ctx.fillStyle = pt.color;
-    ctx.fillRect(pt.x - scrollX, pt.y - scrollY, 4, 4);
+    p.vy += 320 * dt;
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    ctx.globalAlpha = Math.max(0, Math.min(1, p.life / p.maxLife));
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x, p.y, p.size, p.size);
   }
+  ctx.globalAlpha = 1;
 }
 
 /* ==========================================================================
-   WPLACE / GEOPIXELS PUBLIC OPENSTREETMAP PIXEL CANVAS
+   WPLACE / GEOPIXELS INTERACTIVE PIXEL MAP
    ========================================================================== */
 function initWplaceMap() {
   var palBox = document.getElementById("wplacePalette");
@@ -761,223 +853,120 @@ function initWplaceMap() {
     for (var i = 0; i < WPLACE_COLORS.length; i++) {
       var col = WPLACE_COLORS[i];
       var act = (col === wplaceState.selectedColor) ? " active-swatch" : "";
-      h += "<span class='color-swatch" + act + "' style='background:" + col + ";' onclick=\"pickWplaceColor('" + col + "',this)\"></span>";
+      h += "<span class='color-swatch" + act + "' style='background:" + col + ";' onclick=\"pickWplaceColor('" + col + "', this)\"></span>";
     }
     palBox.innerHTML = h;
   }
 
-  // Center on Ukraine / Pridnestrovie region
-  wplaceState.offsetX = Math.round(31.1 * 20);
-  wplaceState.offsetY = Math.round(-48.4 * 20);
-
   var canvas = document.getElementById("wplaceCanvas");
   if (!canvas) return;
 
-  function canvasClientToGrid(clientX, clientY) {
+  function getGridCoord(clientX, clientY) {
     var rect = canvas.getBoundingClientRect();
     var scaleX = canvas.width / Math.max(1, rect.width);
     var scaleY = canvas.height / Math.max(1, rect.height);
     var cx = (clientX - rect.left) * scaleX;
     var cy = (clientY - rect.top) * scaleY;
     var z = wplaceState.zoom;
-    var gx = Math.floor((cx - canvas.width / 2) / z + wplaceState.offsetX);
-    var gy = Math.floor((cy - canvas.height / 2) / z + wplaceState.offsetY);
-    var lon = Math.round((gx / 20) * 10000) / 10000;
-    var lat = Math.round((-gy / 20) * 10000) / 10000;
-    return { gx: gx, gy: gy, lat: lat, lon: lon };
+    var gx = Math.floor((cx - canvas.width / 2) / z) + wplaceState.offsetX;
+    var gy = Math.floor((cy - canvas.height / 2) / z) + wplaceState.offsetY;
+    return { gx: gx, gy: gy, cx: cx, cy: cy };
   }
 
-  function handlePointerDown(clientX, clientY) {
-    if (wplaceState.panMode) {
-      wplaceState.isDrawing = true;
-      wplaceState.panStartX = clientX;
-      wplaceState.panStartY = clientY;
-      return;
-    }
-    wplaceState.isDrawing = true;
-    var pos = canvasClientToGrid(clientX, clientY);
-    paintWplacePixel(pos.gx, pos.gy, pos.lat, pos.lon, wplaceState.selectedColor);
-  }
+  function paintAt(clientX, clientY) {
+    var pt = getGridCoord(clientX, clientY);
+    var key = pt.gx + "_" + pt.gy;
+    if (key === wplaceState.lastDrawnKey) return;
+    wplaceState.lastDrawnKey = key;
 
-  function handlePointerMove(clientX, clientY) {
-    var pos = canvasClientToGrid(clientX, clientY);
+    var color = wplaceState.selectedColor || "#800000";
+    state.wplacePixels[key] = color;
+    renderWplaceCanvas();
+
+    var lat = (-pt.gy / 20).toFixed(4);
+    var lon = (pt.gx / 20).toFixed(4);
     var lbl = document.getElementById("wplaceCoords");
-    if (lbl) lbl.textContent = "Lat: " + pos.lat + ", Lon: " + pos.lon + " • Zoom: " + wplaceState.zoom;
+    if (lbl) lbl.textContent = "Lat: " + lat + ", Lon: " + lon + " • Zoom: " + wplaceState.zoom;
+
+    dbWrite("PUT", "wplace/pixels/" + key, color, null);
+    var recId = generateId("wpix");
+    var recObj = {
+      id: recId,
+      gx: pt.gx,
+      gy: pt.gy,
+      lat: lat,
+      lon: lon,
+      color: color,
+      by: getDisplayUsername(),
+      createdAt: new Date().getTime()
+    };
+    state.wplaceRecent[recId] = recObj;
+    renderWplaceRecent();
+    dbWrite("PUT", "wplace/recent/" + recId, recObj, null);
+  }
+
+  canvas.onmousedown = function(e) {
+    e = e || window.event;
+    wplaceState.isDrawing = true;
+    wplaceState.lastDrawnKey = "";
+    if (wplaceState.panMode || e.button === 1 || e.button === 2) {
+      wplaceState.panStartX = e.clientX;
+      wplaceState.panStartY = e.clientY;
+    } else {
+      paintAt(e.clientX, e.clientY);
+    }
+  };
+
+  canvas.onmousemove = function(e) {
+    e = e || window.event;
+    var pt = getGridCoord(e.clientX, e.clientY);
+    var lbl = document.getElementById("wplaceCoords");
+    if (lbl) lbl.textContent = "Lat: " + (-pt.gy / 20).toFixed(4) + ", Lon: " + (pt.gx / 20).toFixed(4) + " • Zoom: " + wplaceState.zoom;
+
     if (!wplaceState.isDrawing) return;
     if (wplaceState.panMode) {
-      var dx = (clientX - wplaceState.panStartX) / wplaceState.zoom;
-      var dy = (clientY - wplaceState.panStartY) / wplaceState.zoom;
-      wplaceState.offsetX -= dx;
-      wplaceState.offsetY -= dy;
-      wplaceState.panStartX = clientX;
-      wplaceState.panStartY = clientY;
-      renderWplaceCanvas();
+      var dx = e.clientX - wplaceState.panStartX;
+      var dy = e.clientY - wplaceState.panStartY;
+      if (Math.abs(dx) >= wplaceState.zoom || Math.abs(dy) >= wplaceState.zoom) {
+        wplaceState.offsetX -= Math.round(dx / wplaceState.zoom);
+        wplaceState.offsetY -= Math.round(dy / wplaceState.zoom);
+        wplaceState.panStartX = e.clientX;
+        wplaceState.panStartY = e.clientY;
+        renderWplaceCanvas();
+      }
     } else {
-      paintWplacePixel(pos.gx, pos.gy, pos.lat, pos.lon, wplaceState.selectedColor);
-    }
-  }
-
-  canvas.onmousedown = function(e) { e = e || window.event; handlePointerDown(e.clientX, e.clientY); };
-  canvas.onmousemove = function(e) { e = e || window.event; handlePointerMove(e.clientX, e.clientY); };
-  window.addEventListener("mouseup", function() { wplaceState.isDrawing = false; });
-
-  canvas.ontouchstart = function(e) {
-    if (e.touches && e.touches[0]) {
-      e.preventDefault();
-      handlePointerDown(e.touches[0].clientX, e.touches[0].clientY);
+      paintAt(e.clientX, e.clientY);
     }
   };
-  canvas.ontouchmove = function(e) {
-    if (e.touches && e.touches[0]) {
-      e.preventDefault();
-      handlePointerMove(e.touches[0].clientX, e.touches[0].clientY);
-    }
-  };
-  canvas.ontouchend = function() { wplaceState.isDrawing = false; };
+
+  window.addEventListener("mouseup", function() {
+    wplaceState.isDrawing = false;
+    wplaceState.lastDrawnKey = "";
+  });
+
+  // Start centered over Ukraine / Pridnestrovie
+  jumpWplaceTo(48.40, 31.10, 12);
 }
 
 function pickWplaceColor(hex, swatchEl) {
   wplaceState.selectedColor = hex;
   wplaceState.panMode = false;
-  var pBtn = document.getElementById("wplacePanBtn");
-  if (pBtn) pBtn.className = "";
-  var all = document.querySelectorAll(".color-swatch");
+  var panBtn = document.getElementById("wplacePanBtn");
+  if (panBtn) panBtn.className = "";
+  var all = document.querySelectorAll("#wplacePalette .color-swatch");
   for (var i = 0; i < all.length; i++) all[i].className = "color-swatch";
   if (swatchEl) swatchEl.className = "color-swatch active-swatch";
 }
 
 function toggleWplacePan() {
   wplaceState.panMode = !wplaceState.panMode;
-  var pBtn = document.getElementById("wplacePanBtn");
-  if (pBtn) pBtn.className = wplaceState.panMode ? "btn-active" : "";
+  var panBtn = document.getElementById("wplacePanBtn");
+  if (panBtn) panBtn.className = wplaceState.panMode ? "btn-active" : "";
 }
 
 function zoomWplace(delta) {
   wplaceState.zoom = Math.max(4, Math.min(36, wplaceState.zoom + delta));
   renderWplaceCanvas();
-}
-
-function gridToWplaceKey(gx, gy) {
-  return String(gx).replace("-", "m") + "_" + String(gy).replace("-", "m");
-}
-
-function wplaceKeyToGrid(key) {
-  var parts = String(key || "").split("_");
-  if (parts.length !== 2) return null;
-  var gx = parseInt(parts[0].replace("m", "-"), 10);
-  var gy = parseInt(parts[1].replace("m", "-"), 10);
-  if (isNaN(gx) || isNaN(gy)) return null;
-  return { gx: gx, gy: gy };
-}
-
-function paintWplacePixel(gx, gy, lat, lon, color) {
-  var key = gridToWplaceKey(gx, gy);
-  if (wplaceState.lastDrawnKey === key && state.wplacePixels[key] && state.wplacePixels[key].c === color) return;
-  wplaceState.lastDrawnKey = key;
-
-  var pxObj = { c: color, lat: lat, lon: lon, by: getDisplayUsername(), t: new Date().getTime() };
-  state.wplacePixels[key] = pxObj;
-  renderWplaceCanvas();
-  dbWrite("PUT", "wplace/pixels/" + key, pxObj, null);
-
-  var recId = generateId("wp");
-  var recObj = { id: recId, by: pxObj.by, c: color, lat: lat, lon: lon, t: pxObj.t };
-  state.wplaceRecent[recId] = recObj;
-  renderWplaceRecent();
-  dbWrite("PUT", "wplace/recent/" + recId, recObj, null);
-}
-
-function stampImageToWplace() {
-  var fEl = document.getElementById("wplaceImageFile");
-  if (!fEl || !fEl.files || !fEl.files[0]) {
-    showStatus("Select an image to stamp onto the map.", true);
-    return;
-  }
-  var file = fEl.files[0];
-  var img = new Image();
-  var objUrl = URL.createObjectURL(file);
-  img.onload = function() {
-    URL.revokeObjectURL(objUrl);
-    var maxD = SERVICE_POLICY.wplaceStampMaxDim;
-    var scale = Math.min(maxD / Math.max(1, img.width), maxD / Math.max(1, img.height), 1);
-    var w = Math.max(4, Math.round(img.width * scale));
-    var h = Math.max(4, Math.round(img.height * scale));
-    var off = document.createElement("canvas");
-    off.width = w;
-    off.height = h;
-    var ctx = off.getContext("2d");
-    ctx.drawImage(img, 0, 0, w, h);
-    var data = ctx.getImageData(0, 0, w, h).data;
-
-    var startGx = Math.round(wplaceState.offsetX - w / 2);
-    var startGy = Math.round(wplaceState.offsetY - h / 2);
-    var patch = {};
-    var now = new Date().getTime();
-    var author = getDisplayUsername();
-
-    function toHex(v) { var s = v.toString(16); return s.length < 2 ? "0" + s : s; }
-
-    for (var y = 0; y < h; y++) {
-      for (var x = 0; x < w; x++) {
-        var idx = (y * w + x) * 4;
-        if (data[idx + 3] < 128) continue;
-        var hex = "#" + toHex(data[idx]) + toHex(data[idx + 1]) + toHex(data[idx + 2]);
-        var gx = startGx + x;
-        var gy = startGy + y;
-        var key = gridToWplaceKey(gx, gy);
-        var pxObj = {
-          c: hex,
-          lat: Math.round((-gy / 20) * 10000) / 10000,
-          lon: Math.round((gx / 20) * 10000) / 10000,
-          by: author,
-          t: now
-        };
-        state.wplacePixels[key] = pxObj;
-        patch[key] = pxObj;
-      }
-    }
-
-    renderWplaceCanvas();
-    setUploadProgress(45, "Drawing pixel-art onto map...");
-    dbWrite("PATCH", "wplace/pixels", patch, function(err) {
-      if (!err) {
-        var recId = generateId("wp");
-        var recObj = {
-          id: recId,
-          by: author + " (Image Stamp)",
-          c: "#D96B27",
-          lat: Math.round((-wplaceState.offsetY / 20) * 10000) / 10000,
-          lon: Math.round((wplaceState.offsetX / 20) * 10000) / 10000,
-          t: now
-        };
-        state.wplaceRecent[recId] = recObj;
-        dbWrite("PUT", "wplace/recent/" + recId, recObj, null);
-        renderWplaceRecent();
-        fEl.value = "";
-        setUploadProgress(100, "Pixel-art drawn on map!");
-      } else {
-        setUploadProgress(-1);
-        showStatus(err, true);
-      }
-    });
-  };
-  img.src = objUrl;
-}
-
-function getOsmTileImage(z, tx, ty) {
-  var maxT = Math.pow(2, z);
-  var wrappedX = ((tx % maxT) + maxT) % maxT;
-  if (ty < 0 || ty >= maxT) return null;
-  var key = z + "/" + wrappedX + "/" + ty;
-  if (wplaceTileCache[key]) return wplaceTileCache[key];
-  var img = new Image();
-  img.crossOrigin = "anonymous";
-  img.onload = function() {
-    if (state.view === "wplace") renderWplaceCanvas();
-  };
-  img.src = "https://tile.openstreetmap.org/" + key + ".png";
-  wplaceTileCache[key] = img;
-  return img;
 }
 
 function renderWplaceCanvas() {
@@ -988,67 +977,66 @@ function renderWplaceCanvas() {
   var h = canvas.height;
   var z = wplaceState.zoom;
 
-  ctx.fillStyle = "#DDEEFF";
+  ctx.fillStyle = "#F5EFE6";
   ctx.fillRect(0, 0, w, h);
 
-  // Render OpenStreetMap background tiles aligned to geographic coordinates
-  var centerLon = wplaceState.offsetX / 20;
-  var centerLat = Math.max(-85, Math.min(85, -wplaceState.offsetY / 20));
-  var osmZoom = Math.max(3, Math.min(16, Math.round(Math.log(z * 16) / Math.LN2)));
-  var nTiles = Math.pow(2, osmZoom);
-  var latRad = centerLat * Math.PI / 180;
-  var centerTileX = ((centerLon + 180) / 360) * nTiles;
-  var centerTileY = (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * nTiles;
-  var metersPerGrid = 5560;
-  var tileMeters = (40075016 * Math.cos(latRad)) / nTiles;
-  var tilePx = Math.max(64, (tileMeters / metersPerGrid) * z);
+  var halfCols = Math.ceil(w / (2 * z)) + 1;
+  var halfRows = Math.ceil(h / (2 * z)) + 1;
+  var minGx = wplaceState.offsetX - halfCols;
+  var maxGx = wplaceState.offsetX + halfCols;
+  var minGy = wplaceState.offsetY - halfRows;
+  var maxGy = wplaceState.offsetY + halfRows;
 
-  var spanX = Math.ceil(w / tilePx) + 1;
-  var spanY = Math.ceil(h / tilePx) + 1;
-  var baseTx = Math.floor(centerTileX);
-  var baseTy = Math.floor(centerTileY);
+  // Geographic reference markers (Kyiv, Odesa, Tiraspol)
+  var cities = [
+    { name: "Kyiv", gx: Math.round(30.52 * 20), gy: Math.round(-50.45 * 20) },
+    { name: "Odesa", gx: Math.round(30.72 * 20), gy: Math.round(-46.48 * 20) },
+    { name: "Tiraspol", gx: Math.round(29.63 * 20), gy: Math.round(-46.84 * 20) }
+  ];
 
-  for (var dy = -spanY; dy <= spanY; dy++) {
-    for (var dx = -spanX; dx <= spanX; dx++) {
-      var tx = baseTx + dx;
-      var ty = baseTy + dy;
-      var tileImg = getOsmTileImage(osmZoom, tx, ty);
-      if (tileImg && tileImg.complete && tileImg.naturalWidth > 0) {
-        var drawX = (w / 2) + (tx - centerTileX) * tilePx;
-        var drawY = (h / 2) + (ty - centerTileY) * tilePx;
-        ctx.drawImage(tileImg, drawX, drawY, tilePx, tilePx);
-      }
-    }
-  }
-
-  // Subtle coordinate grid overlay when zoomed in
-  if (z >= 10) {
-    ctx.strokeStyle = "rgba(128, 0, 0, 0.14)";
+  // Grid lines
+  if (z >= 8) {
+    ctx.strokeStyle = "#E5D8CE";
     ctx.lineWidth = 1;
-    var startGx = Math.floor(wplaceState.offsetX - (w / 2) / z);
-    var endGx = Math.ceil(wplaceState.offsetX + (w / 2) / z);
-    for (var gx = startGx; gx <= endGx; gx++) {
-      var sx = Math.round((w / 2) + (gx - wplaceState.offsetX) * z);
-      ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx, h); ctx.stroke();
+    for (var gx = minGx; gx <= maxGx; gx++) {
+      var sx = Math.floor(w / 2 + (gx - wplaceState.offsetX) * z);
+      ctx.beginPath();
+      ctx.moveTo(sx, 0);
+      ctx.lineTo(sx, h);
+      ctx.stroke();
     }
-    var startGy = Math.floor(wplaceState.offsetY - (h / 2) / z);
-    var endGy = Math.ceil(wplaceState.offsetY + (h / 2) / z);
-    for (var gy = startGy; gy <= endGy; gy++) {
-      var sy = Math.round((h / 2) + (gy - wplaceState.offsetY) * z);
-      ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(w, sy); ctx.stroke();
+    for (var gy = minGy; gy <= maxGy; gy++) {
+      var sy = Math.floor(h / 2 + (gy - wplaceState.offsetY) * z);
+      ctx.beginPath();
+      ctx.moveTo(0, sy);
+      ctx.lineTo(w, sy);
+      ctx.stroke();
     }
   }
 
-  // Render coordinate-linked pixels
+  // Painted pixels
   for (var key in state.wplacePixels) {
     if (!state.wplacePixels.hasOwnProperty(key) || !state.wplacePixels[key]) continue;
-    var g = wplaceKeyToGrid(key);
-    if (!g) continue;
-    var px = (w / 2) + (g.gx - wplaceState.offsetX) * z;
-    var py = (h / 2) + (g.gy - wplaceState.offsetY) * z;
-    if (px < -z || px > w + z || py < -z || py > h + z) continue;
-    ctx.fillStyle = state.wplacePixels[key].c || "#800000";
-    ctx.fillRect(Math.floor(px), Math.floor(py), Math.ceil(z), Math.ceil(z));
+    var parts = key.split("_");
+    var px = parseInt(parts[0], 10);
+    var py = parseInt(parts[1], 10);
+    if (px < minGx || px > maxGx || py < minGy || py > maxGy) continue;
+    var drawX = Math.floor(w / 2 + (px - wplaceState.offsetX) * z);
+    var drawY = Math.floor(h / 2 + (py - wplaceState.offsetY) * z);
+    ctx.fillStyle = state.wplacePixels[key];
+    ctx.fillRect(drawX, drawY, z, z);
+  }
+
+  // City labels
+  ctx.fillStyle = "#800000";
+  ctx.font = "bold 11px Arial, sans-serif";
+  for (var c = 0; c < cities.length; c++) {
+    var cx = Math.floor(w / 2 + (cities[c].gx - wplaceState.offsetX) * z);
+    var cy = Math.floor(h / 2 + (cities[c].gy - wplaceState.offsetY) * z);
+    if (cx >= -40 && cx <= w + 40 && cy >= -20 && cy <= h + 20) {
+      ctx.fillRect(cx - 2, cy - 2, 5, 5);
+      ctx.fillText(cities[c].name, cx + 6, cy + 4);
+    }
   }
 }
 
@@ -1059,160 +1047,69 @@ function renderWplaceRecent() {
   for (var id in state.wplaceRecent) {
     if (state.wplaceRecent.hasOwnProperty(id) && state.wplaceRecent[id]) list.push(state.wplaceRecent[id]);
   }
-  list.sort(function(a, b) { return (b.t || 0) - (a.t || 0); });
+  list.sort(function(a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
   var h = "";
-  var limit = Math.min(list.length, 15);
-  for (var i = 0; i < limit; i++) {
+  for (var i = 0; i < Math.min(18, list.length); i++) {
     var r = list[i];
-    h += "<div class='wplace-recent-item' onclick=\"jumpWplaceTo(" + Number(r.lat || 0) + "," + Number(r.lon || 0) + ",16)\">" +
-           "<span class='wplace-recent-dot' style='background:" + esc(r.c || "#800000") + ";'></span>" +
+    h += "<div class='wplace-recent-item' onclick='jumpWplaceTo(" + Number(r.lat || 48.4) + "," + Number(r.lon || 31.1) + ",16)'>" +
+           "<span class='wplace-recent-dot' style='background:" + esc(r.color || "#800000") + ";'></span>" +
            "<b>" + esc(r.by || "Anon") + "</b> (" + esc(r.lat) + ", " + esc(r.lon) + ")" +
          "</div>";
   }
-  box.innerHTML = h || "<span class='muted'>No changes yet.</span>";
+  box.innerHTML = h || "<span class='muted'>No pixel edits yet.</span>";
 }
 
-/* ==========================================================================
-   GLOBAL INPUT LISTENERS FOR SANDBOX, CURSORS & ACTOR
-   ========================================================================== */
-function initWorldEngine() {
-  // Clean up previous page-load client cursor so refreshing never leaves a ghost cursor
-  var prevClientId = storeGet("prevClientId");
-  if (prevClientId && prevClientId !== myClientId) {
-    dbWrite("DELETE", "realtime/cursors/" + prevClientId, null, null);
-    dbWrite("DELETE", "realtime/actors/" + prevClientId, null, null);
+function stampImageToWplace() {
+  var fEl = document.getElementById("wplaceImageFile");
+  if (!fEl || !fEl.files || !fEl.files[0]) {
+    showStatus("Select an image first to stamp onto the map.", true);
+    return;
   }
-  storeSet("prevClientId", myClientId);
+  var file = fEl.files[0];
+  var img = new Image();
+  var objUrl = URL.createObjectURL(file);
+  img.onload = function() {
+    URL.revokeObjectURL(objUrl);
+    var maxD = SERVICE_POLICY.wplaceStampMaxDim;
+    var scale = Math.min(maxD / Math.max(1, img.width), maxD / Math.max(1, img.height), 1);
+    var sw = Math.max(4, Math.round(img.width * scale));
+    var sh = Math.max(4, Math.round(img.height * scale));
+    var off = document.createElement("canvas");
+    off.width = sw;
+    off.height = sh;
+    var octx = off.getContext("2d");
+    octx.drawImage(img, 0, 0, sw, sh);
+    var data = octx.getImageData(0, 0, sw, sh).data;
 
-  window.addEventListener("mousemove", function(e) {
-    e = e || window.event;
-    worldState.lastMouseX = e.clientX;
-    worldState.lastMouseY = e.clientY;
-    sendCursorUpdate(false);
-  });
+    var patch = {};
+    var startX = wplaceState.offsetX - Math.floor(sw / 2);
+    var startY = wplaceState.offsetY - Math.floor(sh / 2);
+    var count = 0;
 
-  window.addEventListener("touchmove", function(e) {
-    if (e.touches && e.touches[0]) {
-      worldState.lastMouseX = e.touches[0].clientX;
-      worldState.lastMouseY = e.touches[0].clientY;
-      sendCursorUpdate(false);
-    }
-  });
+    function toHex(v) { var s = v.toString(16); return s.length < 2 ? "0" + s : s; }
 
-  window.addEventListener("touchstart", function(e) {
-    if (e.touches && e.touches[0]) {
-      worldState.lastMouseX = e.touches[0].clientX;
-      worldState.lastMouseY = e.touches[0].clientY;
-      sendCursorUpdate(true);
-    }
-  });
-
-  window.addEventListener("mouseup", function(e) {
-    e = e || window.event;
-    if (worldState.grabbedSpriteId) {
-      var sp = worldState.sprites[worldState.grabbedSpriteId];
-      if (sp) {
-        if (worldState.grabMode === "rmb") {
-          sp.vx = Math.max(-28, Math.min(28, worldState.throwVx));
-          sp.vy = Math.max(-28, Math.min(28, worldState.throwVy));
-          sp.vrot = (sp.vx || 1) * 1.4;
-        }
-        dbWrite("PUT", "realtime/sprites/" + sp.id, sp, null);
+    for (var y = 0; y < sh; y++) {
+      for (var x = 0; x < sw; x++) {
+        var idx = (y * sw + x) * 4;
+        if (data[idx + 3] < 90) continue;
+        var hex = "#" + toHex(data[idx]) + toHex(data[idx + 1]) + toHex(data[idx + 2]);
+        var k = (startX + x) + "_" + (startY + y);
+        state.wplacePixels[k] = hex;
+        patch[k] = hex;
+        count++;
       }
-      worldState.grabbedSpriteId = null;
-      worldState.grabMode = "";
-    }
-  });
-
-  window.addEventListener("wheel", function(e) {
-    if (worldState.grabbedSpriteId && worldState.sprites[worldState.grabbedSpriteId]) {
-      if (e.preventDefault) e.preventDefault();
-      var sp = worldState.sprites[worldState.grabbedSpriteId];
-      sp.rot = (sp.rot || 0) + ((e.deltaY || 0) > 0 ? 18 : -18);
-      dbWrite("PUT", "realtime/sprites/" + sp.id, sp, null);
-    }
-  }, { passive: false });
-
-  window.addEventListener("keydown", function(e) {
-    e = e || window.event;
-    var tag = (e.target && e.target.tagName || "").toUpperCase();
-    var inField = (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT");
-    var code = e.keyCode || e.which;
-
-    if (code === 16 || e.key === "Shift") {
-      worldState.shiftDownClean = !inField;
-      return;
-    } else {
-      worldState.shiftDownClean = false;
     }
 
-    if (code === 27) {
-      closeCursorChatBar();
-      togglePropMenu(false);
-      closeStickerPicker();
-      closeZoomModal();
-      return;
-    }
-
-    if (inField) return;
-
-    // '/' opens live cursor chat
-    if (e.key === "/" || code === 191) {
-      if (e.preventDefault) e.preventDefault();
-      openCursorChatBar();
-      return;
-    }
-
-    // 'Q' toggles GMod/S&Box Prop Menu
-    if (code === 81 || e.key === "q" || e.key === "Q") {
-      togglePropMenu();
-      return;
-    }
-
-    // 'E' freezes/unfreezes Physgun grabbed sprite
-    if ((code === 69 || e.key === "e" || e.key === "E") && worldState.grabbedSpriteId) {
-      var sp = worldState.sprites[worldState.grabbedSpriteId];
-      if (sp) {
-        sp.frozen = !sp.frozen;
-        sp.vx = 0; sp.vy = 0; sp.vrot = 0;
-        dbWrite("PUT", "realtime/sprites/" + sp.id, sp, null);
-        worldState.grabbedSpriteId = null;
-        showStatus(sp.frozen ? "Prop frozen!" : "Prop unfrozen!", false);
-      }
-      return;
-    }
-
-    // 'F' kicks images / fights other player models
-    if (code === 70 || e.key === "f" || e.key === "F") {
-      triggerActorAttack();
-      return;
-    }
-
-    // WASD / Arrow movement for walkable player model
-    if (code === 65 || code === 37) worldState.keys.left = true;
-    if (code === 68 || code === 39) worldState.keys.right = true;
-    if (code === 87 || code === 38 || code === 32) {
-      if (worldState.actorEnabled && e.preventDefault) e.preventDefault();
-      worldState.keys.jump = true;
-    }
-  });
-
-  window.addEventListener("keyup", function(e) {
-    e = e || window.event;
-    var code = e.keyCode || e.which;
-    if ((code === 16 || e.key === "Shift") && worldState.shiftDownClean) {
-      worldState.shiftDownClean = false;
-      openCursorChatBar();
-    }
-    if (code === 65 || code === 37) worldState.keys.left = false;
-    if (code === 68 || code === 39) worldState.keys.right = false;
-    if (code === 87 || code === 38 || code === 32) worldState.keys.jump = false;
-  });
-
-  window.addEventListener("beforeunload", function() {
-    dbWrite("DELETE", "realtime/cursors/" + myClientId, null, null);
-    dbWrite("DELETE", "realtime/actors/" + myClientId, null, null);
-  });
-
-  setInterval(stepWorldSimulation, 33);
+    renderWplaceCanvas();
+    fEl.value = "";
+    dbWrite("PATCH", "wplace/pixels", patch, function(err) {
+      if (!err) showStatus("Stamped " + count + " pixels onto WPlace map!", false);
+      else showStatus("Stamp sync error: " + err, true);
+    });
+  };
+  img.onerror = function() {
+    URL.revokeObjectURL(objUrl);
+    showStatus("Could not decode image.", true);
+  };
+  img.src = objUrl;
 }
