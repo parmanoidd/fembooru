@@ -1,55 +1,59 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>Fembooru</title>
-<link id="favicon" rel="icon" href="data:,">
-<link rel="stylesheet" href="css/style.css">
-<script src="https://www.gstatic.com/firebasejs/13.4.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/13.4.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/13.4.0/firebase-database-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/13.4.0/firebase-storage-compat.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+  <title>Fembooru</title>
+  <link rel="stylesheet" href="style.css">
+  <link id="favicon" rel="icon" href="data:,">
 </head>
 <body>
-<div id="app">
-  <aside id="sidebar">
-    <div id="logo" title="Home"><img id="logoImg" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48'><rect width='48' height='48' rx='8' fill='%23ff6600'/><text x='24' y='33' font-size='26' text-anchor='middle' fill='%23fff' font-family='sans-serif'>F</text></svg>" alt="F"></div>
-    <nav id="nav">
-      <a href="#/">Home</a>
-      <a href="#/members">Members</a>
-      <a href="#/groups">Groups</a>
-      <a href="#/dms">Messages</a>
-      <a href="#/music">Music</a>
-      <a href="#/stickers">Stickers</a>
-      <a href="#/place">Place</a>
-      <a href="#/profile">My profile</a>
-      <a href="#/admin" id="adminLink" class="hidden">Admin</a>
-    </nav>
-    <div id="boardList"></div>
-    <div id="authArea"></div>
-  </aside>
-  <main id="main">
-    <header id="topbar">
-      <span id="siteInfo">Fembooru — imageboard for Ukrainians &amp; Pramanian people</span>
-      <button id="snowBtn" class="btn-sm btn-gray" title="Toggle snow for everyone (60s)">❄ Snow</button>
-      <span id="notifBell" title="Notifications">🔔 <span id="notifCount">0</span></span>
-    </header>
-    <div id="content"></div>
-  </main>
-</div>
-<footer id="footer">Fembooru <span id="version">dev</span> · <span id="onlineCount">0</span> online · <a href="#/help">Help</a></footer>
-<div id="uploadBar" class="hidden"><div id="uploadFill"></div><span id="uploadText">0%</span></div>
-<div id="overlay"></div>
-<div id="cursorLayer"></div>
-<div id="chatLayer"></div>
-<div id="player"></div>
-<button id="propMenuBtn" title="Prop menu (Q)">🎮</button>
-<button id="walkBtn" class="hidden" title="Toggle walking model">🐱</button>
-<div id="propMenu" class="hidden"></div>
-<script src="js/firebase.js"></script>
-<script src="js/main.js"></script>
-<script src="js/social.js"></script>
-<script src="js/game.js"></script>
+  <div id="app">
+    <aside id="sidebar">
+      <a href="https://parmanoidd.github.io/fembooru/" id="logoLink">
+        <img id="logoImg" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48'><rect width='48' height='48' rx='8' fill='%23ff6600'/><text x='24' y='33' font-size='26' text-anchor='middle' fill='%23fff' font-family='sans-serif'>F</text></svg>" alt="F">
+      </a>
+      <nav id="nav">
+        <a href="#/">Home</a>
+        <a href="#/members">Members</a>
+        <a href="#/groups">Groups</a>
+        <a href="#/dms">Messages</a>
+        <a href="#/music">Music</a>
+        <a href="#/stickers">Stickers</a>
+        <a href="#/place">Place</a>
+        <a href="#/profile">My profile</a>
+        <a href="#/admin" id="adminLink" style="display:none">Admin</a>
+      </nav>
+      <div id="boardList"></div>
+      <div id="authArea"></div>
+    </aside>
+    <main id="main">
+      <header id="topbar">
+        <span id="siteInfo">Fembooru — imageboard for Ukrainians &amp; Pramanian people</span>
+        <button id="snowBtn" class="btn-sm btn-gray" title="Toggle snow (60s)">❄ Snow</button>
+        <span id="notifBell" style="cursor:pointer">🔔 <span id="notifCount">0</span></span>
+      </header>
+      <div id="content"></div>
+    </main>
+  </div>
+  <footer id="footer">Fembooru <span id="version">dev</span> · <span id="onlineCount">0</span> online · <a href="#/help">Help</a></footer>
+  <div id="uploadBar" class="hidden"><div id="uploadFill"></div><span id="uploadText">0%</span></div>
+  <div id="overlay"></div>
+  <div id="cursorLayer"></div>
+  <div id="chatLayer"></div>
+  <div id="player"></div>
+  <button id="propMenuBtn" title="Prop menu (Q)">🎮</button>
+  <button id="walkBtn" style="display:none" title="Walk (WASD)">🐱</button>
+  <div id="propMenu" class="hidden"></div>
+  
+  <script src="https://www.gstatic.com/firebasejs/13.4.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/13.4.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/13.4.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/13.4.0/firebase-storage-compat.js"></script>
+  
+  <script src="firebase.js"></script>
+  <script src="main.js"></script>
+  <script src="social.js"></script>
+  <script src="game.js"></script>
 </body>
 </html>
