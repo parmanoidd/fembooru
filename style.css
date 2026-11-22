@@ -1,6 +1,6 @@
 /* ==========================================================================
    FEMBOORU STYLESHEET: CLASSIC ORANGE IMAGEBOARD THEME, SEAMONKEY/GOANNA
-   COMPATIBLE LAYOUT, RESPONSIVE MOBILE CONTROLS & CLEAN WIDGET ANIMATIONS
+   COMPATIBLE LAYOUT, NON-BLOCKING SANDBOX OVERLAYS & RESPONSIVE MOBILE
    ========================================================================== */
 * {
   box-sizing: border-box;
@@ -48,6 +48,8 @@ button {
   font-size: 12px;
   font-weight: bold;
   padding: 4px 8px;
+  position: relative;
+  z-index: 4;
 }
 
 button:hover {
@@ -302,8 +304,8 @@ button.active-tool {
 }
 
 .eq-bars {
-  display: inline-flex;
   align-items: flex-end;
+  display: inline-flex;
   gap: 2px;
   height: 13px;
 }
@@ -770,11 +772,11 @@ button.active-tool {
   width: 8px;
 }
 
-/* REALTIME CURSORS (ACTUAL MOUSE POINTER), SPRITES, ACTORS & MODALS */
+/* SANDBOX OVERLAYS: STRICT NON-BLOCKING LAYERS + GRABBABLE PROPS & ACTORS */
 .overlay-canvas {
   height: 100%;
   left: 0;
-  pointer-events: none;
+  pointer-events: none !important;
   position: fixed;
   top: 0;
   width: 100%;
@@ -782,8 +784,10 @@ button.active-tool {
 }
 
 .world-layer {
+  height: 0;
   left: 0;
-  pointer-events: none;
+  overflow: visible;
+  pointer-events: none !important;
   position: absolute;
   top: 0;
   width: 100%;
@@ -791,13 +795,22 @@ button.active-tool {
 }
 
 .world-sprite {
+  color: transparent;
   cursor: grab;
-  max-height: 84px;
-  max-width: 84px;
+  display: block;
+  font-size: 0;
+  max-height: 76px;
+  max-width: 76px;
   pointer-events: auto;
   position: absolute;
   transition: none !important;
   user-select: none;
+  -webkit-user-drag: none;
+}
+
+.world-sprite.is-grabbed {
+  cursor: grabbing;
+  outline: 2px solid #00BFFF;
 }
 
 .world-firework {
@@ -807,15 +820,20 @@ button.active-tool {
   font-size: 10px;
   font-weight: bold;
   padding: 3px 5px;
+  pointer-events: none !important;
   position: absolute;
   transition: none !important;
 }
 
 .remote-cursor {
-  pointer-events: none;
+  pointer-events: none !important;
   position: absolute;
   transition: none !important;
   z-index: 950;
+}
+
+.remote-cursor * {
+  pointer-events: none !important;
 }
 
 .cursor-hud {
@@ -833,6 +851,17 @@ button.active-tool {
   font-size: 10px;
   font-weight: bold;
   padding: 1px 5px;
+}
+
+.cursor-view-tag {
+  background: #EEAA88;
+  border: 1px solid #800000;
+  color: #800000;
+  display: inline-block;
+  font-size: 9px;
+  font-weight: bold;
+  margin-left: 2px;
+  padding: 1px 4px;
 }
 
 .cursor-chat-bubble {
@@ -859,20 +888,36 @@ button.active-tool {
   width: 16px;
 }
 
+/* PLAYABLE CHARACTER ACTOR (COLLIDES WITH UI BUTTONS & PANELS, GRABBABLE WITH PHYSGUN) */
 .player-actor {
-  pointer-events: none;
+  cursor: grab;
+  height: 46px;
+  pointer-events: auto;
   position: absolute;
   text-align: center;
   transition: none !important;
+  user-select: none;
   width: 36px;
+  z-index: 920;
+}
+
+.player-actor.is-grabbed {
+  cursor: grabbing;
+  outline: 2px solid #00BFFF;
+}
+
+.player-actor * {
+  pointer-events: none !important;
 }
 
 .actor-tag {
-  background: rgba(128, 0, 0, 0.85);
+  background: rgba(128, 0, 0, 0.88);
   color: #FFFFEE;
   font-size: 9px;
-  margin-left: -22px;
+  left: -22px;
   padding: 1px 3px;
+  position: absolute;
+  top: -15px;
   white-space: nowrap;
   width: 80px;
 }
@@ -881,7 +926,7 @@ button.active-tool {
   border: 1px solid #800000;
   display: block;
   height: 22px;
-  margin: 1px auto 0 auto;
+  margin: 2px auto 0 auto;
   object-fit: cover;
   width: 22px;
 }
