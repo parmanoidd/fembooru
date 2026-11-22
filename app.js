@@ -1,63 +1,329 @@
 /* ==========================================================================
-   FEMBOORU APPLICATION CONTROLLER: CLICK-SAFE VIEW ROUTING, REALTIME SYNC,
-   AUTHORITATIVE SPRITE RECONCILIATION, HOTKEYS & BOOTSTRAP
+   FEMBOORU APPLICATION CONTROLLER:
+   - PUBLIC WPLACE / GEOPIXELS MAP LINKED TO OPENSTREETMAP COORDINATES
+   - ONE-CLICK IMAGE -> PIXELART STAMPING & RECENT CHANGES FEED
+   - VIEW NAVIGATION, AUTO-REFRESH SYNC & INITIALIZATION
    ========================================================================== */
-var pendingDeferredRender = false;
-var lastSidebarSig = "";
-var lastActiveViewSig = "";
+var WPLACE_PALETTE = [
+  "#800000", "#FF0000", "#FF8800", "#FFFF00",
+  "#00AA00", "#00CCFF", "#0044CC", "#8800CC",
+  "#FF66AA", "#FFFFFF", "#888888", "#111111"
+];
 
-function switchView(viewName) {
-  state.view = viewName || "boards";
-  lastActiveViewSig = "";
-  worldState.lastPlatformScan = 0;
-
-  var sections = document.querySelectorAll(".view-section");
-  for (var i = 0; i < sections.length; i++) {
-    sections[i].className = (sections[i].id === "view-" + state.view) ? "view-section active" : "view-section";
+function initWplaceMap() {
+  var pal = document.getElementById("wplacePalette");
+  if (pal) {
+    var ph = "";
+    for (var i = 0; i < WPLACE_PALETTE.length; i++) {
+      var c = WPLACE_PALETTE[i];
+      ph += "<button type='button' class='wplace-swatch' style='background:" + c + ";' onclick=\"setWplaceColor('" + c + "')\"></button>";
+    }
+    pal.innerHTML = ph;
   }
 
-  var navBtns = document.querySelectorAll(".top-nav-links button");
-  var viewOrder = ["boards", "wall", "profile", "members", "groups", "dms", "stickers", "wplace", "notifications"];
-  for (var j = 0; j < navBtns.length; j++) {
-    navBtns[j].className = (viewOrder[j] === state.view) ? "active-nav" : "";
+  var vp = document.getElementById("wplaceViewport");
+  var canvas = document.getElementById("wplaceCanvas");
+  if (!vp || !canvas) return;
+
+  function clientToMapGrid(clientX, clientY) {
+    var rect = vp.getBoundingClientRect();
+    var px = clientX - rect.left;
+    var py = clientY - rect.top;
+    var scale = Math.pow(2, wplaceState.zoom);
+    // Geographic world-fraction coordinates (linked to lat/lon, zoom-independent!)
+    var worldX = ((px - wplaceState.offsetX) / scale);
+    var worldY = ((py - wplaceState.offsetY) / scale);
+    var gx = Math.floor(worldX * 256);
+    var gy = Math.floor(worldY * 256);
+    var lon = (worldX * 360) - 180;
+    var n = Math.PI - (2 * Math.PI * worldY);
+    var lat = (180 / Math.PI) * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
+    return { gx: gx, gy: gy, lat: lat, lon: lon };
   }
 
-  renderActiveViewOnly(true);
-  sendCursorPresence(true);
+  function paintAtClient(clientX, clientY) {
+    var pt = clientToMapGrid(clientX, clientY);
+    var lbl = document.getElementById("wplaceCoordsLabel");
+    if (lbl && !isNaN(pt.lat) && !isNaN(pt.lon)) {
+      lbl.textContent = "Lat: " + pt.lat.toFixed(4) + ", Lon: " + pt.lon.toFixed(4);
+    }
+    if (wplaceState.panMode) return;
+    var key = pt.gx + "_" + pt.gy;
+    if (key === wplaceState.lastDrawnKey) return;
+    wplaceState.lastDrawnKey = key;
+
+    var pix = {
+      gx: pt.gx,
+      gy: pt.gy,
+      color: wplaceState.selectedColor,
+      by: getDisplayUsername(),
+      lat: pt.lat.toFixed(3),
+      lon: pt.lon.toFixed(3),
+      at: new Date().getTime()
+    };
+    state.wplacePixels[key] = pix;
+    renderWplaceCanvas();
+    dbWrite("PUT", "wplace/pixels/" + key, pix, null);
+    recordWplaceChange(pix);
+  }
+
+  vp.addEventListener("mousedown", function(e) {
+    if (e.button === 1 || wplaceState.panMode) {
+      wplaceState.panMode = true;
+      wplaceState.panStartX = e.clientX - wplaceState.offsetX;
+      wplaceState.panStartY = e.clientY - wplaceState.offsetY;
+      return;
+    }
+    wplaceState.isDrawing = true;
+    wplaceState.lastDrawnKey = "";
+    paintAtClient(e.clientX, e.clientY);
+  });
+
+  vp.addEventListener("mousemove", function(e) {
+    if (wplaceState.panMode && e.buttons) {
+      wplaceState.offsetX = e.clientX - wplaceState.panStartX;
+      wplaceState.offsetY = e.clientY - wplaceState.panStartY;
+      renderWplaceCanvas();
+      return;
+    }
+    if (wplaceState.isDrawing) {
+      paintAtClient(e.clientX, e.clientY);
+    }
+  });
+
+  window.addEventListener("mouseup", function() {
+    wplaceState.isDrawing = false;
+  });
+
+  vp.addEventListener("touchstart", function(e) {
+    if (!e.touches.length) return;
+    var t = e.touches[0];
+    if (wplaceState.panMode) {
+      wplaceState.panStartX = t.clientX - wplaceState.offsetX;
+      wplaceState.panStartY = t.clientY - wplaceState.offsetY;
+    } else {
+      wplaceState.isDrawing = true;
+      wplaceState.lastDrawnKey = "";
+      paintAtClient(t.clientX, t.clientY);
+    }
+  }, { passive: true });
+
+  vp.addEventListener("touchmove", function(e) {
+    if (!e.touches.length) return;
+    var t = e.touches[0];
+    if (wplaceState.panMode) {
+      wplaceState.offsetX = t.clientX - wplaceState.panStartX;
+      wplaceState.offsetY = t.clientY - wplaceState.panStartY;
+      renderWplaceCanvas();
+    } else if (wplaceState.isDrawing) {
+      paintAtClient(t.clientX, t.clientY);
+    }
+  }, { passive: true });
+
+  vp.addEventListener("touchend", function() {
+    wplaceState.isDrawing = false;
+  });
 }
 
-function renderActiveViewOnly(force) {
-  var sbSig = JSON.stringify({ b: state.boards, cb: state.currentBoard });
-  if (force || sbSig !== lastSidebarSig) {
-    lastSidebarSig = sbSig;
-    renderBoardsSidebar();
+function setWplaceColor(hex) {
+  wplaceState.selectedColor = hex;
+  var inp = document.getElementById("wplaceColorPicker");
+  if (inp) inp.value = hex;
+  if (wplaceState.panMode) toggleWplacePanMode();
+}
+
+function toggleWplacePanMode() {
+  wplaceState.panMode = !wplaceState.panMode;
+  var btn = document.getElementById("wplaceModeBtn");
+  if (btn) btn.textContent = wplaceState.panMode ? "Mode: Pan / Move" : "Mode: Draw";
+}
+
+function wplaceZoom(delta) {
+  var vp = document.getElementById("wplaceViewport");
+  var cx = vp ? (vp.clientWidth / 2) : 350;
+  var cy = vp ? (vp.clientHeight / 2) : 230;
+  var oldScale = Math.pow(2, wplaceState.zoom);
+  var nextZoom = Math.max(3, Math.min(16, wplaceState.zoom + delta));
+  var newScale = Math.pow(2, nextZoom);
+  wplaceState.offsetX = cx - ((cx - wplaceState.offsetX) / oldScale) * newScale;
+  wplaceState.offsetY = cy - ((cy - wplaceState.offsetY) / oldScale) * newScale;
+  wplaceState.zoom = nextZoom;
+  renderWplaceCanvas();
+}
+
+function recordWplaceChange(pix) {
+  var cid = generateId("wc");
+  var entry = {
+    id: cid,
+    by: pix.by || "Anon",
+    color: pix.color,
+    lat: pix.lat || "0",
+    lon: pix.lon || "0",
+    at: pix.at || new Date().getTime()
+  };
+  state.wplaceRecent[cid] = entry;
+  renderWplaceRecentList();
+  dbWrite("PUT", "wplace/recent/" + cid, entry, null);
+}
+
+function renderWplaceRecentList() {
+  var box = document.getElementById("wplaceRecentList");
+  if (!box) return;
+  var list = [];
+  for (var id in state.wplaceRecent) {
+    if (state.wplaceRecent.hasOwnProperty(id) && state.wplaceRecent[id]) list.push(state.wplaceRecent[id]);
+  }
+  list.sort(function(a, b) { return (b.at || 0) - (a.at || 0); });
+  var h = "";
+  for (var i = 0; i < Math.min(18, list.length); i++) {
+    var r = list[i];
+    h += "<div class='wplace-recent-item'>" +
+           "<span style='display:inline-block;width:9px;height:9px;background:" + esc(r.color) + ";border:1px solid #000;'></span> " +
+           "<b>" + esc(r.by) + "</b> (" + esc(r.lat) + ", " + esc(r.lon) + ")" +
+         "</div>";
+  }
+  box.innerHTML = h || "<span class='muted'>No map changes yet.</span>";
+}
+
+function renderWplaceCanvas() {
+  var vp = document.getElementById("wplaceViewport");
+  var tileLayer = document.getElementById("osmTileLayer");
+  var canvas = document.getElementById("wplaceCanvas");
+  if (!vp || !tileLayer || !canvas || !canvas.getContext) return;
+
+  var vw = vp.clientWidth || 720;
+  var vh = vp.clientHeight || 460;
+  if (canvas.width !== vw) canvas.width = vw;
+  if (canvas.height !== vh) canvas.height = vh;
+
+  var z = wplaceState.zoom;
+  var maxTiles = Math.pow(2, z);
+  var tileSize = 256;
+  var originX = wplaceState.offsetX * 256;
+  var originY = wplaceState.offsetY * 256;
+
+  var startCol = Math.floor(-originX / tileSize);
+  var endCol = Math.floor((vw - originX) / tileSize);
+  var startRow = Math.floor(-originY / tileSize);
+  var endRow = Math.floor((vh - originY) / tileSize);
+
+  var tilesHtml = "";
+  for (var col = startCol; col <= endCol; col++) {
+    for (var row = startRow; row <= endRow; row++) {
+      if (row < 0 || row >= maxTiles) continue;
+      var wrapCol = ((col % maxTiles) + maxTiles) % maxTiles;
+      var left = Math.round(originX + col * tileSize);
+      var top = Math.round(originY + row * tileSize);
+      tilesHtml += "<img src='https://tile.openstreetmap.org/" + z + "/" + wrapCol + "/" + row + ".png' " +
+        "style='position:absolute;left:" + left + "px;top:" + top + "px;width:256px;height:256px;pointer-events:none;' alt=''>";
+    }
+  }
+  tileLayer.innerHTML = tilesHtml;
+
+  var ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, vw, vh);
+  var cellPx = Math.max(1, Math.pow(2, z) / 256);
+
+  for (var key in state.wplacePixels) {
+    if (!state.wplacePixels.hasOwnProperty(key) || !state.wplacePixels[key]) continue;
+    var p = state.wplacePixels[key];
+    var sx = wplaceState.offsetX + (p.gx * cellPx);
+    var sy = wplaceState.offsetY + (p.gy * cellPx);
+    if (sx + cellPx < 0 || sx > vw || sy + cellPx < 0 || sy > vh) continue;
+    ctx.fillStyle = p.color || "#800000";
+    ctx.fillRect(Math.floor(sx), Math.floor(sy), Math.ceil(cellPx), Math.ceil(cellPx));
+  }
+  renderWplaceRecentList();
+}
+
+function stampImageToWplace() {
+  var fEl = document.getElementById("wplaceStampFile");
+  var vp = document.getElementById("wplaceViewport");
+  if (!fEl || !fEl.files || !fEl.files[0]) {
+    showStatus("Select an image to draw as pixelart on the map.", true);
+    return;
+  }
+  var file = fEl.files[0];
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    var img = new Image();
+    img.onload = function() {
+      var maxD = SERVICE_POLICY.wplaceStampMaxDim;
+      var scale = Math.min(maxD / Math.max(1, img.width), maxD / Math.max(1, img.height), 1);
+      var w = Math.max(1, Math.round(img.width * scale));
+      var h = Math.max(1, Math.round(img.height * scale));
+      var c = document.createElement("canvas");
+      c.width = w;
+      c.height = h;
+      var ctx = c.getContext("2d");
+      ctx.drawImage(img, 0, 0, w, h);
+      var data = ctx.getImageData(0, 0, w, h).data;
+
+      var centerPx = (vp ? vp.clientWidth / 2 : 350);
+      var centerPy = (vp ? vp.clientHeight / 2 : 230);
+      var mapScale = Math.pow(2, wplaceState.zoom);
+      var startGx = Math.floor(((centerPx - wplaceState.offsetX) / mapScale) * 256) - Math.floor(w / 2);
+      var startGy = Math.floor(((centerPy - wplaceState.offsetY) / mapScale) * 256) - Math.floor(h / 2);
+
+      var patch = {};
+      var now = new Date().getTime();
+      var author = getDisplayUsername();
+      function hex2(n) { var s = n.toString(16); return s.length < 2 ? "0" + s : s; }
+
+      for (var y = 0; y < h; y++) {
+        for (var x = 0; x < w; x++) {
+          var idx = (y * w + x) * 4;
+          if (data[idx + 3] < 90) continue;
+          var hex = "#" + hex2(data[idx]) + hex2(data[idx + 1]) + hex2(data[idx + 2]);
+          var gx = startGx + x;
+          var gy = startGy + y;
+          var key = gx + "_" + gy;
+          var pix = { gx: gx, gy: gy, color: hex, by: author, at: now };
+          state.wplacePixels[key] = pix;
+          patch[key] = pix;
+        }
+      }
+      fEl.value = "";
+      renderWplaceCanvas();
+      dbWrite("PATCH", "wplace/pixels", patch, function() {
+        recordWplaceChange({ by: author, color: "#E07A48", lat: "Image", lon: w + "x" + h, at: now });
+        showStatus("Pixelart stamped onto map (" + w + "x" + h + ")!", false);
+      });
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ==========================================================================
+   VIEW SWITCHING, FULL DATA SYNC & BOOTSTRAP
+   ========================================================================== */
+function switchView(viewName) {
+  state.view = viewName || "boards";
+  var sections = document.querySelectorAll(".view-section");
+  for (var i = 0; i < sections.length; i++) {
+    sections[i].style.display = (sections[i].id === "view-" + state.view) ? "block" : "none";
+  }
+  var tabs = document.querySelectorAll(".nav-tab");
+  for (var t = 0; t < tabs.length; t++) {
+    if (tabs[t].id) {
+      tabs[t].className = (tabs[t].id === "nav-" + state.view) ? "nav-tab active-tab" : "nav-tab";
+    }
+  }
+  renderAll();
+}
+
+function renderAll() {
+  var logoImg = document.getElementById("siteLogoImg");
+  if (logoImg) {
+    logoImg.src = isValidImageSrc(state.siteLogo) ? state.siteLogo : DEFAULT_SITE_LOGO;
   }
 
-  var viewPayload = null;
-  if (state.view === "boards") {
-    viewPayload = { v: "boards", cb: state.currentBoard, t: state.threads, p: state.polls, u: state.users };
-  } else if (state.view === "wall") {
-    viewPayload = { v: "wall", wf: state.wallFilter, w: state.walls, sub: state.subscriptions, u: state.users };
-  } else if (state.view === "profile") {
-    viewPayload = { v: "profile", vp: state.viewedProfileUid, u: state.users, w: state.walls, sub: state.subscriptions, blk: state.blocks };
-  } else if (state.view === "members") {
-    viewPayload = { v: "members", u: state.users, sub: state.subscriptions };
-  } else if (state.view === "groups") {
-    viewPayload = { v: "groups", g: state.groups, ag: state.activeGroupId, u: state.users };
-  } else if (state.view === "dms") {
-    viewPayload = { v: "dms", d: state.dms, ad: state.activeDmUid, u: state.users };
-  } else if (state.view === "stickers") {
-    viewPayload = { v: "stickers", s: state.stickers, u: state.users };
-  } else if (state.view === "wplace") {
-    viewPayload = { v: "wplace", wp: countMapKeys(state.wplacePixels), wpr: state.wplaceRecent };
-  } else if (state.view === "notifications") {
-    viewPayload = { v: "notifications", n: state.user ? state.notifications[state.user.uid] : null };
-  }
-
-  var vSig = JSON.stringify(viewPayload);
-  if (!force && vSig === lastActiveViewSig) return;
-  lastActiveViewSig = vSig;
-  worldState.lastPlatformScan = 0;
+  renderBoardsSidebar();
+  rebuildMusicPlaylist();
+  updateNotifBadge();
+  syncSnowState();
+  syncTabLogoState();
 
   if (state.view === "boards") {
     renderBoardPolls();
@@ -77,320 +343,97 @@ function renderActiveViewOnly(force) {
     renderStickersArchive();
   } else if (state.view === "wplace") {
     renderWplaceCanvas();
-    renderWplaceRecent();
   } else if (state.view === "notifications") {
     renderNotifications();
   }
 }
 
-function renderAll() {
-  // Never destroy DOM elements mid-click while user pointer is pressed
-  if (worldState.isPointerDown) {
-    pendingDeferredRender = true;
-    return;
-  }
-  pendingDeferredRender = false;
-
-  var logoImg = document.getElementById("siteLogoImg");
-  if (logoImg) {
-    var targetLogo = isValidImageSrc(state.siteLogo) ? state.siteLogo : DEFAULT_SITE_LOGO;
-    if (logoImg.src !== targetLogo) logoImg.src = targetLogo;
-  }
-
-  updateAuthUi();
-  rebuildMusicPlaylist();
-  updateNotifBadge();
-  syncSnowState();
-  syncTabLogoState();
-  renderActiveViewOnly(false);
-}
-
-function mergeBoardsList(dbBoards) {
-  var merged = [];
-  var seen = {};
-  for (var i = 0; i < DEFAULT_BOARDS.length; i++) {
-    merged.push(DEFAULT_BOARDS[i]);
-    seen[DEFAULT_BOARDS[i].slug] = true;
-  }
-  if (dbBoards && typeof dbBoards === "object") {
-    for (var slug in dbBoards) {
-      if (dbBoards.hasOwnProperty(slug) && dbBoards[slug] && !seen[slug]) {
-        merged.push(dbBoards[slug]);
-        seen[slug] = true;
+function fetchAllData(isManual) {
+  ensureFreshSession(function() {
+    dbGet("", function(err, root) {
+      if (err || !root || typeof root !== "object") {
+        if (isManual) showStatus("Refresh failed: " + (err || "Offline"), true);
+        return;
       }
-    }
-  }
-  state.boards = merged;
-}
 
-function applyRealtimeSnapshot(rt, effects) {
-  var now = new Date().getTime();
-  if (rt && typeof rt === "object") {
-    // 1. Merge remote cursors without overwriting local cursor
-    var incomingCursors = rt.cursors || {};
-    for (var cid in worldState.cursors) {
-      if (worldState.cursors.hasOwnProperty(cid) && cid !== myClientId && !incomingCursors[cid]) {
-        delete worldState.cursors[cid];
+      // Merge default + database boards
+      var mergedBoards = [];
+      var seenSlugs = {};
+      for (var d = 0; d < DEFAULT_BOARDS.length; d++) {
+        mergedBoards.push(DEFAULT_BOARDS[d]);
+        seenSlugs[DEFAULT_BOARDS[d].slug] = true;
       }
-    }
-    for (var icid in incomingCursors) {
-      if (incomingCursors.hasOwnProperty(icid) && icid !== myClientId && incomingCursors[icid]) {
-        if ((now - (incomingCursors[icid].updatedAt || 0)) <= 15000) {
-          worldState.cursors[icid] = incomingCursors[icid];
+      if (root.boards && typeof root.boards === "object") {
+        for (var slug in root.boards) {
+          if (root.boards.hasOwnProperty(slug) && root.boards[slug] && !seenSlugs[slug]) {
+            mergedBoards.push(root.boards[slug]);
+            seenSlugs[slug] = true;
+          }
         }
       }
-    }
+      state.boards = mergedBoards;
 
-    // 2. Merge remote sprites strictly (NEVER overwrite locally owned/falling/grabbed sprites with stale data)
-    var incomingSprites = rt.sprites || {};
-    for (var sid in worldState.sprites) {
-      if (worldState.sprites.hasOwnProperty(sid)) {
-        var curLocal = worldState.sprites[sid];
-        var isLocallyAuth = (sid === worldState.grabbedSpriteId || curLocal.ownerId === myClientId || worldState.ownedSprites[sid]);
-        if (!incomingSprites[sid] && !isLocallyAuth) {
-          delete worldState.sprites[sid];
-        }
+      state.threads = root.threads || {};
+      state.polls = root.polls || {};
+      state.users = root.users || {};
+      state.walls = root.walls || {};
+      state.groups = root.groups || {};
+      state.dms = root.dms || {};
+      state.stickers = root.stickers || {};
+      state.subscriptions = root.subscriptions || {};
+      state.blocks = root.blocks || {};
+      state.notifications = root.notifications || {};
+      state.music = root.music || {};
+      state.siteLogo = (root.site && root.site.logo) || "";
+      state.snowEffect = (root.effects && root.effects.snow) || null;
+      state.tabLogoEffect = (root.effects && root.effects.tabLogo) || null;
+
+      if (root.wplace) {
+        state.wplacePixels = root.wplace.pixels || {};
+        state.wplaceRecent = root.wplace.recent || {};
       }
-    }
-    for (var isid in incomingSprites) {
-      if (!incomingSprites.hasOwnProperty(isid) || !incomingSprites[isid]) continue;
-      if (isid === worldState.grabbedSpriteId) continue;
 
-      var localSp = worldState.sprites[isid];
-      var remSp = incomingSprites[isid];
-      var ownedByMe = localSp && (localSp.ownerId === myClientId || worldState.ownedSprites[isid]);
-
-      if (!localSp) {
-        worldState.sprites[isid] = remSp;
-      } else if (!ownedByMe && (remSp.updatedAt || 0) > (localSp.updatedAt || 0) + 120) {
-        worldState.sprites[isid] = remSp;
-      } else if (ownedByMe && remSp.ownerId && remSp.ownerId !== myClientId && (remSp.updatedAt || 0) > (localSp.updatedAt || 0) + 150) {
-        // Another user explicitly grabbed/punted this prop
-        delete worldState.ownedSprites[isid];
-        worldState.sprites[isid] = remSp;
+      if (state.user && state.users[state.user.uid]) {
+        state.profile = state.users[state.user.uid];
       }
-    }
 
-    // 3. Merge remote fireworks
-    var incomingFw = rt.fireworks || {};
-    for (var fid in incomingFw) {
-      if (incomingFw.hasOwnProperty(fid) && incomingFw[fid] && !worldState.explodedFireworks[fid] && !worldState.fireworks[fid]) {
-        worldState.fireworks[fid] = incomingFw[fid];
-      }
-    }
-
-    // 4. Merge remote actors (skip self and any actor currently grabbed by our Physgun)
-    var incomingActors = rt.actors || {};
-    for (var aid in worldState.actors) {
-      if (worldState.actors.hasOwnProperty(aid) && aid !== myClientId && aid !== worldState.grabbedActorId && !incomingActors[aid]) {
-        delete worldState.actors[aid];
-      }
-    }
-    for (var iaid in incomingActors) {
-      if (incomingActors.hasOwnProperty(iaid) && iaid !== myClientId && iaid !== worldState.grabbedActorId && incomingActors[iaid]) {
-        if ((now - (incomingActors[iaid].updatedAt || 0)) <= 15000) {
-          worldState.actors[iaid] = incomingActors[iaid];
-        }
-      }
-    }
-  }
-
-  if (effects && typeof effects === "object") {
-    state.snowEffect = effects.snow || null;
-    state.tabLogoEffect = effects.tabLogo || null;
-    syncSnowState();
-    syncTabLogoState();
-  }
-}
-
-function syncRealtimeWorld() {
-  dbGet("realtime", function(err, rt) {
-    if (!err) {
-      dbGet("effects", function(eErr, eff) {
-        applyRealtimeSnapshot(rt, eErr ? null : eff);
+      var newHash = JSON.stringify({
+        b: state.boards.length,
+        t: state.threads,
+        p: state.polls,
+        w: state.walls,
+        g: state.groups,
+        d: state.dms,
+        s: state.stickers,
+        m: state.music,
+        n: state.user ? state.notifications[state.user.uid] : null,
+        logo: state.siteLogo,
+        snow: state.snowEffect,
+        tab: state.tabLogoEffect
       });
-    }
-  });
-}
 
-function fetchAllData() {
-  dbGet("", function(err, root) {
-    if (err || !root || typeof root !== "object") return;
-
-    mergeBoardsList(root.boards);
-    state.threads = root.threads || {};
-    state.polls = root.polls || {};
-    state.users = root.users || {};
-    state.walls = root.walls || {};
-    state.groups = root.groups || {};
-    state.dms = root.dms || {};
-    state.stickers = root.stickers || {};
-    state.subscriptions = root.subscriptions || {};
-    state.blocks = root.blocks || {};
-    state.notifications = root.notifications || {};
-    state.music = root.music || {};
-    state.wplacePixels = (root.wplace && root.wplace.pixels) || {};
-    state.wplaceRecent = (root.wplace && root.wplace.recent) || {};
-    state.siteLogo = (root.site && root.site.logo) || "";
-
-    if (state.user && state.users[state.user.uid]) {
-      state.profile = state.users[state.user.uid];
-    }
-
-    applyRealtimeSnapshot(root.realtime, root.effects);
-
-    var snapshotSig = JSON.stringify({
-      b: state.boards.length,
-      t: state.threads,
-      p: state.polls,
-      u: state.users,
-      w: state.walls,
-      g: state.groups,
-      d: state.dms,
-      s: state.stickers,
-      sub: state.subscriptions,
-      blk: state.blocks,
-      n: state.notifications,
-      m: state.music,
-      wp: countMapKeys(state.wplacePixels),
-      wpr: countMapKeys(state.wplaceRecent),
-      logo: state.siteLogo
-    });
-
-    if (snapshotSig !== lastDataHash) {
-      lastDataHash = snapshotSig;
-      var activeEl = document.activeElement;
-      var isTypingInForm = activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA");
-      if (!isTypingInForm) {
+      if (newHash !== lastDataHash || isManual) {
+        lastDataHash = newHash;
+        updateAuthUi();
         renderAll();
       } else {
-        updateNotifBadge();
-        rebuildMusicPlaylist();
+        syncSnowState();
+        syncTabLogoState();
       }
-    }
+
+      if (isManual) showStatus("Refreshed!", false);
+    });
   });
 }
 
-function bindGlobalHotkeys() {
-  document.addEventListener("mouseup", function() {
-    if (pendingDeferredRender) {
-      setTimeout(renderAll, 20);
-    }
-  });
-
-  document.addEventListener("keydown", function(e) {
-    e = e || window.event;
-    var code = e.keyCode || e.which;
-    var key = String(e.key || "").toLowerCase();
-    var tgt = e.target || e.srcElement;
-    var tag = tgt && tgt.tagName ? tgt.tagName.toUpperCase() : "";
-    var inInput = (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT");
-
-    if (key === "shift" || code === 16) {
-      worldState.shiftDownClean = true;
-    } else {
-      worldState.shiftDownClean = false;
-    }
-
-    if (code === 27 || key === "escape") {
-      if (worldState.cursorChatOpen) closeCursorChatBar();
-      if (worldState.propMenuOpen) togglePropMenu(false);
-      closeStickerPicker();
-      closeZoomModal();
-      return;
-    }
-
-    if (inInput) return;
-
-    // [Q] Toggle Sandbox Spawnmenu
-    if (key === "q" || code === 81) {
-      if (e.preventDefault) e.preventDefault();
-      togglePropMenu();
-      return;
-    }
-
-    // [/] Open Cursor Chat
-    if (key === "/" || code === 191) {
-      if (e.preventDefault) e.preventDefault();
-      openCursorChatBar();
-      return;
-    }
-
-    // [E] Freeze / Unfreeze grabbed prop or character actor with Physgun
-    if (key === "e" || code === 69) {
-      if (worldState.grabbedSpriteId) {
-        var sp = worldState.sprites[worldState.grabbedSpriteId];
-        worldState.grabbedSpriteId = null;
-        if (sp) {
-          sp.frozen = true;
-          sp.vx = 0;
-          sp.vy = 0;
-          syncSingleSpriteToDb(sp);
-          showStatus("Prop frozen in place!", false);
-        }
-        return;
-      }
-      if (worldState.grabbedActorId) {
-        var aid = worldState.grabbedActorId;
-        worldState.grabbedActorId = null;
-        if (aid === myClientId) {
-          worldState.myActor.frozen = true;
-          worldState.myActor.vx = 0;
-          worldState.myActor.vy = 0;
-          syncMyActorToDb(true);
-          showStatus("Character frozen in mid-air!", false);
-        }
-        return;
-      }
-    }
-
-    // [F] Actor melee attack
-    if (key === "f" || code === 70) {
-      triggerActorAttack();
-      return;
-    }
-
-    // [WASD] / Arrows for playable character actor
-    if (key === "a" || code === 65 || code === 37) setActorKey("left", true);
-    if (key === "d" || code === 68 || code === 39) setActorKey("right", true);
-    if (key === "w" || code === 87 || code === 38 || code === 32) {
-      if (worldState.actorEnabled && (key === " " || code === 32) && e.preventDefault) e.preventDefault();
-      setActorKey("jump", true);
-    }
-    if (key === "s" || code === 83 || code === 40) setActorKey("down", true);
-  });
-
-  document.addEventListener("keyup", function(e) {
-    e = e || window.event;
-    var code = e.keyCode || e.which;
-    var key = String(e.key || "").toLowerCase();
-    var tgt = e.target || e.srcElement;
-    var tag = tgt && tgt.tagName ? tgt.tagName.toUpperCase() : "";
-    var inInput = (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT");
-
-    if ((key === "shift" || code === 16) && worldState.shiftDownClean && !inInput) {
-      worldState.shiftDownClean = false;
-      openCursorChatBar();
-      return;
-    }
-
-    if (key === "a" || code === 65 || code === 37) setActorKey("left", false);
-    if (key === "d" || code === 68 || code === 39) setActorKey("right", false);
-    if (key === "w" || code === 87 || code === 38 || code === 32) setActorKey("jump", false);
-    if (key === "s" || code === 83 || code === 40) setActorKey("down", false);
-  });
-}
-
-function bootstrapFembooru() {
-  mergeBoardsList(null);
+window.addEventListener("DOMContentLoaded", function() {
+  state.boards = DEFAULT_BOARDS.slice();
+  probeServicePolicies();
   loadSession();
   updateAuthUi();
   initMusicPlayer();
   initWplaceMap();
-  initWorldEngine();
-  bindGlobalHotkeys();
-  refreshPropCatalog();
-  probeServicePolicies();
+  initSandboxWorld();
   fetchGithubRepoVersion();
 
   ensureFreshSession(function() {
@@ -404,12 +447,13 @@ function bootstrapFembooru() {
     }
   });
 
-  setInterval(syncRealtimeWorld, CONFIG.realtimeSyncMs);
-  autoRefreshTimer = setInterval(fetchAllData, CONFIG.autoRefreshMs);
-}
+  // Auto-refresh messages, threads, walls & notifications
+  autoRefreshTimer = setInterval(function() {
+    fetchAllData(false);
+  }, CONFIG.autoRefreshMs);
 
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", bootstrapFembooru);
-} else {
-  bootstrapFembooru();
-}
+  // Realtime multiplayer cursors, actors, sprites & fireworks loop
+  setInterval(function() {
+    syncRealtimeWorld();
+  }, CONFIG.realtimeSyncMs);
+});
