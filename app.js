@@ -1,9 +1,16 @@
 /* ==========================================================================
-   FEMBOORU APPLICATION CONTROLLER: VIEW ROUTING, REALTIME SYNC, STATE
-   RECONCILIATION, HOTKEYS & BOOTSTRAP
+   FEMBOORU APPLICATION CONTROLLER: CLICK-SAFE VIEW ROUTING, REALTIME SYNC,
+   AUTHORITATIVE SPRITE RECONCILIATION, HOTKEYS & BOOTSTRAP
    ========================================================================== */
+var pendingDeferredRender = false;
+var lastSidebarSig = "";
+var lastActiveViewSig = "";
+
 function switchView(viewName) {
   state.view = viewName || "boards";
+  lastActiveViewSig = "";
+  worldState.lastPlatformScan = 0;
+
   var sections = document.querySelectorAll(".view-section");
   for (var i = 0; i < sections.length; i++) {
     sections[i].className = (sections[i].id === "view-" + state.view) ? "view-section active" : "view-section";
@@ -15,7 +22,43 @@ function switchView(viewName) {
     navBtns[j].className = (viewOrder[j] === state.view) ? "active-nav" : "";
   }
 
-  renderBoardsSidebar();
+  renderActiveViewOnly(true);
+  sendCursorPresence(true);
+}
+
+function renderActiveViewOnly(force) {
+  var sbSig = JSON.stringify({ b: state.boards, cb: state.currentBoard });
+  if (force || sbSig !== lastSidebarSig) {
+    lastSidebarSig = sbSig;
+    renderBoardsSidebar();
+  }
+
+  var viewPayload = null;
+  if (state.view === "boards") {
+    viewPayload = { v: "boards", cb: state.currentBoard, t: state.threads, p: state.polls, u: state.users };
+  } else if (state.view === "wall") {
+    viewPayload = { v: "wall", wf: state.wallFilter, w: state.walls, sub: state.subscriptions, u: state.users };
+  } else if (state.view === "profile") {
+    viewPayload = { v: "profile", vp: state.viewedProfileUid, u: state.users, w: state.walls, sub: state.subscriptions, blk: state.blocks };
+  } else if (state.view === "members") {
+    viewPayload = { v: "members", u: state.users, sub: state.subscriptions };
+  } else if (state.view === "groups") {
+    viewPayload = { v: "groups", g: state.groups, ag: state.activeGroupId, u: state.users };
+  } else if (state.view === "dms") {
+    viewPayload = { v: "dms", d: state.dms, ad: state.activeDmUid, u: state.users };
+  } else if (state.view === "stickers") {
+    viewPayload = { v: "stickers", s: state.stickers, u: state.users };
+  } else if (state.view === "wplace") {
+    viewPayload = { v: "wplace", wp: countMapKeys(state.wplacePixels), wpr: state.wplaceRecent };
+  } else if (state.view === "notifications") {
+    viewPayload = { v: "notifications", n: state.user ? state.notifications[state.user.uid] : null };
+  }
+
+  var vSig = JSON.stringify(viewPayload);
+  if (!force && vSig === lastActiveViewSig) return;
+  lastActiveViewSig = vSig;
+  worldState.lastPlatformScan = 0;
+
   if (state.view === "boards") {
     renderBoardPolls();
     renderThreads();
@@ -41,6 +84,13 @@ function switchView(viewName) {
 }
 
 function renderAll() {
+  // Never destroy DOM elements mid-click while user pointer is pressed
+  if (worldState.isPointerDown) {
+    pendingDeferredRender = true;
+    return;
+  }
+  pendingDeferredRender = false;
+
   var logoImg = document.getElementById("siteLogoImg");
   if (logoImg) {
     var targetLogo = isValidImageSrc(state.siteLogo) ? state.siteLogo : DEFAULT_SITE_LOGO;
@@ -48,34 +98,11 @@ function renderAll() {
   }
 
   updateAuthUi();
-  renderBoardsSidebar();
   rebuildMusicPlaylist();
   updateNotifBadge();
   syncSnowState();
   syncTabLogoState();
-
-  if (state.view === "boards") {
-    renderBoardPolls();
-    renderThreads();
-  } else if (state.view === "wall") {
-    renderGlobalWall();
-  } else if (state.view === "profile") {
-    renderPublicProfile();
-  } else if (state.view === "members") {
-    renderMembersList();
-  } else if (state.view === "groups") {
-    renderGroupsList();
-    renderActiveGroup();
-  } else if (state.view === "dms") {
-    renderDmList();
-  } else if (state.view === "stickers") {
-    renderStickersArchive();
-  } else if (state.view === "wplace") {
-    renderWplaceCanvas();
-    renderWplaceRecent();
-  } else if (state.view === "notifications") {
-    renderNotifications();
-  }
+  renderActiveViewOnly(false);
 }
 
 function mergeBoardsList(dbBoards) {
@@ -99,7 +126,7 @@ function mergeBoardsList(dbBoards) {
 function applyRealtimeSnapshot(rt, effects) {
   var now = new Date().getTime();
   if (rt && typeof rt === "object") {
-    // Merge remote cursors without overwriting our own live cursor
+    // 1. Merge remote cursors without overwriting local cursor
     var incomingCursors = rt.cursors || {};
     for (var cid in worldState.cursors) {
       if (worldState.cursors.hasOwnProperty(cid) && cid !== myClientId && !incomingCursors[cid]) {
@@ -114,24 +141,37 @@ function applyRealtimeSnapshot(rt, effects) {
       }
     }
 
-    // Merge remote sprites without clobbering a sprite currently grabbed locally
+    // 2. Merge remote sprites strictly (NEVER overwrite locally owned/falling/grabbed sprites with stale data)
     var incomingSprites = rt.sprites || {};
     for (var sid in worldState.sprites) {
-      if (worldState.sprites.hasOwnProperty(sid) && sid !== worldState.grabbedSpriteId && !incomingSprites[sid]) {
-        delete worldState.sprites[sid];
-      }
-    }
-    for (var isid in incomingSprites) {
-      if (incomingSprites.hasOwnProperty(isid) && isid !== worldState.grabbedSpriteId && incomingSprites[isid]) {
-        var localSp = worldState.sprites[isid];
-        var remSp = incomingSprites[isid];
-        if (!localSp || (remSp.updatedAt || 0) >= (localSp.updatedAt || 0)) {
-          worldState.sprites[isid] = remSp;
+      if (worldState.sprites.hasOwnProperty(sid)) {
+        var curLocal = worldState.sprites[sid];
+        var isLocallyAuth = (sid === worldState.grabbedSpriteId || curLocal.ownerId === myClientId || worldState.ownedSprites[sid]);
+        if (!incomingSprites[sid] && !isLocallyAuth) {
+          delete worldState.sprites[sid];
         }
       }
     }
+    for (var isid in incomingSprites) {
+      if (!incomingSprites.hasOwnProperty(isid) || !incomingSprites[isid]) continue;
+      if (isid === worldState.grabbedSpriteId) continue;
 
-    // Merge remote fireworks
+      var localSp = worldState.sprites[isid];
+      var remSp = incomingSprites[isid];
+      var ownedByMe = localSp && (localSp.ownerId === myClientId || worldState.ownedSprites[isid]);
+
+      if (!localSp) {
+        worldState.sprites[isid] = remSp;
+      } else if (!ownedByMe && (remSp.updatedAt || 0) > (localSp.updatedAt || 0) + 120) {
+        worldState.sprites[isid] = remSp;
+      } else if (ownedByMe && remSp.ownerId && remSp.ownerId !== myClientId && (remSp.updatedAt || 0) > (localSp.updatedAt || 0) + 150) {
+        // Another user explicitly grabbed/punted this prop
+        delete worldState.ownedSprites[isid];
+        worldState.sprites[isid] = remSp;
+      }
+    }
+
+    // 3. Merge remote fireworks
     var incomingFw = rt.fireworks || {};
     for (var fid in incomingFw) {
       if (incomingFw.hasOwnProperty(fid) && incomingFw[fid] && !worldState.explodedFireworks[fid] && !worldState.fireworks[fid]) {
@@ -139,15 +179,15 @@ function applyRealtimeSnapshot(rt, effects) {
       }
     }
 
-    // Merge remote actors
+    // 4. Merge remote actors (skip self and any actor currently grabbed by our Physgun)
     var incomingActors = rt.actors || {};
     for (var aid in worldState.actors) {
-      if (worldState.actors.hasOwnProperty(aid) && aid !== myClientId && !incomingActors[aid]) {
+      if (worldState.actors.hasOwnProperty(aid) && aid !== myClientId && aid !== worldState.grabbedActorId && !incomingActors[aid]) {
         delete worldState.actors[aid];
       }
     }
     for (var iaid in incomingActors) {
-      if (incomingActors.hasOwnProperty(iaid) && iaid !== myClientId && incomingActors[iaid]) {
+      if (incomingActors.hasOwnProperty(iaid) && iaid !== myClientId && iaid !== worldState.grabbedActorId && incomingActors[iaid]) {
         if ((now - (incomingActors[iaid].updatedAt || 0)) <= 15000) {
           worldState.actors[iaid] = incomingActors[iaid];
         }
@@ -232,6 +272,12 @@ function fetchAllData() {
 }
 
 function bindGlobalHotkeys() {
+  document.addEventListener("mouseup", function() {
+    if (pendingDeferredRender) {
+      setTimeout(renderAll, 20);
+    }
+  });
+
   document.addEventListener("keydown", function(e) {
     e = e || window.event;
     var code = e.keyCode || e.which;
@@ -270,18 +316,32 @@ function bindGlobalHotkeys() {
       return;
     }
 
-    // [E] Freeze / Unfreeze grabbed prop with Physgun
-    if ((key === "e" || code === 69) && worldState.grabbedSpriteId) {
-      var sp = worldState.sprites[worldState.grabbedSpriteId];
-      worldState.grabbedSpriteId = null;
-      if (sp) {
-        sp.frozen = true;
-        sp.vx = 0;
-        sp.vy = 0;
-        syncSingleSpriteToDb(sp);
-        showStatus("Prop frozen in place!", false);
+    // [E] Freeze / Unfreeze grabbed prop or character actor with Physgun
+    if (key === "e" || code === 69) {
+      if (worldState.grabbedSpriteId) {
+        var sp = worldState.sprites[worldState.grabbedSpriteId];
+        worldState.grabbedSpriteId = null;
+        if (sp) {
+          sp.frozen = true;
+          sp.vx = 0;
+          sp.vy = 0;
+          syncSingleSpriteToDb(sp);
+          showStatus("Prop frozen in place!", false);
+        }
+        return;
       }
-      return;
+      if (worldState.grabbedActorId) {
+        var aid = worldState.grabbedActorId;
+        worldState.grabbedActorId = null;
+        if (aid === myClientId) {
+          worldState.myActor.frozen = true;
+          worldState.myActor.vx = 0;
+          worldState.myActor.vy = 0;
+          syncMyActorToDb(true);
+          showStatus("Character frozen in mid-air!", false);
+        }
+        return;
+      }
     }
 
     // [F] Actor melee attack
@@ -293,7 +353,11 @@ function bindGlobalHotkeys() {
     // [WASD] / Arrows for playable character actor
     if (key === "a" || code === 65 || code === 37) setActorKey("left", true);
     if (key === "d" || code === 68 || code === 39) setActorKey("right", true);
-    if (key === "w" || code === 87 || code === 38 || code === 32) setActorKey("jump", true);
+    if (key === "w" || code === 87 || code === 38 || code === 32) {
+      if (worldState.actorEnabled && (key === " " || code === 32) && e.preventDefault) e.preventDefault();
+      setActorKey("jump", true);
+    }
+    if (key === "s" || code === 83 || code === 40) setActorKey("down", true);
   });
 
   document.addEventListener("keyup", function(e) {
@@ -313,6 +377,7 @@ function bindGlobalHotkeys() {
     if (key === "a" || code === 65 || code === 37) setActorKey("left", false);
     if (key === "d" || code === 68 || code === 39) setActorKey("right", false);
     if (key === "w" || code === 87 || code === 38 || code === 32) setActorKey("jump", false);
+    if (key === "s" || code === 83 || code === 40) setActorKey("down", false);
   });
 }
 
