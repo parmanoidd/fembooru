@@ -36,7 +36,7 @@ function renderVideoOrAudioEmbed(rawUrl) {
 }
 
 /* ==========================================================================
-   ADMIN SITE LOGO
+   ADMIN SITE LOGO & TAB ICON RESET
    ========================================================================== */
 function adminUpdateSiteLogo() {
   if (!isSuperiorAdmin()) return;
@@ -76,9 +76,13 @@ function adminUpdateSiteLogo() {
 function adminResetLogos() {
   if (!isSuperiorAdmin()) return;
   state.siteLogo = "";
+  state.tabLogoEffect = null;
+  syncTabLogoState();
   dbWrite("DELETE", "site/logo", null, function() {
-    renderAll();
-    showStatus("Site logo reset to default.", false);
+    dbWrite("DELETE", "effects/tabLogo", null, function() {
+      renderAll();
+      showStatus("Site logo and tab logo reset to default.", false);
+    });
   });
 }
 
@@ -161,7 +165,7 @@ function proposeOrCreateBoard() {
         if (titleEl) titleEl.value = "";
         if (descEl) descEl.value = "";
         fetchAllData();
-        showStatus("Board proposal poll created! Needs 3 YES votes to open.", false);
+        showStatus("Board proposal poll created!", false);
       } else {
         showStatus("Poll error: " + err, true);
       }
@@ -186,12 +190,14 @@ function renderBoardPolls() {
         else if (votes[vUid] === "no") noCount++;
       }
     }
+    var canCancel = state.user && (p.createdBy === state.user.uid || isSuperiorAdmin());
     h += "<div class='poll-card'>" +
            "<b>Board Proposal: " + esc(p.title) + "</b> — " + esc(p.desc || "") +
            " <span class='muted'>(by " + esc(p.authorName || "User") + ")</span><br>" +
-           "Votes: <b>" + yesCount + " YES</b> / <b>" + noCount + " NO</b> (3 YES opens board) " +
+           "Votes: <b>" + yesCount + " YES</b> / <b>" + noCount + " NO</b> " +
            "<button type='button' onclick=\"voteBoardPoll('" + esc(slug) + "','yes')\">Vote YES</button> " +
            "<button type='button' onclick=\"voteBoardPoll('" + esc(slug) + "','no')\">Vote NO</button>" +
+           (canCancel ? " <button type='button' class='btn-danger' onclick=\"cancelBoardPoll('" + esc(slug) + "')\">Cancel Proposal</button>" : "") +
          "</div>";
   }
   box.innerHTML = h;
@@ -212,10 +218,16 @@ function voteBoardPoll(slug, choice) {
     var votes = p.votes || {};
     votes[state.user.uid] = choice;
     var yesCount = 0;
+    var noCount = 0;
     for (var k in votes) {
-      if (votes.hasOwnProperty(k) && votes[k] === "yes") yesCount++;
+      if (votes.hasOwnProperty(k)) {
+        if (votes[k] === "yes") yesCount++;
+        else if (votes[k] === "no") noCount++;
+      }
     }
-    if (yesCount >= 3) {
+    var totalUsers = Math.max(2, countMapKeys(state.users));
+    var requiredYes = Math.min(3, Math.max(2, Math.ceil(totalUsers / 2)));
+    if (yesCount >= requiredYes && yesCount > noCount) {
       var bObj = { slug: slug, title: p.title, desc: p.desc || "" };
       dbWrite("PUT", "boards/" + slug, bObj, function() {
         dbWrite("PUT", "polls/" + slug + "/status", "approved", function() {
@@ -226,6 +238,19 @@ function voteBoardPoll(slug, choice) {
     } else {
       fetchAllData();
       showStatus("Vote recorded!", false);
+    }
+  });
+}
+
+function cancelBoardPoll(slug) {
+  if (!state.user) return;
+  dbWrite("DELETE", "polls/" + slug, null, function(err) {
+    if (!err) {
+      delete state.polls[slug];
+      renderBoardPolls();
+      showStatus("Board proposal cancelled.", false);
+    } else {
+      showStatus("Cancel error: " + err, true);
     }
   });
 }
@@ -354,7 +379,6 @@ function renderThreads() {
       h += "<div class='post-body'>" + esc(th.text) + "</div>";
     }
 
-    // Comments
     var cList = [];
     if (th.comments && typeof th.comments === "object") {
       for (var cid in th.comments) {
@@ -384,7 +408,7 @@ function renderThreads() {
 
     h += "<div class='form-row'>" +
            "<input type='text' id='replyText_" + esc(th.id) + "' placeholder='Reply to thread...'>" +
-           "<input type='file' id='replyFile_" + esc(th.id) + "' accept='image/*,.gif,.apng,.webp,.avif,.svg'>" +
+           "<input type='file' id='replyFile_" + esc(th.id) + "' accept='image/*'>" +
            "<button type='button' onclick=\"addThreadComment('" + esc(th.id) + "')\">Reply</button>" +
          "</div>" +
        "</div></article>";
@@ -681,7 +705,7 @@ function deleteWallPost(targetUid, pid) {
 }
 
 /* ==========================================================================
-   PROFILES, CUSTOM FIELDS, FAVORITES, SUBSCRIPTIONS & BLOCKS
+   PROFILES, CUSTOM FIELDS, FAVORITE CARDS, SUBSCRIPTIONS & BLOCKS
    ========================================================================== */
 function openMyProfile() {
   if (!state.user) {
@@ -753,7 +777,6 @@ function renderPublicProfile() {
     webEl.innerHTML = safeW ? ("<a href='" + esc(safeW) + "' target='_blank' rel='noopener'>" + esc(safeW) + "</a>") : esc(u.website || "—");
   }
 
-  // Custom fields
   var cfBox = document.getElementById("profViewCustomFields");
   if (cfBox) {
     var cfHtml = "";
@@ -770,7 +793,6 @@ function renderPublicProfile() {
     cfBox.innerHTML = cfHtml;
   }
 
-  // Favorite Cards
   var favBox = document.getElementById("profFavoritesCards");
   if (favBox) {
     var favs = [
@@ -792,7 +814,6 @@ function renderPublicProfile() {
     favBox.innerHTML = fHtml || "<span class='muted'>No favorites added yet.</span>";
   }
 
-  // Action Buttons
   var actBox = document.getElementById("profActionButtons");
   if (actBox) {
     if (!isMe && state.user) {
@@ -810,7 +831,6 @@ function renderPublicProfile() {
   var roleBar = document.getElementById("superiorAdminRoleBar");
   if (roleBar) roleBar.style.display = (isSuperiorAdmin() && !isMe) ? "block" : "none";
 
-  // Profile Editor (only for own profile)
   var edBox = document.getElementById("myProfileEditor");
   if (edBox) {
     edBox.style.display = isMe ? "block" : "none";
@@ -848,7 +868,6 @@ function renderPublicProfile() {
     }
   }
 
-  // Profile Wall
   var wPostsBox = document.getElementById("profileWallPosts");
   if (wPostsBox) {
     var wMap = (state.walls[uid] && state.walls[uid].posts) || {};
@@ -941,7 +960,7 @@ function saveMyProfile() {
       } else {
         showStatus(err || "Avatar upload failed", true);
       }
-    }, { isSticker: true });
+    }, { isSticker: false });
   } else {
     commitProfile("");
   }
@@ -1440,7 +1459,7 @@ function closeStickerPicker() {
 }
 
 /* ==========================================================================
-   MUSIC RADIO PLAYER
+   MUSIC RADIO PLAYER (AUTO-INCLUDE FROM /mu/ + SEAMLESS [local] -> CLOUD)
    ========================================================================== */
 function initMusicPlayer() {
   var audio = document.getElementById("audioPlayerEl");
@@ -1463,20 +1482,58 @@ function initMusicPlayer() {
 
 function rebuildMusicPlaylist() {
   var list = [];
-  for (var id in state.music) {
-    if (state.music.hasOwnProperty(id) && state.music[id]) list.push(state.music[id]);
+  var seenUrls = {};
+
+  for (var l = 0; l < state.localMusicUploads.length; l++) {
+    var loc = state.localMusicUploads[l];
+    list.push(loc);
+    seenUrls[loc.url] = true;
   }
-  list.sort(function(a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
+
+  for (var id in state.music) {
+    if (state.music.hasOwnProperty(id) && state.music[id]) {
+      var tr = state.music[id];
+      if (!seenUrls[tr.url]) {
+        list.push(tr);
+        seenUrls[tr.url] = true;
+      }
+    }
+  }
+
+  // Automatically include audio tracks posted on /mu/ board
+  for (var tid in state.threads) {
+    if (!state.threads.hasOwnProperty(tid) || !state.threads[tid]) continue;
+    var th = state.threads[tid];
+    if ((th.board || "") === "mu" && th.videoUrl &&
+        (/\.(mp3|ogg|wav|flac|m4a)(\?|$)/i.test(th.videoUrl) || /^data:audio\//i.test(th.videoUrl))) {
+      if (!seenUrls[th.videoUrl]) {
+        seenUrls[th.videoUrl] = true;
+        list.push({
+          id: "mu_" + th.id,
+          title: th.subject || ("/mu/ Track #" + th.id.slice(-4)),
+          url: th.videoUrl,
+          by: th.authorName || "Anon",
+          createdAt: th.createdAt || 0
+        });
+      }
+    }
+  }
+
+  list.sort(function(a, b) {
+    if (a.isLocal && !b.isLocal) return -1;
+    if (!a.isLocal && b.isLocal) return 1;
+    return (b.createdAt || 0) - (a.createdAt || 0);
+  });
   state.musicPlaylist = list;
 
   var box = document.getElementById("musicPlaylist");
   if (!box) return;
   var h = "";
   for (var i = 0; i < list.length; i++) {
-    var tr = list[i];
+    var item = list[i];
     var act = (i === state.currentTrackIndex) ? " active-track" : "";
     h += "<div class='music-track-item" + act + "' onclick='playMusicTrack(" + i + ")'>" +
-           (i + 1) + ". " + esc(tr.title || "Track") + " <span class='muted'>(" + esc(tr.by || "Anon") + ")</span>" +
+           (i + 1) + ". " + esc(item.title || "Track") + " <span class='muted'>(" + esc(item.by || "Anon") + ")</span>" +
          "</div>";
   }
   box.innerHTML = h || "<span class='muted'>No tracks uploaded yet.</span>";
@@ -1525,28 +1582,84 @@ function uploadMusicTrack() {
     showStatus("Select an audio file first.", true);
     return;
   }
-  var title = (titleEl && titleEl.value.trim()) || fileEl.files[0].name.replace(/\.[^.]+$/, "");
+  var rawFile = fileEl.files[0];
+  var cleanTitle = (titleEl && titleEl.value.trim()) || rawFile.name.replace(/\.[^.]+$/, "");
+  var tempId = generateId("loc");
+  var blobUrl = (window.URL && URL.createObjectURL) ? URL.createObjectURL(rawFile) : "";
+
+  if (blobUrl) {
+    state.localMusicUploads.unshift({
+      id: tempId,
+      title: "[local] " + cleanTitle,
+      url: blobUrl,
+      by: getDisplayUsername(),
+      isLocal: true,
+      createdAt: new Date().getTime()
+    });
+    rebuildMusicPlaylist();
+  }
+
+  function removeLocalTemp() {
+    for (var i = state.localMusicUploads.length - 1; i >= 0; i--) {
+      if (state.localMusicUploads[i].id === tempId) {
+        state.localMusicUploads.splice(i, 1);
+      }
+    }
+    if (blobUrl && window.URL && URL.revokeObjectURL) {
+      try { URL.revokeObjectURL(blobUrl); } catch (e) {}
+    }
+  }
+
   uploadAudioToHost(fileEl, function(err, dataUrl) {
     if (err || !dataUrl) {
+      removeLocalTemp();
+      rebuildMusicPlaylist();
+      setUploadProgress(-1);
       showStatus(err || "Audio upload failed", true);
       return;
     }
     var tid = generateId("trk");
     var trObj = {
       id: tid,
-      title: title,
+      title: cleanTitle,
       url: dataUrl,
       uid: state.user.uid,
       by: getDisplayUsername(),
       createdAt: new Date().getTime()
     };
     dbWrite("PUT", "music/" + tid, trObj, function(wErr) {
+      setUploadProgress(-1);
+      var audio = document.getElementById("audioPlayerEl");
+      var wasPlayingLocal = Boolean(audio && blobUrl && audio.src === blobUrl);
+      var resumeTime = wasPlayingLocal ? audio.currentTime : 0;
+      var wasPaused = wasPlayingLocal ? audio.paused : true;
+
+      removeLocalTemp();
       if (!wErr) {
+        state.music[tid] = trObj;
         if (titleEl) titleEl.value = "";
         fileEl.value = "";
+        rebuildMusicPlaylist();
+        if (wasPlayingLocal && audio) {
+          for (var idx = 0; idx < state.musicPlaylist.length; idx++) {
+            if (state.musicPlaylist[idx].id === tid) {
+              state.currentTrackIndex = idx;
+              break;
+            }
+          }
+          var np = document.getElementById("musicNowPlaying");
+          if (np) np.textContent = cleanTitle;
+          audio.src = dataUrl;
+          audio.onloadedmetadata = function() {
+            try { audio.currentTime = resumeTime; } catch (e2) {}
+            if (!wasPaused) audio.play();
+            audio.onloadedmetadata = null;
+          };
+        }
         fetchAllData();
-        showStatus("Track uploaded to radio!", false);
+        showStatus("Track uploaded & synced to cloud radio!", false);
       } else {
+        rebuildMusicPlaylist();
         showStatus("Music save error: " + wErr, true);
       }
     });
