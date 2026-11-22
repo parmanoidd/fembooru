@@ -1,6 +1,7 @@
 /* ==========================================================================
-   FEMBOORU REALTIME WORLD & WPLACE: MOUSE CURSORS, CURSOR CHAT, WIKIPEDIA
-   PROP SPAWNMENU [Q], HL2 TOOLS, SMOOTH 60FPS PHYSICS, ACTORS & GEOPIXELS
+   FEMBOORU REALTIME WORLD & WPLACE: INTERFACE-ANCHORED MOUSE CURSORS,
+   LIVE CURSOR CHAT, WIKIPEDIA PROP SPAWNMENU [Q], HL2 TOOLS (PHYSGUN FOR
+   PROPS & CHARACTERS), UI-PLATFORM COLLISION & WPLACE GEOPIXELS
    ========================================================================== */
 var WIKIPEDIA_PROP_TITLES = [
   "Traffic cone", "Rubber duck", "Microwave oven", "Watermelon",
@@ -13,22 +14,26 @@ var WIKIPEDIA_PROP_TITLES = [
   "Chessboard", "Electric fan", "Radio", "Umbrella",
   "Suitcase", "Safe", "Refrigerator", "Washing machine",
   "Hard hat", "Megaphone", "Trophy", "Sandcastle",
-  "Garden gnome", "Teddy bear", "Potted plant", "Desk"
+  "Garden gnome", "Teddy bear", "Potted plant", "Desk",
+  "Coffee mug", "Backpack", "Binoculars", "Compass",
+  "Flashlight", "Hammer", "Wrench", "Paintbrush",
+  "Soccer ball", "Basketball", "Tennis racket", "Violin",
+  "Trumpet", "Accordion", "Microscope", "Hourglass"
 ];
 
 var WIKIPEDIA_FALLBACK_PROPS = [
-  { title: "Traffic cone", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Traffic_cone.jpg/180px-Traffic_cone.jpg" },
-  { title: "Rubber duck", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Rubber_duck_assisting_with_debugging.jpg/180px-Rubber_duck_assisting_with_debugging.jpg" },
-  { title: "Watermelon", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/Taiwan_2009_Tainan_City_Organic_Farm_Watermelon_FRD_7962.jpg/180px-Taiwan_2009_Tainan_City_Organic_Farm_Watermelon_FRD_7962.jpg" },
-  { title: "Shopping cart", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Shopping_cart_with_food_clip_art.svg/180px-Shopping_cart_with_food_clip_art.svg.png" },
-  { title: "Toaster", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/2-slice_toaster.jpg/180px-2-slice_toaster.jpg" },
-  { title: "Anvil", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Anvil_42.jpg/180px-Anvil_42.jpg" },
-  { title: "Teapot", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/A_small_cup_of_tea.JPG/180px-A_small_cup_of_tea.JPG" },
-  { title: "Globe", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9f/Geo_Globe.jpg/180px-Geo_Globe.jpg" },
-  { title: "Fire extinguisher", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/FireExtinguisherABC.jpg/180px-FireExtinguisherABC.jpg" },
-  { title: "Typewriter", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/22/Olivetti_Lettera_22.jpg/180px-Olivetti_Lettera_22.jpg" },
-  { title: "Garden gnome", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Gartenzwerg.jpg/180px-Gartenzwerg.jpg" },
-  { title: "Bicycle", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/Left_side_of_Flying_Pigeon.jpg/180px-Left_side_of_Flying_Pigeon.jpg" }
+  { title: "Traffic cone", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Traffic_cone.jpg/200px-Traffic_cone.jpg" },
+  { title: "Rubber duck", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/Rubber_duck_assisting_with_debugging.jpg/200px-Rubber_duck_assisting_with_debugging.jpg" },
+  { title: "Watermelon", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/Taiwan_2009_Tainan_City_Organic_Farm_Watermelon_FRD_7962.jpg/200px-Taiwan_2009_Tainan_City_Organic_Farm_Watermelon_FRD_7962.jpg" },
+  { title: "Toaster", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/2-slice_toaster.jpg/200px-2-slice_toaster.jpg" },
+  { title: "Anvil", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Anvil_42.jpg/200px-Anvil_42.jpg" },
+  { title: "Globe", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9f/Geo_Globe.jpg/200px-Geo_Globe.jpg" },
+  { title: "Fire extinguisher", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/FireExtinguisherABC.jpg/200px-FireExtinguisherABC.jpg" },
+  { title: "Typewriter", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/22/Olivetti_Lettera_22.jpg/200px-Olivetti_Lettera_22.jpg" },
+  { title: "Garden gnome", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Gartenzwerg.jpg/200px-Gartenzwerg.jpg" },
+  { title: "Bicycle", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/Left_side_of_Flying_Pigeon.jpg/200px-Left_side_of_Flying_Pigeon.jpg" },
+  { title: "Acoustic guitar", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/GuitareClassique5.png/200px-GuitareClassique5.png" },
+  { title: "Alarm clock", url: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Alarm_clock_20050603.jpg/200px-Alarm_clock_20050603.jpg" }
 ];
 
 var WPLACE_COLORS = [
@@ -45,13 +50,13 @@ var lastFrameMs = 0;
    WIKIPEDIA API PROP CATALOG & SPAWNMENU [Q]
    ========================================================================== */
 function makePropFallbackSvg(label) {
-  var shortTxt = String(label || "PROP").substring(0, 14);
+  var shortTxt = String(label || "PROP").substring(0, 12);
   return "data:image/svg+xml," + encodeURIComponent(
-    "<svg xmlns='http://www.w3.org/2000/svg' width='96' height='96' viewBox='0 0 96 96'>" +
-    "<rect width='96' height='96' fill='#F0E0D6' stroke='#800000' stroke-width='3'/>" +
-    "<rect x='14' y='18' width='68' height='44' fill='#EEAA88' stroke='#800000' stroke-width='2'/>" +
-    "<text x='48' y='44' font-family='Arial,sans-serif' font-size='10' font-weight='bold' text-anchor='middle' fill='#800000'>" + esc(shortTxt) + "</text>" +
-    "<text x='48' y='80' font-family='Arial,sans-serif' font-size='9' text-anchor='middle' fill='#6E5248'>WIKIPEDIA PROP</text>" +
+    "<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'>" +
+    "<rect width='80' height='80' rx='6' fill='#F0E0D6' stroke='#800000' stroke-width='3'/>" +
+    "<rect x='12' y='16' width='56' height='36' fill='#EEAA88' stroke='#800000' stroke-width='2'/>" +
+    "<text x='40' y='38' font-family='Arial,sans-serif' font-size='9' font-weight='bold' text-anchor='middle' fill='#800000'>" + esc(shortTxt) + "</text>" +
+    "<text x='40' y='67' font-family='Arial,sans-serif' font-size='8' text-anchor='middle' fill='#6E5248'>WIKI PROP</text>" +
     "</svg>"
   );
 }
@@ -64,7 +69,7 @@ function togglePropMenu(forceOpen) {
 
   modal.style.display = worldState.propMenuOpen ? "block" : "none";
   if (worldState.propMenuOpen) {
-    if (!worldState.propCatalog || !worldState.propCatalog.length) {
+    if (!worldState.propCatalog || worldState.propCatalog.length < 6) {
       refreshPropCatalog();
     } else {
       renderPropMenu();
@@ -78,7 +83,7 @@ function refreshPropCatalog() {
     worldState.propCatalog = WIKIPEDIA_FALLBACK_PROPS.slice(0);
     renderPropMenu();
   } else if (grid) {
-    grid.innerHTML = "<div class='muted'>Fetching random Wikipedia prop thumbnails...</div>";
+    grid.innerHTML = "<div class='muted'>Loading Wikipedia prop images...</div>";
   }
 
   var pool = WIKIPEDIA_PROP_TITLES.slice(0);
@@ -88,8 +93,8 @@ function refreshPropCatalog() {
     pool[i] = pool[j];
     pool[j] = tmp;
   }
-  var picked = pool.slice(0, 22);
-  var apiUrl = "https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&redirects=1&prop=pageimages&piprop=thumbnail&pithumbsize=180&titles=" +
+  var picked = pool.slice(0, 28);
+  var apiUrl = "https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&redirects=1&prop=pageimages&pilicense=any&piprop=thumbnail&pithumbsize=200&titles=" +
     encodeURIComponent(picked.join("|"));
 
   var xhr = new XMLHttpRequest();
@@ -113,7 +118,7 @@ function refreshPropCatalog() {
         }
       } catch (e) {}
     }
-    if (loaded.length >= 4) {
+    if (loaded.length >= 6) {
       worldState.propCatalog = loaded;
     } else if (!worldState.propCatalog || !worldState.propCatalog.length) {
       worldState.propCatalog = WIKIPEDIA_FALLBACK_PROPS.slice(0);
@@ -138,7 +143,7 @@ function renderPropMenu() {
     var item = list[i];
     var fallback = makePropFallbackSvg(item.title);
     h += "<div class='prop-card' title='" + esc(item.title) + "' onclick=\"spawnCatalogProp(" + i + ")\">" +
-           "<img src='" + esc(item.url) + "' referrerpolicy='no-referrer' alt='" + esc(item.title) + "' onerror=\"this.onerror=null;this.src='" + esc(fallback) + "'\">" +
+           "<img src='" + esc(item.url) + "' referrerpolicy='no-referrer' alt='' onerror=\"this.onerror=null;this.src='" + esc(fallback) + "'\">" +
            "<span>" + esc(item.title) + "</span>" +
          "</div>";
   }
@@ -151,8 +156,8 @@ function spawnCatalogProp(idx) {
   var docW = Math.max(320, document.documentElement.clientWidth || window.innerWidth || 900);
   var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
   var spawnX = Math.max(40, Math.min(docW - 120, worldState.lastMouseX - 36));
-  var spawnY = Math.max(60, scrollY + worldState.lastMouseY - 36);
-  spawnWorldSprite(item.url, item.title, spawnX, spawnY, (Math.random() - 0.5) * 140, -120);
+  var spawnY = Math.max(80, scrollY + worldState.lastMouseY - 36);
+  spawnWorldSprite(item.url, item.title, spawnX, spawnY, (Math.random() - 0.5) * 140, -110);
   togglePropMenu(false);
 }
 
@@ -168,7 +173,7 @@ function selectSandboxTool(toolName) {
 }
 
 /* ==========================================================================
-   WORLD SPRITES / PROPS (SPAWN, DRAG, ROTATE, FREEZE, PUNT, THRUSTER, REMOVE)
+   WORLD SPRITES / PROPS (AUTHORITATIVE PHYSICS, NO TELEPORT-BACK BUG)
    ========================================================================== */
 function spawnWorldSprite(url, label, x, y, vx, vy) {
   if (!isValidImageSrc(url)) return;
@@ -185,17 +190,38 @@ function spawnWorldSprite(url, label, x, y, vx, vy) {
     rot: 0,
     frozen: false,
     thruster: false,
+    settled: false,
+    ownerId: myClientId,
     by: getDisplayUsername(),
     updatedAt: now
   };
   worldState.sprites[sid] = sp;
+  worldState.ownedSprites[sid] = true;
   syncSingleSpriteToDb(sp);
 }
 
 function syncSingleSpriteToDb(sp) {
   if (!sp || !sp.id) return;
-  sp.updatedAt = new Date().getTime();
-  dbWrite("PUT", "realtime/sprites/" + sp.id, sp, null);
+  var now = new Date().getTime();
+  sp.updatedAt = now;
+  worldState.lastSpriteSyncMap[sp.id] = now;
+  var payload = {
+    id: sp.id,
+    url: sp.url,
+    label: sp.label || "Prop",
+    x: Math.round(sp.x),
+    y: Math.round(sp.y),
+    vx: Math.round(sp.vx || 0),
+    vy: Math.round(sp.vy || 0),
+    rot: Math.round(sp.rot || 0),
+    frozen: Boolean(sp.frozen),
+    thruster: Boolean(sp.thruster),
+    settled: Boolean(sp.settled),
+    ownerId: sp.ownerId || myClientId,
+    by: sp.by || getDisplayUsername(),
+    updatedAt: now
+  };
+  dbWrite("PUT", "realtime/sprites/" + sp.id, payload, null);
 }
 
 function spawnSpriteFromFile() {
@@ -225,6 +251,7 @@ function spawnSpriteFromFile() {
 
 function clearAllWorldProps() {
   worldState.sprites = {};
+  worldState.ownedSprites = {};
   var layer = document.getElementById("playgroundLayer");
   if (layer) layer.innerHTML = "";
   worldState.spriteNodes = {};
@@ -242,8 +269,13 @@ function handleWorldPropPointerDown(sid, e) {
   if (!sp) return;
   var tool = worldState.activeTool || "physgun";
 
+  sp.ownerId = myClientId;
+  sp.settled = false;
+  worldState.ownedSprites[sid] = true;
+
   if (tool === "remover") {
     delete worldState.sprites[sid];
+    delete worldState.ownedSprites[sid];
     if (worldState.spriteNodes[sid] && worldState.spriteNodes[sid].parentNode) {
       worldState.spriteNodes[sid].parentNode.removeChild(worldState.spriteNodes[sid]);
     }
@@ -255,9 +287,11 @@ function handleWorldPropPointerDown(sid, e) {
 
   if (tool === "gravgun") {
     sp.frozen = false;
-    var angle = Math.atan2((sp.y + 32) - (e.pageY || e.clientY), (sp.x + 32) - (e.pageX || e.clientX));
-    sp.vx = Math.cos(angle) * 780;
-    sp.vy = Math.sin(angle) * 780 - 220;
+    var px = (typeof e.pageX === "number") ? e.pageX : e.clientX;
+    var py = (typeof e.pageY === "number") ? e.pageY : (e.clientY + (window.pageYOffset || 0));
+    var angle = Math.atan2((sp.y + 32) - py, (sp.x + 32) - px);
+    sp.vx = Math.cos(angle) * 760;
+    sp.vy = Math.sin(angle) * 760 - 220;
     spawnSparkBurst(sp.x + 32, sp.y + 32, "#FF9900", 14);
     syncSingleSpriteToDb(sp);
     return;
@@ -266,7 +300,7 @@ function handleWorldPropPointerDown(sid, e) {
   if (tool === "crowbar") {
     sp.frozen = false;
     sp.vx = (Math.random() > 0.5 ? 1 : -1) * 440;
-    sp.vy = -360;
+    sp.vy = -340;
     sp.rot = (sp.rot || 0) + 35;
     spawnSparkBurst(sp.x + 32, sp.y + 32, "#FFD700", 12);
     syncSingleSpriteToDb(sp);
@@ -284,18 +318,137 @@ function handleWorldPropPointerDown(sid, e) {
 
   // Default: physgun grab
   worldState.grabbedSpriteId = sid;
+  worldState.grabbedActorId = null;
   sp.frozen = false;
   sp.vx = 0;
   sp.vy = 0;
+  syncSingleSpriteToDb(sp);
 }
 
 /* ==========================================================================
-   MOUSE CURSORS (CLASSIC ARROW POINTER) & LIVE CURSOR CHAT
+   INTERFACE-OPTIMIZED MOUSE CURSORS & LIVE CURSOR CHAT
+   (Maps cursor to the exact UI panel/canvas/navbar for each user's layout)
    ========================================================================== */
+var CURSOR_ANCHOR_SELECTORS = [
+  "#wplaceCanvas",
+  ".top-bar",
+  ".left-sidebar",
+  ".center-column",
+  "#pageCenter"
+];
+
 function createMouseCursorSvg() {
   return "<svg class='cursor-mouse-icon' width='16' height='22' viewBox='0 0 16 22' xmlns='http://www.w3.org/2000/svg'>" +
     "<polygon points='1,1 1,18 5,14 8,21 11,19 8,13 14,13' fill='#FFFFFF' stroke='#000000' stroke-width='1.5' stroke-linejoin='round'/>" +
   "</svg>";
+}
+
+function isRectVisible(rect) {
+  return rect && rect.width > 8 && rect.height > 8;
+}
+
+function computeAnchoredCursor(clientX, clientY) {
+  var scrollX = window.pageXOffset || document.documentElement.scrollLeft || 0;
+  var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+  var docX = clientX + scrollX;
+  var docY = clientY + scrollY;
+
+  for (var i = 0; i < CURSOR_ANCHOR_SELECTORS.length; i++) {
+    var sel = CURSOR_ANCHOR_SELECTORS[i];
+    var el = document.querySelector(sel);
+    if (!el) continue;
+    var r = el.getBoundingClientRect();
+    if (!isRectVisible(r)) continue;
+    if (clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom) {
+      var u = (clientX - r.left) / Math.max(1, r.width);
+      var v = (clientY - r.top) / Math.max(1, r.height);
+      return {
+        anchor: sel,
+        u: Math.round(Math.max(0, Math.min(1, u)) * 10000) / 10000,
+        v: Math.round(Math.max(0, Math.min(1, v)) * 10000) / 10000,
+        relY: Math.round(clientY - r.top),
+        relX: Math.round((clientX / Math.max(1, window.innerWidth || 1000)) * 10000) / 10000,
+        y: Math.round(docY)
+      };
+    }
+  }
+
+  var pageEl = document.getElementById("pageCenter");
+  if (pageEl) {
+    var pr = pageEl.getBoundingClientRect();
+    if (isRectVisible(pr)) {
+      var pu = (clientX - pr.left) / Math.max(1, pr.width);
+      var pv = (clientY - pr.top) / Math.max(1, pr.height);
+      return {
+        anchor: "#pageCenter",
+        u: Math.round(Math.max(0, Math.min(1, pu)) * 10000) / 10000,
+        v: Math.round(Math.max(0, Math.min(1, pv)) * 10000) / 10000,
+        relY: Math.round(clientY - pr.top),
+        relX: Math.round(Math.max(0, Math.min(1, pu)) * 10000) / 10000,
+        y: Math.round(docY)
+      };
+    }
+  }
+
+  var docW = Math.max(320, document.documentElement.clientWidth || window.innerWidth || 1000);
+  return {
+    anchor: "",
+    u: Math.round(Math.max(0, Math.min(1, docX / docW)) * 10000) / 10000,
+    v: 0,
+    relY: Math.round(docY),
+    relX: Math.round(Math.max(0, Math.min(1, docX / docW)) * 10000) / 10000,
+    y: Math.round(docY)
+  };
+}
+
+function resolveAnchoredCursor(cur, docW) {
+  var scrollX = window.pageXOffset || document.documentElement.scrollLeft || 0;
+  var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+
+  if (cur && cur.anchor) {
+    var targetEl = document.querySelector(cur.anchor);
+    if (targetEl) {
+      var r = targetEl.getBoundingClientRect();
+      if (isRectVisible(r)) {
+        var u = typeof cur.u === "number" ? cur.u : (cur.relX || 0.5);
+        var mappedX = r.left + scrollX + (u * r.width);
+        var mappedY;
+        if (cur.anchor === "#wplaceCanvas" || cur.anchor === ".top-bar") {
+          var v = typeof cur.v === "number" ? cur.v : 0.5;
+          mappedY = r.top + scrollY + (v * r.height);
+        } else if (typeof cur.relY === "number") {
+          var clampedRelY = Math.max(0, Math.min(r.height, cur.relY));
+          mappedY = r.top + scrollY + clampedRelY;
+        } else {
+          var v2 = typeof cur.v === "number" ? cur.v : 0.2;
+          mappedY = r.top + scrollY + (v2 * r.height);
+        }
+        return {
+          x: Math.max(4, Math.min(docW - 24, Math.round(mappedX))),
+          y: Math.max(4, Math.round(mappedY))
+        };
+      }
+    }
+
+    // If sender is inside a tab/panel not currently open on receiver's screen, map inside receiver's center-column
+    var centerEl = document.querySelector(".center-column") || document.getElementById("pageCenter");
+    if (centerEl) {
+      var cr = centerEl.getBoundingClientRect();
+      if (isRectVisible(cr)) {
+        var cu = typeof cur.u === "number" ? cur.u : 0.5;
+        var cv = typeof cur.v === "number" ? cur.v : 0.2;
+        return {
+          x: Math.max(4, Math.min(docW - 24, Math.round(cr.left + scrollX + cu * cr.width))),
+          y: Math.max(4, Math.round(cr.top + scrollY + Math.min(480, cv * Math.max(260, cr.height))))
+        };
+      }
+    }
+  }
+
+  return {
+    x: Math.max(4, Math.min(docW - 24, Math.round((cur.relX || 0) * docW))),
+    y: Math.max(4, Math.round(cur.y || 40))
+  };
 }
 
 function openCursorChatBar() {
@@ -322,20 +475,22 @@ function onCursorChatTyping(val) {
 
 function sendCursorPresence(force) {
   var now = new Date().getTime();
-  if (!force && (now - worldState.lastCursorSendTime) < 260) return;
+  if (!force && (now - worldState.lastCursorSendTime) < 220) return;
   worldState.lastCursorSendTime = now;
 
-  var docW = Math.max(320, document.documentElement.clientWidth || window.innerWidth || 1000);
-  var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
-  var relX = Math.max(0, Math.min(1, worldState.lastMouseX / docW));
-  var docY = Math.max(0, Math.round(scrollY + worldState.lastMouseY));
+  var anchored = computeAnchoredCursor(worldState.lastMouseX, worldState.lastMouseY);
   var activeChat = (worldState.localChatExpiresAt > now) ? worldState.localChatText : "";
 
   var payload = {
     id: myClientId,
     name: getDisplayUsername(),
-    relX: Math.round(relX * 10000) / 10000,
-    y: docY,
+    view: state.view || "boards",
+    anchor: anchored.anchor,
+    u: anchored.u,
+    v: anchored.v,
+    relY: anchored.relY,
+    relX: anchored.relX,
+    y: anchored.y,
     chat: activeChat,
     updatedAt: now
   };
@@ -387,8 +542,100 @@ function spawnSparkBurst(docX, docY, color, count) {
 }
 
 /* ==========================================================================
-   PLAYABLE 2D CHARACTER ACTOR (WASD + JUMP + [F] ATTACK)
+   PLAYABLE 2D CHARACTER ACTOR (LANDS ON BUTTONS/UI, PHYSGUN GRABBABLE)
    ========================================================================== */
+function getUiPlatformRects(now) {
+  if ((now - (worldState.lastPlatformScan || 0)) < 350 && worldState.platformCache && worldState.platformCache.length) {
+    return worldState.platformCache;
+  }
+  worldState.lastPlatformScan = now;
+
+  var scrollX = window.pageXOffset || document.documentElement.scrollLeft || 0;
+  var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+  var selectors = [
+    "#pageCenter button",
+    "#pageCenter input[type='text']",
+    "#pageCenter input[type='password']",
+    "#pageCenter textarea",
+    ".top-bar",
+    ".box-header",
+    ".side-header",
+    ".status-banner",
+    ".thread-item",
+    ".wall-post-card",
+    ".fav-card",
+    "#wplaceCanvas"
+  ];
+  var nodes = document.querySelectorAll(selectors.join(","));
+  var rects = [];
+  for (var i = 0; i < nodes.length; i++) {
+    var el = nodes[i];
+    if (!el || el.offsetParent === null) continue;
+    var r = el.getBoundingClientRect();
+    if (r.width < 18 || r.height < 10) continue;
+    rects.push({
+      left: r.left + scrollX,
+      right: r.right + scrollX,
+      top: r.top + scrollY,
+      bottom: r.bottom + scrollY
+    });
+  }
+  worldState.platformCache = rects;
+  return rects;
+}
+
+function handleActorPointerDown(aid, e) {
+  e = e || window.event;
+  if (e.preventDefault) e.preventDefault();
+  if (e.stopPropagation) e.stopPropagation();
+
+  var act = worldState.actors[aid];
+  if (!act) return;
+  var tool = worldState.activeTool || "physgun";
+
+  if (tool === "gravgun") {
+    var px = (typeof e.pageX === "number") ? e.pageX : e.clientX;
+    var py = (typeof e.pageY === "number") ? e.pageY : (e.clientY + (window.pageYOffset || 0));
+    var ang = Math.atan2((act.y + 22) - py, (act.x + 18) - px);
+    if (aid === myClientId) {
+      worldState.myActor.frozen = false;
+      worldState.myActor.vx = Math.cos(ang) * 680;
+      worldState.myActor.vy = Math.sin(ang) * 680 - 260;
+      worldState.myActor.grounded = false;
+      syncMyActorToDb(true);
+    } else {
+      act.x = Math.round(act.x + Math.cos(ang) * 140);
+      act.y = Math.max(20, Math.round(act.y + Math.sin(ang) * 110 - 60));
+      act.updatedAt = new Date().getTime();
+      dbWrite("PUT", "realtime/actors/" + aid, act, null);
+    }
+    spawnSparkBurst(act.x + 18, act.y + 22, "#FF9900", 14);
+    return;
+  }
+
+  if (tool === "crowbar") {
+    if (aid === myClientId) {
+      worldState.myActor.frozen = false;
+      worldState.myActor.vx = (Math.random() > 0.5 ? 1 : -1) * 420;
+      worldState.myActor.vy = -340;
+      worldState.myActor.grounded = false;
+      syncMyActorToDb(true);
+    }
+    spawnSparkBurst(act.x + 18, act.y + 22, "#FFD700", 12);
+    return;
+  }
+
+  // Default: Physgun grab character model!
+  worldState.grabbedActorId = aid;
+  worldState.grabbedSpriteId = null;
+  if (aid === myClientId) {
+    worldState.myActor.frozen = false;
+    worldState.myActor.vx = 0;
+    worldState.myActor.vy = 0;
+    worldState.myActor.grounded = false;
+  }
+}
+
 function togglePlayerActor() {
   worldState.actorEnabled = !worldState.actorEnabled;
   var btn = document.getElementById("toggleActorBtn");
@@ -396,14 +643,24 @@ function togglePlayerActor() {
 
   if (worldState.actorEnabled) {
     var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
-    worldState.myActor.x = 460;
-    worldState.myActor.y = scrollY + 180;
+    var pageEl = document.getElementById("pageCenter");
+    var startX = 360;
+    if (pageEl) {
+      var pr = pageEl.getBoundingClientRect();
+      if (pr.width > 100) startX = Math.round(pr.left + (window.pageXOffset || 0) + pr.width * 0.42);
+    }
+    worldState.myActor.x = startX;
+    worldState.myActor.y = scrollY + 60;
     worldState.myActor.vx = 0;
     worldState.myActor.vy = 0;
     worldState.myActor.hp = 100;
+    worldState.myActor.frozen = false;
+    worldState.myActor.grounded = false;
+    worldState.lastPlatformScan = 0;
     syncMyActorToDb(true);
-    showStatus("Model spawned! Use [W][A][S][D] or Arrows to move, [F] to hit.", false);
+    showStatus("Model spawned! Walk/jump onto buttons with [WASD], drop with [S], or grab with Physgun.", false);
   } else {
+    if (worldState.grabbedActorId === myClientId) worldState.grabbedActorId = null;
     delete worldState.actors[myClientId];
     if (worldState.actorNodes[myClientId] && worldState.actorNodes[myClientId].parentNode) {
       worldState.actorNodes[myClientId].parentNode.removeChild(worldState.actorNodes[myClientId]);
@@ -417,6 +674,10 @@ function setActorKey(dir, isDown) {
   if (worldState.keys && worldState.keys.hasOwnProperty(dir)) {
     worldState.keys[dir] = Boolean(isDown);
   }
+  if (dir === "down" && isDown) {
+    worldState.dropThroughUntil = new Date().getTime() + 240;
+    worldState.myActor.grounded = false;
+  }
 }
 
 function triggerActorAttack() {
@@ -427,7 +688,6 @@ function triggerActorAttack() {
   var hitY = worldState.myActor.y + 20;
   spawnSparkBurst(hitX, hitY, "#FFD700", 10);
 
-  // Knock nearby props
   for (var sid in worldState.sprites) {
     if (!worldState.sprites.hasOwnProperty(sid) || !worldState.sprites[sid]) continue;
     var sp = worldState.sprites[sid];
@@ -435,6 +695,9 @@ function triggerActorAttack() {
     var dy = (sp.y + 30) - hitY;
     if ((dx * dx + dy * dy) < 6400) {
       sp.frozen = false;
+      sp.settled = false;
+      sp.ownerId = myClientId;
+      worldState.ownedSprites[sid] = true;
       sp.vx = worldState.myActor.facing * 420;
       sp.vy = -260;
       syncSingleSpriteToDb(sp);
@@ -458,6 +721,7 @@ function syncMyActorToDb(force) {
     y: Math.round(worldState.myActor.y),
     facing: worldState.myActor.facing,
     hp: worldState.myActor.hp,
+    frozen: Boolean(worldState.myActor.frozen),
     swingUntil: worldState.myActor.swingUntil,
     updatedAt: now
   };
@@ -466,41 +730,111 @@ function syncMyActorToDb(force) {
 }
 
 /* ==========================================================================
-   60FPS WORLD ENGINE (SMOOTH DOM POOLING + LERP, ZERO-JITTER ANIMATION)
+   60FPS WORLD ENGINE (SMOOTH DOM POOLING, PLATFORM COLLISION & LERP)
    ========================================================================== */
 function initWorldEngine() {
+  worldState.ownedSprites = worldState.ownedSprites || {};
+  worldState.lastSpriteSyncMap = worldState.lastSpriteSyncMap || {};
+  worldState.isPointerDown = false;
+  worldState.grabbedActorId = null;
+  worldState.dropThroughUntil = 0;
+
+  document.addEventListener("mousedown", function() {
+    worldState.isPointerDown = true;
+  }, true);
+
+  document.addEventListener("touchstart", function() {
+    worldState.isPointerDown = true;
+  }, true);
+
   document.addEventListener("mousemove", function(e) {
     e = e || window.event;
     var prevX = worldState.lastMouseX;
     var prevY = worldState.lastMouseY;
     worldState.lastMouseX = e.clientX;
     worldState.lastMouseY = e.clientY;
-    worldState.throwVx = (e.clientX - prevX) * 28;
-    worldState.throwVy = (e.clientY - prevY) * 28;
+    worldState.throwVx = Math.max(-900, Math.min(900, (e.clientX - prevX) * 26));
+    worldState.throwVy = Math.max(-900, Math.min(900, (e.clientY - prevY) * 26));
+
+    var scrollX = window.pageXOffset || document.documentElement.scrollLeft || 0;
+    var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
 
     if (worldState.grabbedSpriteId && worldState.sprites[worldState.grabbedSpriteId]) {
       var sp = worldState.sprites[worldState.grabbedSpriteId];
-      var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
-      sp.x = Math.round(e.clientX - 32);
+      sp.x = Math.round(scrollX + e.clientX - 32);
       sp.y = Math.round(scrollY + e.clientY - 32);
       sp.vx = 0;
       sp.vy = 0;
+      sp.settled = false;
+      sp.ownerId = myClientId;
+      worldState.ownedSprites[sp.id] = true;
+      var nowMs = new Date().getTime();
+      if ((nowMs - (worldState.lastSpriteSyncMap[sp.id] || 0)) > 260) {
+        syncSingleSpriteToDb(sp);
+      }
+    }
+
+    if (worldState.grabbedActorId && worldState.actors[worldState.grabbedActorId]) {
+      var gaId = worldState.grabbedActorId;
+      var nx = Math.round(scrollX + e.clientX - 18);
+      var ny = Math.round(scrollY + e.clientY - 22);
+      if (gaId === myClientId) {
+        worldState.myActor.x = nx;
+        worldState.myActor.y = ny;
+        worldState.myActor.vx = 0;
+        worldState.myActor.vy = 0;
+        worldState.myActor.grounded = false;
+        syncMyActorToDb(false);
+      } else {
+        var rAct = worldState.actors[gaId];
+        rAct.x = nx;
+        rAct.y = ny;
+        var aNow = new Date().getTime();
+        if ((aNow - (rAct._lastSync || 0)) > 240) {
+          rAct._lastSync = aNow;
+          rAct.updatedAt = aNow;
+          dbWrite("PUT", "realtime/actors/" + gaId, rAct, null);
+        }
+      }
     }
 
     sendCursorPresence(false);
   });
 
-  document.addEventListener("mouseup", function() {
+  function releaseAllGrabs() {
+    worldState.isPointerDown = false;
+
     if (worldState.grabbedSpriteId) {
       var sp = worldState.sprites[worldState.grabbedSpriteId];
       worldState.grabbedSpriteId = null;
       if (sp) {
-        sp.vx = Math.max(-900, Math.min(900, worldState.throwVx));
-        sp.vy = Math.max(-900, Math.min(900, worldState.throwVy));
+        sp.vx = worldState.throwVx;
+        sp.vy = worldState.throwVy;
+        sp.settled = false;
+        sp.ownerId = myClientId;
+        worldState.ownedSprites[sp.id] = true;
         syncSingleSpriteToDb(sp);
       }
     }
-  });
+
+    if (worldState.grabbedActorId) {
+      var aid = worldState.grabbedActorId;
+      worldState.grabbedActorId = null;
+      if (aid === myClientId) {
+        worldState.myActor.vx = worldState.throwVx * 0.75;
+        worldState.myActor.vy = worldState.throwVy * 0.75;
+        worldState.myActor.grounded = false;
+        syncMyActorToDb(true);
+      } else if (worldState.actors[aid]) {
+        var remAct = worldState.actors[aid];
+        remAct.updatedAt = new Date().getTime();
+        dbWrite("PUT", "realtime/actors/" + aid, remAct, null);
+      }
+    }
+  }
+
+  document.addEventListener("mouseup", releaseAllGrabs);
+  document.addEventListener("touchend", releaseAllGrabs);
 
   document.addEventListener("wheel", function(e) {
     if (worldState.grabbedSpriteId && worldState.sprites[worldState.grabbedSpriteId]) {
@@ -516,8 +850,9 @@ function initWorldEngine() {
     if (e.preventDefault) e.preventDefault();
     var cat = (worldState.propCatalog && worldState.propCatalog.length) ? worldState.propCatalog : WIKIPEDIA_FALLBACK_PROPS;
     var pick = cat[Math.floor(Math.random() * cat.length)];
+    var scrollX = window.pageXOffset || document.documentElement.scrollLeft || 0;
     var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
-    spawnWorldSprite(pick.url, pick.title, e.clientX - 28, scrollY + e.clientY - 28, (Math.random() - 0.5) * 420, -280);
+    spawnWorldSprite(pick.url, pick.title, scrollX + e.clientX - 28, scrollY + e.clientY - 28, (Math.random() - 0.5) * 380, -260);
   });
 
   lastFrameMs = new Date().getTime();
@@ -541,37 +876,60 @@ function initWorldEngine() {
 
 function stepWorldPhysics(dt, now) {
   var docW = Math.max(320, document.documentElement.clientWidth || window.innerWidth || 1000);
-  var floorY = Math.max(600, (document.documentElement.scrollHeight || 900) - 86);
+  var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+  var winH = window.innerHeight || 700;
+  var docH = Math.max(winH, document.documentElement.scrollHeight || winH);
+  var platforms = getUiPlatformRects(now);
 
-  // Step sprites
+  // 1. Step Sprites
   for (var sid in worldState.sprites) {
     if (!worldState.sprites.hasOwnProperty(sid) || !worldState.sprites[sid]) continue;
     var sp = worldState.sprites[sid];
     if (sid === worldState.grabbedSpriteId || sp.frozen) continue;
 
+    var isMine = (sp.ownerId === myClientId || worldState.ownedSprites[sid]);
+    if (!isMine && sp.settled) continue;
+
     if (sp.thruster) {
       sp.vy -= 920 * dt;
       sp.vx += Math.sin(now * 0.01) * 140 * dt;
+      sp.settled = false;
     } else {
       sp.vy += 680 * dt;
     }
 
+    var prevY = sp.y;
     sp.x += (sp.vx || 0) * dt;
     sp.y += (sp.vy || 0) * dt;
-    sp.vx *= (1 - 0.6 * dt);
+    sp.vx *= (1 - 0.65 * dt);
 
     if (sp.x < 8) { sp.x = 8; sp.vx = Math.abs(sp.vx) * 0.72; }
     if (sp.x > docW - 84) { sp.x = docW - 84; sp.vx = -Math.abs(sp.vx) * 0.72; }
     if (sp.y < 10) { sp.y = 10; sp.vy = Math.abs(sp.vy) * 0.6; }
-    if (sp.y > floorY) {
-      sp.y = floorY;
-      sp.vy = -Math.abs(sp.vy) * 0.52;
-      sp.vx *= 0.86;
-      if (Math.abs(sp.vy) < 24) sp.vy = 0;
+
+    var spriteFloor = Math.min(docH - 76, scrollY + winH - 76);
+    if (spriteFloor < 220) spriteFloor = docH - 76;
+
+    if (sp.y >= spriteFloor) {
+      sp.y = spriteFloor;
+      sp.vy = -Math.abs(sp.vy) * 0.45;
+      sp.vx *= 0.82;
+      if (Math.abs(sp.vy) < 28 && Math.abs(sp.vx) < 18 && !sp.thruster) {
+        sp.vy = 0;
+        sp.vx = 0;
+        if (!sp.settled) {
+          sp.settled = true;
+          if (isMine) syncSingleSpriteToDb(sp);
+        }
+      }
+    } else if (isMine && !sp.settled && Math.abs(sp.y - prevY) > 0.2) {
+      if ((now - (worldState.lastSpriteSyncMap[sid] || 0)) > 450) {
+        syncSingleSpriteToDb(sp);
+      }
     }
   }
 
-  // Step fireworks
+  // 2. Step Fireworks
   for (var fid in worldState.fireworks) {
     if (!worldState.fireworks.hasOwnProperty(fid) || !worldState.fireworks[fid]) continue;
     var fw = worldState.fireworks[fid];
@@ -585,29 +943,62 @@ function stepWorldPhysics(dt, now) {
     }
   }
 
-  // Step local player actor
-  if (worldState.actorEnabled) {
+  // 3. Step Local Player Character Actor (with UI Button/Panel Platform Collisions)
+  if (worldState.actorEnabled && worldState.grabbedActorId !== myClientId) {
     var a = worldState.myActor;
-    var moveSpeed = 260;
-    if (worldState.keys.left) { a.vx = -moveSpeed; a.facing = -1; }
-    else if (worldState.keys.right) { a.vx = moveSpeed; a.facing = 1; }
-    else { a.vx *= (1 - 10 * dt); }
+    if (!a.frozen) {
+      var moveSpeed = 260;
+      if (worldState.keys.left) { a.vx = -moveSpeed; a.facing = -1; }
+      else if (worldState.keys.right) { a.vx = moveSpeed; a.facing = 1; }
+      else { a.vx *= (1 - 11 * dt); }
 
-    if (worldState.keys.jump && a.grounded) {
-      a.vy = -440;
+      if (worldState.keys.jump && a.grounded) {
+        a.vy = -460;
+        a.grounded = false;
+      }
+
+      var actorH = 46;
+      var actorW = 36;
+      var prevBottom = a.y + actorH;
+
+      a.vy += 980 * dt;
+      a.x += a.vx * dt;
+      a.y += a.vy * dt;
       a.grounded = false;
-    }
-    a.vy += 980 * dt;
-    a.x += a.vx * dt;
-    a.y += a.vy * dt;
 
-    var actorFloor = Math.max(400, (document.documentElement.scrollHeight || 800) - 52);
-    if (a.x < 10) a.x = 10;
-    if (a.x > docW - 46) a.x = docW - 46;
-    if (a.y >= actorFloor) {
-      a.y = actorFloor;
-      a.vy = 0;
-      a.grounded = true;
+      if (a.x < 8) { a.x = 8; a.vx = 0; }
+      if (a.x > docW - actorW - 8) { a.x = docW - actorW - 8; a.vx = 0; }
+      if (a.y < 8) { a.y = 8; a.vy = 0; }
+
+      var nextBottom = a.y + actorH;
+      var canDrop = (now < (worldState.dropThroughUntil || 0));
+
+      // Check landing on top of UI buttons, inputs, headers, and cards
+      if (a.vy >= 0 && !canDrop) {
+        var footLeft = a.x + 7;
+        var footRight = a.x + actorW - 7;
+        for (var p = 0; p < platforms.length; p++) {
+          var plat = platforms[p];
+          if (footRight >= plat.left && footLeft <= plat.right) {
+            if (prevBottom <= plat.top + 10 && nextBottom >= plat.top) {
+              a.y = plat.top - actorH;
+              a.vy = 0;
+              a.grounded = true;
+              nextBottom = plat.top;
+              break;
+            }
+          }
+        }
+      }
+
+      // Viewport & document floor so character never falls out of sight
+      var visibleFloor = Math.min(docH - actorH - 4, scrollY + winH - actorH - 6);
+      if (visibleFloor < 160) visibleFloor = docH - actorH - 4;
+      if (a.y >= visibleFloor) {
+        a.y = visibleFloor;
+        a.vy = 0;
+        a.grounded = true;
+      }
     }
     syncMyActorToDb(false);
   }
@@ -615,9 +1006,9 @@ function stepWorldPhysics(dt, now) {
 
 function renderWorldDom(dt, now) {
   var docW = Math.max(320, document.documentElement.clientWidth || window.innerWidth || 1000);
-  var lerpAlpha = Math.min(1, dt * 14);
+  var lerpAlpha = Math.min(1, dt * 15);
 
-  // 1. Render Sprites (Persistent DOM Nodes)
+  // 1. Render Sprites (Persistent DOM Nodes, zero stray text)
   var spLayer = document.getElementById("playgroundLayer");
   if (spLayer) {
     for (var sid in worldState.spriteNodes) {
@@ -634,19 +1025,27 @@ function renderWorldDom(dt, now) {
         node = document.createElement("img");
         node.className = "world-sprite";
         node.setAttribute("referrerpolicy", "no-referrer");
-        node.src = sp.url;
-        node.title = (sp.label || "Prop") + " (by " + (sp.by || "Anon") + ")";
-        (function(spriteId) {
+        node.alt = "";
+        (function(spriteId, spriteLabel) {
+          var fb = makePropFallbackSvg(spriteLabel);
+          node.onerror = function() {
+            this.onerror = null;
+            this.src = fb;
+          };
           node.onmousedown = function(ev) { handleWorldPropPointerDown(spriteId, ev); };
           node.ontouchstart = function(ev) { handleWorldPropPointerDown(spriteId, ev); };
-        })(id);
+        })(id, sp.label);
+        node.src = sp.url;
+        node.title = (sp.label || "Prop") + " (by " + (sp.by || "Anon") + ")";
         spLayer.appendChild(node);
         worldState.spriteNodes[id] = node;
       }
+      var isGrabbedSp = (worldState.grabbedSpriteId === id);
+      node.className = isGrabbedSp ? "world-sprite is-grabbed" : "world-sprite";
       node.style.left = Math.round(sp.x) + "px";
       node.style.top = Math.round(sp.y) + "px";
       node.style.transform = "rotate(" + Math.round(sp.rot || 0) + "deg)";
-      node.style.outline = sp.frozen ? "2px solid #1E90FF" : "none";
+      node.style.outline = sp.frozen ? "2px solid #1E90FF" : (isGrabbedSp ? "2px solid #00BFFF" : "none");
     }
   }
 
@@ -674,7 +1073,7 @@ function renderWorldDom(dt, now) {
     }
   }
 
-  // 3. Render Remote Mouse Cursors + Local Chat Bubble (Smooth LERP)
+  // 3. Render Interface-Anchored Remote Mouse Cursors + Local Chat Bubble
   var curLayer = document.getElementById("cursorsLayer");
   if (curLayer) {
     for (var cId in worldState.cursorNodes) {
@@ -697,9 +1096,11 @@ function renderWorldDom(dt, now) {
       var isMe = (cid === myClientId);
       if (isMe && !(worldState.localChatExpiresAt > now && worldState.localChatText)) continue;
 
-      var targetX = isMe ? worldState.lastMouseX : Math.round((cur.relX || 0) * docW);
+      var scrollX = window.pageXOffset || document.documentElement.scrollLeft || 0;
       var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
-      var targetY = isMe ? (scrollY + worldState.lastMouseY) : (cur.y || 0);
+      var targetPt = isMe
+        ? { x: scrollX + worldState.lastMouseX, y: scrollY + worldState.lastMouseY }
+        : resolveAnchoredCursor(cur, docW);
 
       var cNode = worldState.cursorNodes[cid];
       if (!cNode) {
@@ -709,20 +1110,21 @@ function renderWorldDom(dt, now) {
           (isMe ? "" : createMouseCursorSvg()) +
           "<div class='cursor-hud'>" +
             "<div class='cursor-chat-bubble' style='display:none;'></div>" +
-            "<div class='cursor-name-tag'></div>" +
+            "<span class='cursor-name-tag'></span>" +
+            "<span class='cursor-view-tag' style='display:none;'></span>" +
           "</div>";
-        cNode._curX = targetX;
-        cNode._curY = targetY;
+        cNode._curX = targetPt.x;
+        cNode._curY = targetPt.y;
         curLayer.appendChild(cNode);
         worldState.cursorNodes[cid] = cNode;
       }
 
       if (isMe) {
-        cNode._curX = targetX;
-        cNode._curY = targetY;
+        cNode._curX = targetPt.x;
+        cNode._curY = targetPt.y;
       } else {
-        cNode._curX += (targetX - cNode._curX) * lerpAlpha;
-        cNode._curY += (targetY - cNode._curY) * lerpAlpha;
+        cNode._curX += (targetPt.x - cNode._curX) * lerpAlpha;
+        cNode._curY += (targetPt.y - cNode._curY) * lerpAlpha;
       }
 
       cNode.style.left = Math.round(cNode._curX) + "px";
@@ -733,6 +1135,17 @@ function renderWorldDom(dt, now) {
         nameEl.style.display = isMe ? "none" : "inline-block";
         if (!isMe && nameEl.textContent !== (cur.name || "Anon")) {
           nameEl.textContent = cur.name || "Anon";
+        }
+      }
+
+      var viewEl = cNode.querySelector(".cursor-view-tag");
+      if (viewEl) {
+        if (!isMe && cur.view && cur.view !== state.view) {
+          viewEl.style.display = "inline-block";
+          var vLbl = "[" + cur.view + "]";
+          if (viewEl.textContent !== vLbl) viewEl.textContent = vLbl;
+        } else {
+          viewEl.style.display = "none";
         }
       }
 
@@ -749,7 +1162,7 @@ function renderWorldDom(dt, now) {
     }
   }
 
-  // 4. Render 2D Player Actors (Smooth LERP)
+  // 4. Render 2D Player Character Actors (Physgun Grabbable + Smooth LERP)
   var actLayer = document.getElementById("actorsLayer");
   if (actLayer) {
     for (var aNodeId in worldState.actorNodes) {
@@ -778,16 +1191,23 @@ function renderWorldDom(dt, now) {
         aNode.className = "player-actor";
         aNode.innerHTML =
           "<div class='actor-tag'></div>" +
-          "<img class='actor-head' src='" + esc(isValidImageSrc(act.avatar) ? act.avatar : DEFAULT_AVATAR_SVG) + "' alt='head'>" +
+          "<img class='actor-head' src='" + esc(isValidImageSrc(act.avatar) ? act.avatar : DEFAULT_AVATAR_SVG) + "' alt=''>" +
           "<div class='actor-body'></div>" +
           "<div class='actor-weapon'></div>";
+        (function(actorId) {
+          aNode.onmousedown = function(ev) { handleActorPointerDown(actorId, ev); };
+          aNode.ontouchstart = function(ev) { handleActorPointerDown(actorId, ev); };
+        })(aid);
         aNode._ax = ax;
         aNode._ay = ay;
         actLayer.appendChild(aNode);
         worldState.actorNodes[aid] = aNode;
       }
 
-      if (isSelf) {
+      var isGrabbedAct = (worldState.grabbedActorId === aid);
+      aNode.className = isGrabbedAct ? "player-actor is-grabbed" : "player-actor";
+
+      if (isSelf || isGrabbedAct) {
         aNode._ax = ax;
         aNode._ay = ay;
       } else {
@@ -846,6 +1266,15 @@ function renderFxParticles(dt) {
 /* ==========================================================================
    WPLACE / GEOPIXELS INTERACTIVE PIXEL MAP
    ========================================================================== */
+function jumpWplaceTo(lat, lon, zoom) {
+  if (typeof zoom === "number") {
+    wplaceState.zoom = Math.max(4, Math.min(36, zoom));
+  }
+  wplaceState.offsetX = Math.round(Number(lon || 31.10) * 20);
+  wplaceState.offsetY = Math.round(-Number(lat || 48.40) * 20);
+  renderWplaceCanvas();
+}
+
 function initWplaceMap() {
   var palBox = document.getElementById("wplacePalette");
   if (palBox) {
@@ -944,7 +1373,6 @@ function initWplaceMap() {
     wplaceState.lastDrawnKey = "";
   });
 
-  // Start centered over Ukraine / Pridnestrovie
   jumpWplaceTo(48.40, 31.10, 12);
 }
 
@@ -987,14 +1415,12 @@ function renderWplaceCanvas() {
   var minGy = wplaceState.offsetY - halfRows;
   var maxGy = wplaceState.offsetY + halfRows;
 
-  // Geographic reference markers (Kyiv, Odesa, Tiraspol)
   var cities = [
     { name: "Kyiv", gx: Math.round(30.52 * 20), gy: Math.round(-50.45 * 20) },
     { name: "Odesa", gx: Math.round(30.72 * 20), gy: Math.round(-46.48 * 20) },
     { name: "Tiraspol", gx: Math.round(29.63 * 20), gy: Math.round(-46.84 * 20) }
   ];
 
-  // Grid lines
   if (z >= 8) {
     ctx.strokeStyle = "#E5D8CE";
     ctx.lineWidth = 1;
@@ -1014,7 +1440,6 @@ function renderWplaceCanvas() {
     }
   }
 
-  // Painted pixels
   for (var key in state.wplacePixels) {
     if (!state.wplacePixels.hasOwnProperty(key) || !state.wplacePixels[key]) continue;
     var parts = key.split("_");
@@ -1027,7 +1452,6 @@ function renderWplaceCanvas() {
     ctx.fillRect(drawX, drawY, z, z);
   }
 
-  // City labels
   ctx.fillStyle = "#800000";
   ctx.font = "bold 11px Arial, sans-serif";
   for (var c = 0; c < cities.length; c++) {
