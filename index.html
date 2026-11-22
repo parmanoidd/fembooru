@@ -20,11 +20,11 @@
     <button type="button" onclick="closeCursorChatBar()">Close</button>
   </div>
 
-  <div class="page-center">
+  <div id="pageCenter" class="page-center">
     <header class="top-bar">
       <div class="top-info-strip">
         <span><b>fembooru</b> — Imageboard &amp; Social Network for Ukraine &amp; Pridnestrovie (Default: English)</span>
-        <span class="top-hotkeys">Controls: <b>[Q]</b> Props • <b>[Shift]</b> / <b>[/]</b> Cursor Chat • <b>RMB</b> Throw Sprite • <b>[WASD]</b> Walk</span>
+        <span class="top-hotkeys">Controls: <b>[Q]</b> Props • <b>[Shift]</b> / <b>[/]</b> Cursor Chat • <b>RMB</b> Throw Prop • <b>[WASD]</b> Walk &amp; Jump on UI</span>
       </div>
 
       <nav class="nav-bar">
@@ -122,7 +122,8 @@
             <button type="button" onclick="spawnFirework()">Firework</button>
             <button type="button" id="toggleActorBtn" onclick="togglePlayerActor()">Spawn Model (WASD)</button>
           </div>
-          <div class="mobile-actor-pad">
+          <div class="muted" style="padding:2px 8px 0 8px;">Physgun drags both props &amp; character models!</div>
+          <div class="mobile-actor-pad" style="padding:4px 8px;">
             <button type="button" ontouchstart="setActorKey('left',true)" ontouchend="setActorKey('left',false)" onmousedown="setActorKey('left',true)" onmouseup="setActorKey('left',false)">&larr;</button>
             <button type="button" ontouchstart="setActorKey('jump',true)" ontouchend="setActorKey('jump',false)" onmousedown="setActorKey('jump',true)" onmouseup="setActorKey('jump',false)">Jump</button>
             <button type="button" ontouchstart="setActorKey('right',true)" ontouchend="setActorKey('right',false)" onmousedown="setActorKey('right',true)" onmouseup="setActorKey('right',false)">&rarr;</button>
@@ -464,12 +465,12 @@
       </div>
       <div class="box-body">
         <div class="btn-row" style="margin-bottom:8px;">
-          <button type="button" class="tool-btn active-tool" data-tool="physgun" onclick="selectSandboxTool('physgun')">Physgun (Drag / Scroll Rotate / [E] Freeze)</button>
+          <button type="button" class="tool-btn active-tool" data-tool="physgun" onclick="selectSandboxTool('physgun')">Physgun (Drag Props &amp; Characters / [E] Freeze)</button>
           <button type="button" class="tool-btn" data-tool="gravgun" onclick="selectSandboxTool('gravgun')">Gravity Gun (Punt)</button>
-          <button type="button" class="tool-btn" data-tool="crowbar" onclick="selectSandboxTool('crowbar')">Crowbar (Fight [F])</button>
+          <button type="button" class="tool-btn" data-tool="crowbar" onclick="selectSandboxTool('crowbar')">Crowbar (Hit [F])</button>
           <button type="button" class="tool-btn" data-tool="thruster" onclick="selectSandboxTool('thruster')">Thruster</button>
           <button type="button" class="tool-btn" data-tool="remover" onclick="selectSandboxTool('remover')">Remover</button>
-          <button type="button" onclick="refreshPropCatalog()">Randomize Props</button>
+          <button type="button" onclick="refreshPropCatalog()">Randomize Wikipedia Props</button>
         </div>
         <div id="propMenuGrid" class="props-grid"></div>
       </div>
