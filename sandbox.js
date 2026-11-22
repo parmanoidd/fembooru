@@ -2,7 +2,7 @@
    FEMBOORU SANDBOX & REALTIME MULTIPLAYER WORLD:
    - SCROLL-AWARE CURSORS & MOBILE TOUCHES (NO SELF-CURSOR GHOST ON REFRESH)
    - REALTIME CURSOR CHAT ('/' OR 'SHIFT')
-   - GMOD / S&BOX PROP MENU ('Q' OR BUTTON) WITH RANDOM INTERNET IMAGES
+   - GMOD / S&BOX PROP MENU ('Q' OR BUTTON) WITH WIKIPEDIA & INTERNET SOURCES
    - SPRITES (GIF/STATIC), RMB THROWING, FIREWORKS LAUNCH & ATTACHMENT
    - HL2 TOOLS (PHYSGUN, GRAVGUN, CROWBAR, FREEZE, REMOVER) & PLAYABLE ACTOR
    ========================================================================== */
@@ -12,35 +12,134 @@ try {
   sessionStorage.setItem("fembooru_prev_client_id", myClientId);
 } catch (e) {}
 
-var PROP_SOURCES = [
+var EXTRA_PROP_SOURCES = [
   function(seed) { return "https://picsum.photos/seed/fb" + seed + "/160/130"; },
   function(seed) { return "https://robohash.org/fembooru_" + seed + ".png?size=140x140"; },
-  function(seed) { return "https://robohash.org/cat_" + seed + ".png?set=set4&size=140x140"; },
-  function(seed) { return "https://loremflickr.com/160/130/meme,cat?lock=" + seed; },
-  function(seed) { return "https://loremflickr.com/160/130/anime,retro?lock=" + seed; }
+  function(seed) { return "https://robohash.org/cat_" + seed + ".png?set=set4&size=140x140"; }
 ];
 
+function fetchWikipediaProps(callback) {
+  var collected = [];
+  var pending = 2;
+
+  function doneOne() {
+    pending--;
+    if (pending <= 0 && callback) callback(collected);
+  }
+
+  // 1. Random English Wikipedia articles with page thumbnails
+  var xhrWiki = new XMLHttpRequest();
+  xhrWiki.open(
+    "GET",
+    "https://en.wikipedia.org/w/api.php?action=query&generator=random&grnnamespace=0&grnlimit=14&prop=pageimages&pithumbsize=180&format=json&origin=*",
+    true
+  );
+  xhrWiki.onreadystatechange = function() {
+    if (xhrWiki.readyState !== 4) return;
+    if (xhrWiki.status === 200) {
+      try {
+        var res = JSON.parse(xhrWiki.responseText);
+        var pages = res && res.query && res.query.pages;
+        if (pages) {
+          for (var pid in pages) {
+            if (!pages.hasOwnProperty(pid)) continue;
+            var pg = pages[pid];
+            if (pg && pg.thumbnail && pg.thumbnail.source) {
+              collected.push({
+                id: "wp_" + pid,
+                name: pg.title || "Wikipedia",
+                url: pg.thumbnail.source
+              });
+            }
+          }
+        }
+      } catch (e) {}
+    }
+    doneOne();
+  };
+  xhrWiki.onerror = doneOne;
+  xhrWiki.send();
+
+  // 2. Random Wikimedia Commons media files (raster/SVG thumbnails)
+  var xhrCommons = new XMLHttpRequest();
+  xhrCommons.open(
+    "GET",
+    "https://commons.wikimedia.org/w/api.php?action=query&generator=random&grnnamespace=6&grnlimit=16&prop=imageinfo&iiprop=url&iiurlwidth=180&format=json&origin=*",
+    true
+  );
+  xhrCommons.onreadystatechange = function() {
+    if (xhrCommons.readyState !== 4) return;
+    if (xhrCommons.status === 200) {
+      try {
+        var res = JSON.parse(xhrCommons.responseText);
+        var pages = res && res.query && res.query.pages;
+        if (pages) {
+          for (var cid in pages) {
+            if (!pages.hasOwnProperty(cid)) continue;
+            var cpg = pages[cid];
+            var info = cpg && cpg.imageinfo && cpg.imageinfo[0];
+            var imgUrl = info && (info.thumburl || info.url);
+            if (imgUrl && /\.(jpg|jpeg|png|gif|webp|svg)(\?|$)/i.test(imgUrl)) {
+              var cleanTitle = String(cpg.title || "Commons").replace(/^File:/i, "").replace(/\.[^.]+$/, "");
+              collected.push({
+                id: "wc_" + cid,
+                name: cleanTitle.slice(0, 26),
+                url: imgUrl
+              });
+            }
+          }
+        }
+      } catch (e) {}
+    }
+    doneOne();
+  };
+  xhrCommons.onerror = doneOne;
+  xhrCommons.send();
+}
+
 function refreshPropCatalog() {
-  var list = [];
   var base = Math.floor(Math.random() * 9000) + 100;
-  for (var i = 0; i < 15; i++) {
+  var fallbackList = [];
+  for (var i = 0; i < 6; i++) {
     var seed = base + i * 7;
-    var fn = PROP_SOURCES[i % PROP_SOURCES.length];
-    list.push({
+    var fn = EXTRA_PROP_SOURCES[i % EXTRA_PROP_SOURCES.length];
+    fallbackList.push({
       id: "prop_" + seed,
-      name: "Prop #" + (i + 1),
+      name: "Random #" + (i + 1),
       url: fn(seed)
     });
   }
-  worldState.propCatalog = list;
-  renderPropMenuGrid();
+  worldState.propCatalog = fallbackList;
+  renderPropMenuGrid(true);
+
+  fetchWikipediaProps(function(wikiItems) {
+    var combined = [];
+    var seen = {};
+    for (var w = 0; w < wikiItems.length; w++) {
+      if (!seen[wikiItems[w].url]) {
+        seen[wikiItems[w].url] = true;
+        combined.push(wikiItems[w]);
+      }
+    }
+    for (var f = 0; f < fallbackList.length; f++) {
+      if (!seen[fallbackList[f].url]) {
+        seen[fallbackList[f].url] = true;
+        combined.push(fallbackList[f]);
+      }
+    }
+    worldState.propCatalog = combined;
+    renderPropMenuGrid(false);
+  });
 }
 
-function renderPropMenuGrid() {
+function renderPropMenuGrid(isLoadingWiki) {
   var grid = document.getElementById("propMenuGrid");
   if (!grid) return;
-  if (!worldState.propCatalog.length) refreshPropCatalog();
-  var h = "";
+  if (!worldState.propCatalog.length) {
+    refreshPropCatalog();
+    return;
+  }
+  var h = isLoadingWiki ? "<div class='muted' style='width:100%;margin-bottom:4px;'>Loading Wikipedia &amp; Wikimedia Commons images...</div>" : "";
   for (var i = 0; i < worldState.propCatalog.length; i++) {
     var p = worldState.propCatalog[i];
     h += "<div class='prop-menu-item' onclick=\"spawnPropFromCatalog(" + i + ")\">" +
@@ -70,11 +169,22 @@ function setWorldTool(toolName) {
 /* ==========================================================================
    SPRITES, RMB THROWING & FIREWORKS
    ========================================================================== */
+function getPageFloorBounds() {
+  var pageWrap = document.querySelector(".page-wrapper");
+  var contentBottom = pageWrap ? (pageWrap.offsetTop + pageWrap.offsetHeight) : 0;
+  var floorY = Math.max(window.innerHeight || 700, contentBottom);
+  var contentRight = pageWrap ? (pageWrap.offsetLeft + pageWrap.offsetWidth) : 0;
+  var docW = Math.max(window.innerWidth || 1000, contentRight);
+  return { width: docW, floorY: floorY };
+}
+
 function createWorldSpriteEntity(imgUrl, x, y) {
   if (!isValidImageSrc(imgUrl)) return;
+  var bounds = getPageFloorBounds();
   var sid = generateId("spr");
   var sx = (typeof x === "number") ? x : (window.pageXOffset || 0) + 280 + Math.random() * 240;
-  var sy = (typeof y === "number") ? y : (window.pageYOffset || 0) + 180 + Math.random() * 140;
+  var rawSy = (typeof y === "number") ? y : (window.pageYOffset || 0) + 160 + Math.random() * 120;
+  var sy = Math.max(20, Math.min(rawSy, bounds.floorY - 170));
   var spr = {
     id: sid,
     url: imgUrl,
@@ -88,6 +198,7 @@ function createWorldSpriteEntity(imgUrl, x, y) {
     vrot: 0,
     frozen: false,
     attachedFw: "",
+    restSynced: false,
     updatedAt: new Date().getTime()
   };
   worldState.sprites[sid] = spr;
@@ -127,9 +238,11 @@ function spawnCustomSprite() {
 }
 
 function spawnFirework() {
+  var bounds = getPageFloorBounds();
   var fid = generateId("fw");
   var fx = (window.pageXOffset || 0) + 260 + Math.random() * Math.max(200, (window.innerWidth || 900) - 420);
-  var fy = (window.pageYOffset || 0) + Math.max(260, (window.innerHeight || 650) - 90);
+  var rawFy = (window.pageYOffset || 0) + Math.max(260, (window.innerHeight || 650) - 90);
+  var fy = Math.min(rawFy, bounds.floorY - 60);
   var fw = {
     id: fid,
     ownerClient: myClientId,
@@ -247,6 +360,7 @@ function triggerActorToolAction() {
     var s = worldState.sprites[sid];
     if (Math.abs(s.x - reachX) < 85 && Math.abs(s.y - reachY) < 85) {
       s.frozen = false;
+      s.restSynced = false;
       s.vx = a.facing * 460;
       s.vy = -260;
       s.vrot = a.facing * 260;
@@ -341,7 +455,6 @@ function initSandboxWorld() {
     dbWrite("DELETE", "realtime/actors/" + myClientId, null, null);
   });
 
-  // Prevent browser context menu when right-clicking a sprite to throw it
   document.addEventListener("contextmenu", function(e) {
     var t = e.target;
     if (t && t.closest && t.closest(".world-sprite-node")) {
@@ -371,12 +484,15 @@ function initSandboxWorld() {
         e.preventDefault();
         worldState.grabbedSpriteId = sid;
         spr.frozen = false;
+        spr.restSynced = false;
         spr.ownerClient = myClientId;
         worldState.ownedSprites[sid] = true;
       } else if (worldState.activeTool === "freeze") {
         spr.frozen = !spr.frozen;
         spr.vx = 0;
         spr.vy = 0;
+        spr.vrot = 0;
+        spr.restSynced = true;
         dbWrite("PUT", "realtime/sprites/" + sid, spr, null);
       } else if (worldState.activeTool === "remover") {
         delete worldState.sprites[sid];
@@ -384,6 +500,7 @@ function initSandboxWorld() {
         renderWorldEntities();
       } else if (worldState.activeTool === "crowbar") {
         spr.frozen = false;
+        spr.restSynced = false;
         spr.vx = (Math.random() > 0.5 ? 1 : -1) * 420;
         spr.vy = -310;
         spr.vrot = 360;
@@ -417,6 +534,7 @@ function initSandboxWorld() {
       s.vx = 0;
       s.vy = 0;
       s.vrot = worldState.throwVx * 0.25;
+      s.restSynced = false;
     }
     if (worldState.grabbedActorId && worldState.actors[worldState.grabbedActorId]) {
       var ac = worldState.actors[worldState.grabbedActorId];
@@ -429,6 +547,7 @@ function initSandboxWorld() {
   function onPointerUp() {
     if (worldState.grabbedSpriteId && worldState.sprites[worldState.grabbedSpriteId]) {
       var s = worldState.sprites[worldState.grabbedSpriteId];
+      s.restSynced = false;
       if (worldState.activeTool === "gravgun") {
         s.vx = worldState.throwVx * 1.8 || 420;
         s.vy = worldState.throwVy * 1.8 || -360;
@@ -437,7 +556,6 @@ function initSandboxWorld() {
         s.vy = worldState.throwVy;
       }
 
-      // Check if dropped onto any active Firework
       for (var fid in worldState.fireworks) {
         if (!worldState.fireworks.hasOwnProperty(fid) || !worldState.fireworks[fid]) continue;
         var fw = worldState.fireworks[fid];
@@ -475,7 +593,6 @@ function initSandboxWorld() {
   document.addEventListener("touchmove", onPointerMove, { passive: true });
   document.addEventListener("touchend", onPointerUp);
 
-  // Rotate grabbed sprite with mouse wheel
   window.addEventListener("wheel", function(e) {
     if (worldState.grabbedSpriteId && worldState.sprites[worldState.grabbedSpriteId]) {
       var s = worldState.sprites[worldState.grabbedSpriteId];
@@ -483,7 +600,6 @@ function initSandboxWorld() {
     }
   }, { passive: true });
 
-  // Keyboard shortcuts: Q (Prop Menu), / or Shift (Cursor Chat), WASD/Arrows (Actor)
   document.addEventListener("keydown", function(e) {
     var tag = e.target && e.target.tagName;
     var inField = (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT");
@@ -512,7 +628,7 @@ function initSandboxWorld() {
 
     if (inField) return;
 
-    if (e.key === "/" ) {
+    if (e.key === "/") {
       e.preventDefault();
       openCursorChat();
       return;
@@ -547,7 +663,6 @@ function initSandboxWorld() {
     if (e.key === "s" || e.key === "S" || e.key === "ArrowDown") setActorKey("down", false);
   });
 
-  // Start Physics & Rendering Loop
   var lastFrameMs = new Date().getTime();
   function stepSandboxLoop() {
     var now = new Date().getTime();
@@ -564,8 +679,9 @@ function initSandboxWorld() {
    PHYSICS STEP & DOM / CANVAS RENDERING
    ========================================================================== */
 function updateWorldPhysics(dt, now) {
-  var docW = Math.max(document.documentElement.scrollWidth || 1000, window.innerWidth || 1000);
-  var docH = Math.max(document.documentElement.scrollHeight || 900, window.innerHeight || 900);
+  var bounds = getPageFloorBounds();
+  var docW = bounds.width;
+  var floorY = bounds.floorY;
 
   // 1. Fireworks update
   for (var fid in worldState.fireworks) {
@@ -588,6 +704,7 @@ function updateWorldPhysics(dt, now) {
       if (fw.attachedSpriteId && worldState.sprites[fw.attachedSpriteId]) {
         var launched = worldState.sprites[fw.attachedSpriteId];
         launched.attachedFw = "";
+        launched.restSynced = false;
         launched.vx = (Math.random() - 0.5) * 480;
         launched.vy = -220;
         launched.vrot = 420;
@@ -602,36 +719,59 @@ function updateWorldPhysics(dt, now) {
     }
   }
 
-  // 2. Sprites physics (owned sprites)
+  // 2. Sprites physics (bounded strictly to .page-wrapper floor so page never expands endlessly)
   for (var sid in worldState.sprites) {
     if (!worldState.sprites.hasOwnProperty(sid) || !worldState.sprites[sid]) continue;
     var s = worldState.sprites[sid];
     if (s.ownerClient !== myClientId) continue;
     if (worldState.grabbedSpriteId === sid || s.frozen || s.attachedFw) continue;
 
-    s.vy = (s.vy || 0) + 640 * dt;
+    var sprNode = worldState.spriteNodes[sid];
+    var sprW = (sprNode && sprNode.offsetWidth) ? sprNode.offsetWidth : 96;
+    var sprH = (sprNode && sprNode.offsetHeight) ? sprNode.offsetHeight : 96;
+    var maxX = Math.max(12, docW - sprW - 12);
+    var maxY = Math.max(20, floorY - sprH - 18);
+
+    s.vy = (s.vy || 0) + 680 * dt;
     s.x = (s.x || 0) + (s.vx || 0) * dt;
     s.y = (s.y || 0) + (s.vy || 0) * dt;
     s.rot = ((s.rot || 0) + (s.vrot || 0) * dt) % 360;
 
-    if (s.x < 10) { s.x = 10; s.vx = Math.abs(s.vx || 0) * 0.65; }
-    if (s.x > docW - 110) { s.x = docW - 110; s.vx = -Math.abs(s.vx || 0) * 0.65; }
-    if (s.y > docH - 110) {
-      s.y = docH - 110;
-      s.vy = -Math.abs(s.vy || 0) * 0.45;
-      s.vx = (s.vx || 0) * 0.82;
-      s.vrot = (s.vrot || 0) * 0.7;
-      if (Math.abs(s.vy) < 25) s.vy = 0;
+    if (s.x < 10) {
+      s.x = 10;
+      s.vx = Math.abs(s.vx || 0) * 0.65;
+    } else if (s.x > maxX) {
+      s.x = maxX;
+      s.vx = -Math.abs(s.vx || 0) * 0.65;
     }
 
-    if ((Math.abs(s.vx || 0) > 10 || Math.abs(s.vy || 0) > 10) &&
-        (now - (worldState.lastSpriteSyncMap[sid] || 0) > 320)) {
-      worldState.lastSpriteSyncMap[sid] = now;
+    if (s.y >= maxY) {
+      s.y = maxY;
+      if (Math.abs(s.vy || 0) > 55) {
+        s.vy = -Math.abs(s.vy || 0) * 0.42;
+      } else {
+        s.vy = 0;
+      }
+      s.vx = (s.vx || 0) * 0.80;
+      s.vrot = (s.vrot || 0) * 0.65;
+      if (Math.abs(s.vx) < 8) s.vx = 0;
+      if (Math.abs(s.vrot) < 8) s.vrot = 0;
+    }
+
+    var isMoving = (Math.abs(s.vx || 0) > 1 || Math.abs(s.vy || 0) > 1);
+    if (isMoving) {
+      s.restSynced = false;
+      if (now - (worldState.lastSpriteSyncMap[sid] || 0) > 320) {
+        worldState.lastSpriteSyncMap[sid] = now;
+        dbWrite("PUT", "realtime/sprites/" + sid, s, null);
+      }
+    } else if (!s.restSynced) {
+      s.restSynced = true;
       dbWrite("PUT", "realtime/sprites/" + sid, s, null);
     }
   }
 
-  // 3. Playable Actor physics (jumps on threads, buttons, and cursors!)
+  // 3. Playable Actor physics (jumps on threads, buttons, and cursors)
   if (worldState.actorEnabled) {
     scanPagePlatforms();
     var a = worldState.myActor;
@@ -666,7 +806,6 @@ function updateWorldPhysics(dt, now) {
           break;
         }
       }
-      // Also allow jumping on remote user cursors!
       for (var cId in worldState.cursors) {
         if (!worldState.cursors.hasOwnProperty(cId) || cId === myClientId || cId === prevClientId) continue;
         var cur = worldState.cursors[cId];
@@ -679,8 +818,8 @@ function updateWorldPhysics(dt, now) {
       }
     }
 
-    if (a.y > docH - 54) {
-      a.y = docH - 54;
+    if (a.y > floorY - 54) {
+      a.y = floorY - 54;
       a.vy = 0;
       a.grounded = true;
     }
@@ -735,7 +874,6 @@ function renderWorldEntities() {
   var curLayer = document.getElementById("remoteCursorsLayer");
   var now = new Date().getTime();
 
-  // Render Sprites & Fireworks
   if (layer) {
     var activeSpriteIds = {};
     for (var sid in worldState.sprites) {
@@ -790,7 +928,6 @@ function renderWorldEntities() {
       }
     }
 
-    // Render Walkable Actors
     var activeActIds = {};
     for (var cid in worldState.actors) {
       if (!worldState.actors.hasOwnProperty(cid) || !worldState.actors[cid]) continue;
@@ -830,7 +967,6 @@ function renderWorldEntities() {
     }
   }
 
-  // Render Remote Cursors (Strictly excluding myClientId & prevClientId so user never sees own mouse!)
   if (curLayer) {
     var activeCurIds = {};
     for (var cId in worldState.cursors) {
