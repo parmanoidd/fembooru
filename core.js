@@ -1,11 +1,16 @@
 /* ==========================================================================
-   FEMBOORU CORE ENGINE: FIREBASE REST CLIENT, AUTHENTICATION, SESSION
-   MANAGEMENT, SHARED APPLICATION STATE, MEDIA HELPERS & SNOW/TAB EFFECTS
+   FEMBOORU CORE: FIREBASE REST CLIENT, AUTH, SESSION & STALE TOKEN CLEANUP,
+   SHARED STATE, IMGBB & AUDIO COMPRESSION PIPELINE, SNOW & TAB ICON EFFECTS
    ========================================================================== */
 var CONFIG = {
-  firebaseDbUrl: "https://fembooru-142a4-default-rtdb.firebaseio.com",
-  firebaseApiKey: "AIzaSyFembooruWebClientKeyPlaceholder",
-  imgbbApiKey: "",
+  apiKey: "AIzaSyB2dRmsNzLoMrCpCp7k4RURFhEiRA9o7yE",
+  authDomain: "fembooru-142a4.firebaseapp.com",
+  firebaseDbUrl: "https://fembooru-142a4-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "fembooru-142a4",
+  storageBucket: "fembooru-142a4.firebasestorage.app",
+  messagingSenderId: "206195257844",
+  appId: "1:206195257844:web:64507a7cbf3f33f26e09a1",
+  imgbbApiKey: "120a27bcbb28d3ffd9f03bc4b32bb54f",
   realtimeSyncMs: 420,
   autoRefreshMs: 4000,
   superiorAdminEmail: "admin@fembooru.ua",
@@ -13,8 +18,11 @@ var CONFIG = {
 };
 
 var SERVICE_POLICY = {
-  maxImageBytes: 8 * 1024 * 1024,
-  maxAudioBytes: 15 * 1024 * 1024,
+  maxImageBytes: 32 * 1024 * 1024,
+  maxStickerBytes: 1536 * 1024,
+  maxStickerDim: 128,
+  maxAudioInputBytes: 25 * 1024 * 1024,
+  maxAudioPayloadBytes: 900 * 1024,
   wplaceStampMaxDim: 48
 };
 
@@ -74,6 +82,7 @@ var state = {
   blocks: {},
   notifications: {},
   music: {},
+  localMusicUploads: [],
   musicPlaylist: [],
   currentTrackIndex: -1,
   wplacePixels: {},
@@ -179,7 +188,7 @@ function formatTime(ts) {
 function safeUrl(raw) {
   var u = String(raw || "").trim();
   if (!u) return "";
-  if (/^https?:\/\//i.test(u) || /^data:image\//i.test(u) || /^data:audio\//i.test(u)) {
+  if (/^https?:\/\//i.test(u) || /^data:image\//i.test(u) || /^data:audio\//i.test(u) || /^blob:/i.test(u)) {
     return u;
   }
   return "";
@@ -270,7 +279,7 @@ function isStaffUser() {
 }
 
 /* ==========================================================================
-   FIREBASE REALTIME DATABASE REST CLIENT
+   FIREBASE REALTIME DATABASE REST CLIENT (WITH STALE TOKEN AUTO-RECOVERY)
    ========================================================================== */
 function buildDbUrl(path, withAuth) {
   var base = CONFIG.firebaseDbUrl.replace(/\/+$/, "");
@@ -282,15 +291,20 @@ function buildDbUrl(path, withAuth) {
   return url;
 }
 
-function dbGet(path, callback) {
+function dbGet(path, callback, noAuthRetry) {
+  var usedAuth = Boolean(!noAuthRetry && state.user && state.user.idToken);
   var xhr = new XMLHttpRequest();
-  xhr.open("GET", buildDbUrl(path, Boolean(state.user && state.user.idToken)), true);
+  xhr.open("GET", buildDbUrl(path, usedAuth), true);
   xhr.onreadystatechange = function() {
     if (xhr.readyState !== 4) return;
     if (xhr.status >= 200 && xhr.status < 300) {
       var parsed = null;
       try { parsed = JSON.parse(xhr.responseText); } catch (e) {}
       if (callback) callback(null, parsed);
+    } else if (xhr.status === 401 && usedAuth) {
+      clearSession();
+      updateAuthUi();
+      dbGet(path, callback, true);
     } else {
       if (callback) callback("HTTP " + xhr.status, null);
     }
@@ -301,7 +315,7 @@ function dbGet(path, callback) {
   xhr.send();
 }
 
-function dbWrite(method, path, data, callback) {
+function dbWrite(method, path, data, callback, hasRetried) {
   var xhr = new XMLHttpRequest();
   xhr.open(method, buildDbUrl(path, true), true);
   xhr.setRequestHeader("Content-Type", "application/json");
@@ -311,12 +325,25 @@ function dbWrite(method, path, data, callback) {
       var parsed = null;
       try { parsed = JSON.parse(xhr.responseText); } catch (e) {}
       if (callback) callback(null, parsed);
+    } else if (xhr.status === 401 && !hasRetried && state.user && state.user.refreshToken) {
+      state.user.expiresAt = 0;
+      ensureFreshSession(function() {
+        if (state.user && state.user.idToken) {
+          dbWrite(method, path, data, callback, true);
+        } else {
+          if (callback) callback("Session expired. Please log in again.", null);
+        }
+      });
     } else {
       var errMsg = "Error " + xhr.status;
       try {
         var j = JSON.parse(xhr.responseText);
         if (j && j.error) errMsg = j.error;
       } catch (e2) {}
+      if (xhr.status === 401) {
+        clearSession();
+        updateAuthUi();
+      }
       if (callback) callback(errMsg, null);
     }
   };
@@ -331,7 +358,7 @@ function dbWrite(method, path, data, callback) {
 }
 
 /* ==========================================================================
-   FIREBASE AUTHENTICATION & SESSION PERSISTENCE
+   FIREBASE AUTHENTICATION & SESSION MANAGEMENT
    ========================================================================== */
 function saveSession() {
   try {
@@ -343,9 +370,20 @@ function saveSession() {
 function loadSession() {
   try {
     var raw = localStorage.getItem("fembooru_session");
-    if (raw) state.user = JSON.parse(raw);
+    if (!raw) return;
+    var parsed = JSON.parse(raw);
+    if (!parsed || !parsed.idToken || !parsed.uid) {
+      clearSession();
+      return;
+    }
+    var now = new Date().getTime();
+    if (parsed.expiresAt && now > parsed.expiresAt && !parsed.refreshToken) {
+      clearSession();
+      return;
+    }
+    state.user = parsed;
   } catch (e) {
-    state.user = null;
+    clearSession();
   }
 }
 
@@ -373,7 +411,7 @@ function ensureFreshSession(callback) {
     return;
   }
   var xhr = new XMLHttpRequest();
-  xhr.open("POST", "https://securetoken.googleapis.com/v1/token?key=" + encodeURIComponent(CONFIG.firebaseApiKey), true);
+  xhr.open("POST", "https://securetoken.googleapis.com/v1/token?key=" + encodeURIComponent(CONFIG.apiKey), true);
   xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
   xhr.onreadystatechange = function() {
     if (xhr.readyState !== 4) return;
@@ -387,6 +425,9 @@ function ensureFreshSession(callback) {
           saveSession();
         }
       } catch (e) {}
+    } else if (xhr.status === 400 || xhr.status === 401) {
+      clearSession();
+      updateAuthUi();
     }
     if (callback) callback();
   };
@@ -420,7 +461,11 @@ function loadUserProfile(callback) {
     return;
   }
   dbGet("users/" + state.user.uid, function(err, prof) {
-    if (!err && prof && typeof prof === "object") {
+    if (!err && prof && typeof prof === "object" && prof.uid) {
+      if (state.user.email === CONFIG.superiorAdminEmail && prof.role !== "admin") {
+        prof.role = "admin";
+        dbWrite("PUT", "users/" + state.user.uid + "/role", "admin", null);
+      }
       state.profile = prof;
       state.users[state.user.uid] = prof;
       if (callback) callback();
@@ -464,7 +509,7 @@ function loginUser() {
     return;
   }
   var xhr = new XMLHttpRequest();
-  xhr.open("POST", "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=" + encodeURIComponent(CONFIG.firebaseApiKey), true);
+  xhr.open("POST", "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=" + encodeURIComponent(CONFIG.apiKey), true);
   xhr.setRequestHeader("Content-Type", "application/json");
   xhr.onreadystatechange = function() {
     if (xhr.readyState !== 4) return;
@@ -504,7 +549,7 @@ function registerUser() {
     return;
   }
   var xhr = new XMLHttpRequest();
-  xhr.open("POST", "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=" + encodeURIComponent(CONFIG.firebaseApiKey), true);
+  xhr.open("POST", "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=" + encodeURIComponent(CONFIG.apiKey), true);
   xhr.setRequestHeader("Content-Type", "application/json");
   xhr.onreadystatechange = function() {
     if (xhr.readyState !== 4) return;
@@ -539,7 +584,11 @@ function registerUser() {
       });
     } else {
       var msg = (res && res.error && res.error.message) ? res.error.message : "Registration failed";
-      showStatus("Register error: " + msg, true);
+      if (msg === "EMAIL_EXISTS") {
+        showStatus("Account exists in Auth — click Login with your password.", true);
+      } else {
+        showStatus("Register error: " + msg, true);
+      }
     }
   };
   xhr.send(JSON.stringify({ email: email, password: pass, returnSecureToken: true }));
@@ -559,60 +608,56 @@ function deleteOwnAccount() {
   var token = state.user.idToken;
   dbWrite("DELETE", "users/" + uid, null, function() {
     var xhr = new XMLHttpRequest();
-    xhr.open("POST", "https://identitytoolkit.googleapis.com/v1/accounts:delete?key=" + encodeURIComponent(CONFIG.firebaseApiKey), true);
+    xhr.open("POST", "https://identitytoolkit.googleapis.com/v1/accounts:delete?key=" + encodeURIComponent(CONFIG.apiKey), true);
     xhr.setRequestHeader("Content-Type", "application/json");
     xhr.onreadystatechange = function() {
       if (xhr.readyState !== 4) return;
       clearSession();
       updateAuthUi();
       fetchAllData();
-      showStatus("Account deleted.", false);
+      showStatus("Account deleted. Username can be registered again.", false);
     };
     xhr.send(JSON.stringify({ idToken: token }));
   });
 }
 
 /* ==========================================================================
-   IMAGE & AUDIO UPLOAD PIPELINE (IMGBB + LOCAL CANVAS DATA-URL FALLBACK)
+   IMGBB IMAGE UPLOAD (POST MULTIPART) & AUDIO COMPRESSION PIPELINE
    ========================================================================== */
-function encodeFileToOptimizedDataUrl(file, opts, callback) {
-  var isAnimatedOrVector = /image\/(gif|svg\+xml|apng)/i.test(file.type || "");
+function resizeStaticStickerBlob(file, callback) {
+  var isAnimatedOrVector = /image\/(gif|svg\+xml|apng|webp)/i.test(file.type || "");
+  if (isAnimatedOrVector) {
+    callback(file);
+    return;
+  }
   var reader = new FileReader();
   reader.onload = function(ev) {
-    var rawDataUrl = ev.target.result;
-    if (isAnimatedOrVector || file.size <= 220 * 1024) {
-      setUploadProgress(-1);
-      callback(null, rawDataUrl);
-      return;
-    }
     var img = new Image();
     img.onload = function() {
-      var maxDim = (opts && opts.isSticker) ? 260 : 960;
-      var scale = Math.min(maxDim / Math.max(1, img.width), maxDim / Math.max(1, img.height), 1);
+      var maxD = SERVICE_POLICY.maxStickerDim;
+      if (img.width <= maxD && img.height <= maxD) {
+        callback(file);
+        return;
+      }
+      var scale = Math.min(maxD / img.width, maxD / img.height);
       var w = Math.max(1, Math.round(img.width * scale));
       var h = Math.max(1, Math.round(img.height * scale));
       var canvas = document.createElement("canvas");
       canvas.width = w;
       canvas.height = h;
-      var ctx = canvas.getContext("2d");
-      ctx.drawImage(img, 0, 0, w, h);
-      var outUrl = canvas.toDataURL("image/webp", 0.84);
-      if (!outUrl || outUrl.indexOf("data:image/webp") !== 0) {
-        outUrl = canvas.toDataURL("image/jpeg", 0.84);
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      if (canvas.toBlob) {
+        canvas.toBlob(function(blob) {
+          callback(blob || file);
+        }, "image/png");
+      } else {
+        callback(file);
       }
-      setUploadProgress(-1);
-      callback(null, outUrl);
     };
-    img.onerror = function() {
-      setUploadProgress(-1);
-      callback(null, rawDataUrl);
-    };
-    img.src = rawDataUrl;
+    img.onerror = function() { callback(file); };
+    img.src = ev.target.result;
   };
-  reader.onerror = function() {
-    setUploadProgress(-1);
-    callback("Failed to read file.", null);
-  };
+  reader.onerror = function() { callback(file); };
   reader.readAsDataURL(file);
 }
 
@@ -622,28 +667,24 @@ function uploadImageToImgbb(fileInput, callback, opts) {
     callback("No file selected.", null);
     return;
   }
-  if (file.size > SERVICE_POLICY.maxImageBytes) {
-    callback("Image exceeds 8 MB limit.", null);
-    return;
-  }
-  setUploadProgress(25, "Processing image...");
-
-  if (!CONFIG.imgbbApiKey) {
-    encodeFileToOptimizedDataUrl(file, opts, callback);
+  var limit = (opts && opts.isSticker) ? SERVICE_POLICY.maxStickerBytes : SERVICE_POLICY.maxImageBytes;
+  if (file.size > limit) {
+    callback("File exceeds limit (" + Math.round(limit / (1024 * 1024) * 10) / 10 + " MB).", null);
     return;
   }
 
-  var reader = new FileReader();
-  reader.onload = function(ev) {
-    var b64 = String(ev.target.result || "").replace(/^data:[^;]+;base64,/, "");
+  function sendPost(uploadPayload) {
+    setUploadProgress(8, "Uploading to imgbb...");
     var form = new FormData();
-    form.append("image", b64);
+    form.append("image", uploadPayload);
+    if (file.name) form.append("name", file.name.replace(/\.[^.]+$/, ""));
+
     var xhr = new XMLHttpRequest();
     xhr.open("POST", "https://api.imgbb.com/1/upload?key=" + encodeURIComponent(CONFIG.imgbbApiKey), true);
     if (xhr.upload) {
       xhr.upload.onprogress = function(pe) {
         if (pe.lengthComputable) {
-          setUploadProgress((pe.loaded / pe.total) * 100, "Uploading image...");
+          setUploadProgress((pe.loaded / pe.total) * 100, "Uploading image... " + Math.round((pe.loaded / pe.total) * 100) + "%");
         }
       };
     }
@@ -659,15 +700,67 @@ function uploadImageToImgbb(fileInput, callback, opts) {
           }
         } catch (e) {}
       }
-      encodeFileToOptimizedDataUrl(file, opts, callback);
+      var r2 = new FileReader();
+      r2.onload = function(e2) { callback(null, e2.target.result); };
+      r2.onerror = function() { callback("Upload failed.", null); };
+      r2.readAsDataURL(uploadPayload);
     };
     xhr.onerror = function() {
       setUploadProgress(-1);
-      encodeFileToOptimizedDataUrl(file, opts, callback);
+      callback("Network error during upload.", null);
     };
     xhr.send(form);
-  };
-  reader.readAsDataURL(file);
+  }
+
+  if (opts && opts.isSticker) {
+    resizeStaticStickerBlob(file, sendPost);
+  } else {
+    sendPost(file);
+  }
+}
+
+function encodeMonoWavDataUrl(audioBuffer, targetRate, maxSeconds) {
+  var srcRate = audioBuffer.sampleRate;
+  var totalSrcSamples = Math.min(audioBuffer.length, Math.floor(srcRate * maxSeconds));
+  var ratio = srcRate / targetRate;
+  var outLen = Math.max(1, Math.floor(totalSrcSamples / ratio));
+  var ch0 = audioBuffer.getChannelData(0);
+  var ch1 = audioBuffer.numberOfChannels > 1 ? audioBuffer.getChannelData(1) : null;
+
+  var buffer = new ArrayBuffer(44 + outLen * 2);
+  var view = new DataView(buffer);
+  function writeStr(off, s) {
+    for (var i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i));
+  }
+  writeStr(0, "RIFF");
+  view.setUint32(4, 36 + outLen * 2, true);
+  writeStr(8, "WAVE");
+  writeStr(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, targetRate, true);
+  view.setUint32(28, targetRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeStr(36, "data");
+  view.setUint32(40, outLen * 2, true);
+
+  var offset = 44;
+  for (var i = 0; i < outLen; i++) {
+    var idx = Math.min(totalSrcSamples - 1, Math.floor(i * ratio));
+    var sample = ch1 ? ((ch0[idx] + ch1[idx]) * 0.5) : ch0[idx];
+    sample = Math.max(-1, Math.min(1, sample));
+    view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+    offset += 2;
+  }
+
+  var bytes = new Uint8Array(buffer);
+  var binary = "";
+  for (var b = 0; b < bytes.length; b += 8192) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(b, Math.min(bytes.length, b + 8192)));
+  }
+  return "data:audio/wav;base64," + btoa(binary);
 }
 
 function uploadAudioToHost(fileInput, callback) {
@@ -676,25 +769,63 @@ function uploadAudioToHost(fileInput, callback) {
     callback("No audio file selected.", null);
     return;
   }
-  if (file.size > SERVICE_POLICY.maxAudioBytes) {
-    callback("Audio exceeds 15 MB limit.", null);
+  if (file.size > SERVICE_POLICY.maxAudioInputBytes) {
+    callback("Audio exceeds 25 MB input limit.", null);
     return;
   }
-  setUploadProgress(30, "Reading audio track...");
-  var reader = new FileReader();
-  reader.onload = function(ev) {
+
+  setUploadProgress(20, "Checking audio size policy...");
+  if (file.size <= SERVICE_POLICY.maxAudioPayloadBytes) {
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      setUploadProgress(85, "Uploading compressed audio...");
+      callback(null, ev.target.result);
+    };
+    reader.onerror = function() {
+      setUploadProgress(-1);
+      callback("Could not read audio file.", null);
+    };
+    reader.readAsDataURL(file);
+    return;
+  }
+
+  setUploadProgress(35, "Compressing audio for service policy...");
+  var AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) {
     setUploadProgress(-1);
-    callback(null, ev.target.result);
+    callback("Browser cannot compress large audio files.", null);
+    return;
+  }
+  var arrReader = new FileReader();
+  arrReader.onload = function(ev) {
+    var ctx = new AudioCtx();
+    ctx.decodeAudioData(ev.target.result, function(decoded) {
+      var maxSamplesAllowed = Math.floor((SERVICE_POLICY.maxAudioPayloadBytes * 0.72) / 2);
+      var targetRate = 16000;
+      var maxSecs = Math.max(12, Math.floor(maxSamplesAllowed / targetRate));
+      var compressedDataUrl = encodeMonoWavDataUrl(decoded, targetRate, maxSecs);
+      if (ctx.close) ctx.close();
+      setUploadProgress(85, "Uploading compressed audio...");
+      callback(null, compressedDataUrl);
+    }, function() {
+      if (ctx.close) ctx.close();
+      setUploadProgress(-1);
+      callback("Could not decode audio format for compression.", null);
+    });
   };
-  reader.onerror = function() {
+  arrReader.onerror = function() {
     setUploadProgress(-1);
-    callback("Could not read audio file.", null);
+    callback("Failed to read audio file.", null);
   };
-  reader.readAsDataURL(file);
+  arrReader.readAsArrayBuffer(file);
 }
 
 function probeServicePolicies() {
-  // Ensures policy defaults remain active
+  // Adjusts payload limits dynamically based on client/service constraints
+  if (typeof navigator !== "undefined" && navigator.connection && navigator.connection.saveData) {
+    SERVICE_POLICY.maxAudioPayloadBytes = 520 * 1024;
+    SERVICE_POLICY.maxStickerBytes = 800 * 1024;
+  }
 }
 
 function fetchGithubRepoVersion() {
@@ -802,6 +933,18 @@ function syncSnowState() {
   }
 }
 
+function applyFaviconUrl(url) {
+  var head = document.getElementsByTagName("head")[0];
+  var old = document.getElementById("dynamicFavicon");
+  if (old && old.getAttribute("href") === url) return;
+  if (old && old.parentNode) old.parentNode.removeChild(old);
+  var link = document.createElement("link");
+  link.id = "dynamicFavicon";
+  link.rel = "icon";
+  link.href = url;
+  if (head) head.appendChild(link);
+}
+
 function triggerGlobalTabIcon() {
   var fEl = document.getElementById("tabIconFileInput");
   var uEl = document.getElementById("tabIconUrlInput");
@@ -816,7 +959,7 @@ function triggerGlobalTabIcon() {
     state.tabLogoEffect = payload;
     syncTabLogoState();
     dbWrite("PUT", "effects/tabLogo", payload, function() {
-      showStatus("Tab icon changed globally for 1 minute!", false);
+      showStatus("Tab logo changed globally for 1 minute!", false);
     });
   }
 
@@ -838,18 +981,17 @@ function triggerGlobalTabIcon() {
 }
 
 function syncTabLogoState() {
-  var fav = document.getElementById("dynamicFavicon");
   var timerEl = document.getElementById("tabIconTimerText");
   var now = new Date().getTime();
   var active = state.tabLogoEffect && state.tabLogoEffect.expiresAt &&
     state.tabLogoEffect.expiresAt > now && isValidImageSrc(state.tabLogoEffect.url);
 
   if (active) {
-    if (fav && fav.href !== state.tabLogoEffect.url) fav.href = state.tabLogoEffect.url;
+    applyFaviconUrl(state.tabLogoEffect.url);
     var secs = Math.ceil((state.tabLogoEffect.expiresAt - now) / 1000);
-    if (timerEl) timerEl.textContent = "Tab icon active: " + secs + "s left";
+    if (timerEl) timerEl.textContent = "Tab logo active: " + secs + "s left";
   } else {
-    if (fav && fav.href !== DEFAULT_FAVICON) fav.href = DEFAULT_FAVICON;
+    applyFaviconUrl(DEFAULT_FAVICON);
     if (timerEl) timerEl.textContent = "";
   }
 }
