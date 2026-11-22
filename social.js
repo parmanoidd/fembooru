@@ -1,147 +1,172 @@
 /* ==========================================================================
-   FEMBOORU SOCIAL & IMAGEBOARD: BOARDS, POLLS, THREADS, PROFILES, WALL (STENA),
-   REPOSTS, SUBSCRIPTIONS/BLOCKS, GROUPS, DMs, STICKERS & NOTIFICATIONS
+   FEMBOORU SOCIAL & IMAGEBOARD FEATURES: BOARDS, POLLS, THREADS, REPLIES,
+   WALL (STENA), PROFILES, MEMBERS, GROUPS, DMS, STICKERS, MUSIC & NOTIFS
    ========================================================================== */
-function renderMediaHtml(imageUrl, videoUrl, stickerUrl) {
-  var h = "";
-  if (isValidImageSrc(imageUrl)) {
-    h += "<img class='post-media' src='" + esc(imageUrl) + "' alt='media' onclick=\"openZoomModal(this.src,'Image','')\">";
-  }
-  if (isValidImageSrc(stickerUrl)) {
-    h += "<img class='post-sticker' src='" + esc(stickerUrl) + "' alt='sticker'>";
-  }
-  var v = safeUrl(videoUrl);
-  if (v) {
-    var yt = v.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([A-Za-z0-9_-]{6,})/);
-    if (yt && yt[1]) {
-      h += "<iframe class='video-embed' height='235' src='https://www.youtube.com/embed/" + esc(yt[1]) + "' frameborder='0' allowfullscreen></iframe>";
-    } else {
-      h += "<video class='video-embed' controls preload='metadata' src='" + esc(v) + "'></video>";
-    }
-  }
-  return h;
+function canModerateTarget(targetUid) {
+  if (!state.user) return false;
+  if (isSuperiorAdmin()) return true;
+  if (state.user.uid === targetUid) return true;
+  if (!isStaffUser()) return false;
+  var targetRole = getUserRole(targetUid);
+  var targetEmail = (state.users[targetUid] && state.users[targetUid].email) || "";
+  if (targetEmail === CONFIG.superiorAdminEmail) return false;
+  if (targetRole === "admin" || targetRole === "moderator") return false;
+  return true;
 }
 
-function renderRoleBadge(uid) {
+function renderRoleBadgeHtml(uid) {
   var r = getUserRole(uid);
-  if (r === "superior_admin") return "<span class='role-badge'>ADMIN</span>";
-  if (r === "admin") return "<span class='role-badge'>JR ADMIN</span>";
+  if (r === "admin") return "<span class='role-badge'>ADMIN</span>";
   if (r === "moderator") return "<span class='role-badge'>MOD</span>";
   return "";
 }
 
+function renderVideoOrAudioEmbed(rawUrl) {
+  var u = safeUrl(rawUrl);
+  if (!u) return "";
+  var ytMatch = u.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{6,})/);
+  if (ytMatch && ytMatch[1]) {
+    return "<iframe class='video-embed' height='235' src='https://www.youtube.com/embed/" + esc(ytMatch[1]) +
+      "' frameborder='0' allowfullscreen></iframe>";
+  }
+  if (/\.(mp3|ogg|wav|flac|m4a)(\?|$)/i.test(u) || /^data:audio\//i.test(u)) {
+    return "<audio controls preload='none' src='" + esc(u) + "' style='display:block;margin:6px 0;max-width:100%;'></audio>";
+  }
+  return "<video class='video-embed' controls preload='metadata' src='" + esc(u) + "'></video>";
+}
+
 /* ==========================================================================
-   BOARDS & COMMUNITY BOARD CREATION POLLS
+   ADMIN SITE LOGO
+   ========================================================================== */
+function adminUpdateSiteLogo() {
+  if (!isSuperiorAdmin()) return;
+  var fEl = document.getElementById("adminLogoFile");
+  var uEl = document.getElementById("adminLogoUrl");
+  var direct = uEl ? safeUrl(uEl.value) : "";
+
+  function saveLogo(logoUrl) {
+    state.siteLogo = logoUrl;
+    dbWrite("PUT", "site/logo", logoUrl, function(err) {
+      if (!err) {
+        renderAll();
+        showStatus("Site logo updated!", false);
+      } else {
+        showStatus("Logo update failed: " + err, true);
+      }
+    });
+  }
+
+  if (fEl && fEl.files && fEl.files[0]) {
+    uploadImageToImgbb(fEl, function(err, url) {
+      if (!err && url) {
+        fEl.value = "";
+        saveLogo(url);
+      } else {
+        showStatus(err || "Upload failed", true);
+      }
+    }, { isSticker: false });
+  } else if (direct) {
+    if (uEl) uEl.value = "";
+    saveLogo(direct);
+  } else {
+    showStatus("Select an image or enter a logo URL.", true);
+  }
+}
+
+function adminResetLogos() {
+  if (!isSuperiorAdmin()) return;
+  state.siteLogo = "";
+  dbWrite("DELETE", "site/logo", null, function() {
+    renderAll();
+    showStatus("Site logo reset to default.", false);
+  });
+}
+
+/* ==========================================================================
+   BOARDS & COMMUNITY BOARD POLLS
    ========================================================================== */
 function renderBoardsSidebar() {
   var box = document.getElementById("boardsList");
   if (!box) return;
   var h = "";
+  var activeObj = null;
   for (var i = 0; i < state.boards.length; i++) {
     var b = state.boards[i];
-    var act = (state.view === "boards" && state.currentBoard === b.slug) ? " class='active-board'" : "";
-    h += "<a href='javascript:void(0)'" + act + " onclick=\"selectBoard('" + esc(b.slug) + "')\">" + esc(b.title) + "</a>";
+    var isAct = (b.slug === state.currentBoard && state.view === "boards");
+    if (b.slug === state.currentBoard) activeObj = b;
+    h += "<a href='#' class='" + (isAct ? "active-board" : "") + "' onclick=\"selectBoard('" + esc(b.slug) + "');return false;\">" +
+           esc(b.title || ("/" + b.slug + "/")) +
+         "</a>";
   }
   box.innerHTML = h;
+
+  if (activeObj) {
+    var tEl = document.getElementById("currentBoardTitle");
+    var dEl = document.getElementById("currentBoardDesc");
+    if (tEl) tEl.textContent = activeObj.title || ("/" + activeObj.slug + "/");
+    if (dEl) dEl.textContent = activeObj.desc || "";
+  }
 }
 
 function selectBoard(slug) {
-  state.currentBoard = slug;
-  state.view = "boards";
-  var titleEl = document.getElementById("currentBoardTitle");
-  var descEl = document.getElementById("currentBoardDesc");
-  for (var i = 0; i < state.boards.length; i++) {
-    if (state.boards[i].slug === slug) {
-      if (titleEl) titleEl.textContent = state.boards[i].title;
-      if (descEl) descEl.textContent = state.boards[i].desc || "";
-      break;
-    }
-  }
-  if (typeof switchView === "function") switchView("boards");
+  state.currentBoard = slug || "b";
+  switchView("boards");
 }
 
 function proposeOrCreateBoard() {
-  if (!state.user) { showStatus("Login required.", true); return; }
-  var sEl = document.getElementById("newBoardSlug");
-  var tEl = document.getElementById("newBoardTitle");
-  var dEl = document.getElementById("newBoardDesc");
-  var slug = String(sEl ? sEl.value : "").toLowerCase().replace(/[^a-z0-9_-]/g, "").substring(0, 16);
-  var title = String(tEl ? tEl.value : "").replace(/^\s+|\s+$/g, "").substring(0, 48);
-  var desc = String(dEl ? dEl.value : "").replace(/^\s+|\s+$/g, "").substring(0, 120);
-  if (!slug || !title) { showStatus("Enter board slug and title.", true); return; }
+  if (!state.user) {
+    showStatus("Login to propose or create a board.", true);
+    return;
+  }
+  var slugEl = document.getElementById("newBoardSlug");
+  var titleEl = document.getElementById("newBoardTitle");
+  var descEl = document.getElementById("newBoardDesc");
+  var slug = String(slugEl ? slugEl.value : "").trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
+  var title = String(titleEl ? titleEl.value : "").trim();
+  var desc = String(descEl ? descEl.value : "").trim();
 
-  var boardObj = { slug: slug, title: "/" + slug + "/ — " + title, desc: desc || "Community board." };
+  if (!slug || !title) {
+    showStatus("Enter board slug and title.", true);
+    return;
+  }
+  var formattedTitle = title.indexOf("/") === 0 ? title : ("/" + slug + "/ — " + title);
+
   if (isSuperiorAdmin() || getUserRole(state.user.uid) === "admin") {
-    dbWrite("PUT", "boards/" + slug, boardObj, function(err) {
+    var bObj = { slug: slug, title: formattedTitle, desc: desc || "Community board." };
+    dbWrite("PUT", "boards/" + slug, bObj, function(err) {
       if (!err) {
-        if (sEl) sEl.value = "";
-        if (tEl) tEl.value = "";
-        if (dEl) dEl.value = "";
-        if (typeof fetchAllData === "function") fetchAllData();
-        showStatus("Board created immediately!", false);
+        if (slugEl) slugEl.value = "";
+        if (titleEl) titleEl.value = "";
+        if (descEl) descEl.value = "";
+        fetchAllData();
+        showStatus("Board " + formattedTitle + " created!", false);
+      } else {
+        showStatus("Board creation error: " + err, true);
       }
     });
   } else {
-    var votes = {};
-    votes[state.user.uid] = "yes";
     var pollObj = {
       slug: slug,
-      title: boardObj.title,
-      desc: boardObj.desc,
+      title: formattedTitle,
+      desc: desc || "Proposed community board.",
       createdBy: state.user.uid,
-      creatorName: getDisplayUsername(),
-      votes: votes,
+      authorName: getDisplayUsername(),
       status: "open",
-      createdAt: new Date().getTime()
+      votes: {}
     };
+    pollObj.votes[state.user.uid] = "yes";
     dbWrite("PUT", "polls/" + slug, pollObj, function(err) {
       if (!err) {
-        if (sEl) sEl.value = "";
-        if (tEl) tEl.value = "";
-        if (dEl) dEl.value = "";
-        if (typeof fetchAllData === "function") fetchAllData();
-        showStatus("Board proposal poll created!", false);
+        if (slugEl) slugEl.value = "";
+        if (titleEl) titleEl.value = "";
+        if (descEl) descEl.value = "";
+        fetchAllData();
+        showStatus("Board proposal poll created! Needs 3 YES votes to open.", false);
+      } else {
+        showStatus("Poll error: " + err, true);
       }
     });
   }
-}
-
-function voteBoardPoll(slug, choice) {
-  if (!state.user) { showStatus("Login to vote.", true); return; }
-  var poll = state.polls[slug];
-  if (!poll || poll.status !== "open") return;
-  dbWrite("PUT", "polls/" + slug + "/votes/" + state.user.uid, choice, function() {
-    poll.votes = poll.votes || {};
-    poll.votes[state.user.uid] = choice;
-    var yesCount = 0, noCount = 0;
-    for (var u in poll.votes) {
-      if (poll.votes.hasOwnProperty(u)) {
-        if (poll.votes[u] === "yes") yesCount++;
-        else if (poll.votes[u] === "no") noCount++;
-      }
-    }
-    var needed = Math.max(2, Math.ceil(countMapKeys(state.users) * 0.5));
-    if (yesCount >= needed && yesCount > noCount) {
-      dbWrite("PUT", "boards/" + slug, { slug: slug, title: poll.title, desc: poll.desc }, function() {
-        dbWrite("DELETE", "polls/" + slug, null, function() {
-          if (typeof fetchAllData === "function") fetchAllData();
-        });
-        showStatus("Majority agreed! Board /" + slug + "/ is now live!", false);
-      });
-    } else if (typeof fetchAllData === "function") {
-      fetchAllData();
-    }
-  });
-}
-
-function cancelBoardPoll(slug) {
-  var poll = state.polls[slug];
-  if (!state.user || !poll) return;
-  if (poll.createdBy !== state.user.uid && !isSuperiorAdmin()) return;
-  dbWrite("DELETE", "polls/" + slug, null, function() {
-    if (typeof fetchAllData === "function") fetchAllData();
-    showStatus("Board proposal cancelled.", false);
-  });
 }
 
 function renderBoardPolls() {
@@ -151,75 +176,123 @@ function renderBoardPolls() {
   for (var slug in state.polls) {
     if (!state.polls.hasOwnProperty(slug) || !state.polls[slug]) continue;
     var p = state.polls[slug];
-    var yes = 0, no = 0;
-    if (p.votes) {
-      for (var k in p.votes) {
-        if (p.votes.hasOwnProperty(k)) {
-          if (p.votes[k] === "yes") yes++;
-          else if (p.votes[k] === "no") no++;
-        }
+    if (p.status !== "open") continue;
+    var yesCount = 0;
+    var noCount = 0;
+    var votes = p.votes || {};
+    for (var vUid in votes) {
+      if (votes.hasOwnProperty(vUid)) {
+        if (votes[vUid] === "yes") yesCount++;
+        else if (votes[vUid] === "no") noCount++;
       }
     }
-    var canCancel = state.user && (p.createdBy === state.user.uid || isSuperiorAdmin());
     h += "<div class='poll-card'>" +
-           "<b>Poll: " + esc(p.title) + "</b><br>" +
-           "<span class='muted'>By " + esc(p.creatorName) + " • Agree: " + yes + " / Disagree: " + no + "</span><br>" +
-           "<button type='button' onclick=\"voteBoardPoll('" + esc(slug) + "','yes')\">Agree</button> " +
-           "<button type='button' onclick=\"voteBoardPoll('" + esc(slug) + "','no')\">Disagree</button> " +
-           (canCancel ? "<button type='button' class='btn-danger' onclick=\"cancelBoardPoll('" + esc(slug) + "')\">Cancel</button>" : "") +
+           "<b>Board Proposal: " + esc(p.title) + "</b> — " + esc(p.desc || "") +
+           " <span class='muted'>(by " + esc(p.authorName || "User") + ")</span><br>" +
+           "Votes: <b>" + yesCount + " YES</b> / <b>" + noCount + " NO</b> (3 YES opens board) " +
+           "<button type='button' onclick=\"voteBoardPoll('" + esc(slug) + "','yes')\">Vote YES</button> " +
+           "<button type='button' onclick=\"voteBoardPoll('" + esc(slug) + "','no')\">Vote NO</button>" +
          "</div>";
   }
   box.innerHTML = h;
 }
 
+function voteBoardPoll(slug, choice) {
+  if (!state.user) {
+    showStatus("Login to vote in board polls.", true);
+    return;
+  }
+  var p = state.polls[slug];
+  if (!p) return;
+  dbWrite("PUT", "polls/" + slug + "/votes/" + state.user.uid, choice, function(err) {
+    if (err) {
+      showStatus("Vote error: " + err, true);
+      return;
+    }
+    var votes = p.votes || {};
+    votes[state.user.uid] = choice;
+    var yesCount = 0;
+    for (var k in votes) {
+      if (votes.hasOwnProperty(k) && votes[k] === "yes") yesCount++;
+    }
+    if (yesCount >= 3) {
+      var bObj = { slug: slug, title: p.title, desc: p.desc || "" };
+      dbWrite("PUT", "boards/" + slug, bObj, function() {
+        dbWrite("PUT", "polls/" + slug + "/status", "approved", function() {
+          fetchAllData();
+          showStatus("Poll passed! Board " + p.title + " is now live!", false);
+        });
+      });
+    } else {
+      fetchAllData();
+      showStatus("Vote recorded!", false);
+    }
+  });
+}
+
 /* ==========================================================================
-   THREADS, COMMENTS & LIKES
+   THREADS & REPLIES
    ========================================================================== */
 function createThread() {
-  if (!state.user) { showStatus("Login required to post.", true); return; }
-  var subj = (document.getElementById("threadSubjectInput").value || "").replace(/^\s+|\s+$/g, "");
-  var text = (document.getElementById("threadTextInput").value || "").replace(/^\s+|\s+$/g, "");
-  var vid = safeUrl(document.getElementById("threadVideoUrlInput").value);
-  var sticker = safeUrl(document.getElementById("threadStickerUrl").value);
-  var fEl = document.getElementById("threadImageInput");
+  if (!state.user) {
+    showStatus("Login to post a thread.", true);
+    return;
+  }
+  var subjEl = document.getElementById("threadSubjectInput");
+  var textEl = document.getElementById("threadTextInput");
+  var vidEl = document.getElementById("threadVideoUrlInput");
+  var imgEl = document.getElementById("threadImageInput");
+  var stEl = document.getElementById("threadStickerUrl");
 
-  function saveThread(imgUrl) {
-    if (!text && !imgUrl && !vid && !sticker) { showStatus("Post cannot be empty.", true); return; }
-    var tid = generateId("th");
+  var subject = subjEl ? subjEl.value.trim() : "";
+  var text = textEl ? textEl.value.trim() : "";
+  var videoUrl = vidEl ? safeUrl(vidEl.value) : "";
+  var stickerUrl = stEl ? safeUrl(stEl.value) : "";
+
+  function finishThread(imgUrl) {
+    if (!subject && !text && !imgUrl && !videoUrl && !stickerUrl) {
+      showStatus("Write a comment or attach media/sticker.", true);
+      return;
+    }
+    var tid = generateId("thr");
     var now = new Date().getTime();
-    var obj = {
+    var threadObj = {
       id: tid,
-      board: state.currentBoard,
+      board: state.currentBoard || "b",
       uid: state.user.uid,
-      author: getDisplayUsername(),
-      subject: subj,
+      authorName: getDisplayUsername(),
+      subject: subject,
       text: text,
       imageUrl: imgUrl || "",
-      videoUrl: vid || "",
-      stickerUrl: sticker || "",
+      videoUrl: videoUrl,
+      stickerUrl: stickerUrl,
       createdAt: now,
-      bumpedAt: now
+      bumpedAt: now,
+      likes: {},
+      comments: {}
     };
-    dbWrite("PUT", "threads/" + tid, obj, function(err) {
+    dbWrite("PUT", "threads/" + tid, threadObj, function(err) {
       if (!err) {
-        document.getElementById("threadSubjectInput").value = "";
-        document.getElementById("threadTextInput").value = "";
-        document.getElementById("threadVideoUrlInput").value = "";
-        if (fEl) fEl.value = "";
-        clearAttachedSticker("thread");
-        if (typeof fetchAllData === "function") fetchAllData();
+        if (subjEl) subjEl.value = "";
+        if (textEl) textEl.value = "";
+        if (vidEl) vidEl.value = "";
+        if (imgEl) imgEl.value = "";
+        clearSelectedSticker("thread");
+        fetchAllData();
         showStatus("Thread posted!", false);
-      } else showStatus(err, true);
+      } else {
+        showStatus("Thread post failed: " + err, true);
+      }
     });
   }
 
-  if (fEl && fEl.files && fEl.files[0]) {
-    uploadImageToImgbb(fEl, function(err, url) {
-      if (!err && url) saveThread(url);
+  if (imgEl && imgEl.files && imgEl.files[0]) {
+    uploadImageToImgbb(imgEl, function(err, url) {
+      if (!err && url) finishThread(url);
       else showStatus(err || "Image upload failed", true);
-    });
+    }, { isSticker: false });
   } else {
-    saveThread("");
+    finishThread("");
   }
 }
 
@@ -228,282 +301,566 @@ function renderThreads() {
   if (!box) return;
   var list = [];
   for (var tid in state.threads) {
-    if (state.threads.hasOwnProperty(tid) && state.threads[tid]) {
-      var t = state.threads[tid];
-      if (t.board === state.currentBoard && !isUserBlockedByMe(t.uid)) list.push(t);
-    }
+    if (!state.threads.hasOwnProperty(tid) || !state.threads[tid]) continue;
+    var t = state.threads[tid];
+    if ((t.board || "b") === state.currentBoard) list.push(t);
   }
   list.sort(function(a, b) { return (b.bumpedAt || b.createdAt || 0) - (a.bumpedAt || a.createdAt || 0); });
+
+  if (!list.length) {
+    box.innerHTML = "<div class='box-panel'><div class='box-body muted'>No threads on this board yet. Be the first to post!</div></div>";
+    return;
+  }
 
   var h = "";
   for (var i = 0; i < list.length; i++) {
     var th = list[i];
-    var likes = countMapKeys(th.likes);
-    var liked = Boolean(state.user && th.likes && th.likes[state.user.uid]);
-    var canDel = Boolean(state.user && (th.uid === state.user.uid || canModerateTargetUser(th.uid)));
+    var likeCount = countMapKeys(th.likes);
+    var likedByMe = state.user && th.likes && th.likes[state.user.uid];
+    var repostPayload = encodeURIComponent(JSON.stringify({
+      authorName: th.authorName || "Anon",
+      subject: th.subject || "",
+      text: th.text || "",
+      imageUrl: th.imageUrl || "",
+      videoUrl: th.videoUrl || "",
+      stickerUrl: th.stickerUrl || ""
+    }));
 
     h += "<article class='thread-item'>" +
            "<div class='post-header'>" +
-             "<span>" +
-               (th.subject ? "<span class='post-subject'>" + esc(th.subject) + "</span> " : "") +
-               "<span class='post-author' onclick=\"openUserProfile('" + esc(th.uid) + "')\">" + esc(th.author || "Anon") + "</span>" +
-               renderRoleBadge(th.uid) +
-               " <span class='muted'>" + formatTime(th.createdAt) + "</span>" +
-             "</span>" +
-             "<span>" +
-               "<button type='button' onclick=\"toggleThreadLike('" + esc(th.id) + "')\">" + (liked ? "Liked" : "Like") + " (" + likes + ")</button> " +
-               "<button type='button' onclick=\"repostToMyWall('thread','','" + esc(th.id) + "')\">Repost</button> " +
-               (canDel ? "<button type='button' class='btn-danger' onclick=\"deleteThread('" + esc(th.id) + "')\">Delete</button>" : "") +
-             "</span>" +
-           "</div>" +
-           renderMediaHtml(th.imageUrl, th.videoUrl, th.stickerUrl) +
-           "<div class='post-body'>" + esc(th.text) + "</div>" +
-           "<div class='comments-box'>";
+             "<div>" +
+               (th.subject ? "<span class='post-subject'>" + esc(th.subject) + "</span> &bull; " : "") +
+               "<span class='post-author' onclick=\"openUserProfile('" + esc(th.uid) + "')\">" + esc(th.authorName || "Anon") + "</span>" +
+               renderRoleBadgeHtml(th.uid) +
+               " <span class='muted'>" + formatTime(th.createdAt) + " &bull; No." + esc(th.id.slice(-6)) + "</span>" +
+             "</div>" +
+             "<div class='btn-row'>" +
+               "<button type='button' class='" + (likedByMe ? "btn-active" : "") + "' onclick=\"toggleThreadLike('" + esc(th.id) + "')\">Like (" + likeCount + ")</button>" +
+               "<button type='button' onclick=\"repostToWall('" + repostPayload + "')\">Repost</button>" +
+               (canModerateTarget(th.uid) ? "<button type='button' class='btn-danger' onclick=\"deleteThread('" + esc(th.id) + "')\">Delete</button>" : "") +
+             "</div>" +
+           "</div>";
 
+    if (isValidImageSrc(th.imageUrl)) {
+      h += "<img class='post-media' src='" + esc(th.imageUrl) + "' alt='Attachment' onclick=\"openZoomModal(this.src,'" + esc(th.subject || "Thread Image") + "','" + esc(th.authorName || "") + "')\">";
+    }
+    if (isValidImageSrc(th.stickerUrl)) {
+      h += "<img class='post-sticker' src='" + esc(th.stickerUrl) + "' alt='Sticker'>";
+    }
+    if (th.videoUrl) {
+      h += renderVideoOrAudioEmbed(th.videoUrl);
+    }
+    if (th.text) {
+      h += "<div class='post-body'>" + esc(th.text) + "</div>";
+    }
+
+    // Comments
     var cList = [];
-    if (th.comments) {
+    if (th.comments && typeof th.comments === "object") {
       for (var cid in th.comments) {
-        if (th.comments.hasOwnProperty(cid) && th.comments[cid] && !isUserBlockedByMe(th.comments[cid].uid)) {
-          cList.push(th.comments[cid]);
-        }
+        if (th.comments.hasOwnProperty(cid) && th.comments[cid]) cList.push(th.comments[cid]);
       }
     }
     cList.sort(function(a, b) { return (a.createdAt || 0) - (b.createdAt || 0); });
 
-    for (var j = 0; j < cList.length; j++) {
-      var cm = cList[j];
+    h += "<div class='comments-box'>";
+    for (var c = 0; c < cList.length; c++) {
+      var cm = cList[c];
       var cLikes = countMapKeys(cm.likes);
-      var cDel = Boolean(state.user && (cm.uid === state.user.uid || canModerateTargetUser(cm.uid)));
+      var cLiked = state.user && cm.likes && cm.likes[state.user.uid];
       h += "<div class='comment-item'>" +
              "<div class='post-header'>" +
-               "<span><span class='post-author' onclick=\"openUserProfile('" + esc(cm.uid) + "')\">" + esc(cm.author || "Anon") + "</span>" + renderRoleBadge(cm.uid) + " <span class='muted'>" + formatTime(cm.createdAt) + "</span></span>" +
-               "<span>" +
-                 "<button type='button' onclick=\"toggleCommentLike('" + esc(th.id) + "','" + esc(cm.id) + "')\">Like (" + cLikes + ")</button> " +
-                 (cDel ? "<button type='button' class='btn-danger' onclick=\"deleteThreadComment('" + esc(th.id) + "','" + esc(cm.id) + "')\">x</button>" : "") +
-               "</span>" +
+               "<div><span class='post-author' onclick=\"openUserProfile('" + esc(cm.uid) + "')\">" + esc(cm.authorName || "Anon") + "</span>" +
+               renderRoleBadgeHtml(cm.uid) + " <span class='muted'>" + formatTime(cm.createdAt) + "</span></div>" +
+               "<div>" +
+                 "<button type='button' class='" + (cLiked ? "btn-active" : "") + "' onclick=\"toggleCommentLike('" + esc(th.id) + "','" + esc(cm.id) + "')\">Like (" + cLikes + ")</button> " +
+                 (canModerateTarget(cm.uid) ? "<button type='button' class='btn-danger' onclick=\"deleteThreadComment('" + esc(th.id) + "','" + esc(cm.id) + "')\">X</button>" : "") +
+               "</div>" +
              "</div>" +
-             renderMediaHtml("", "", cm.stickerUrl) +
-             "<div class='post-body'>" + esc(cm.text) + "</div>" +
+             (isValidImageSrc(cm.imageUrl) ? "<img class='post-media' src='" + esc(cm.imageUrl) + "' alt='Reply' onclick=\"openZoomModal(this.src,'Reply Image','')\">" : "") +
+             (cm.text ? "<div class='post-body'>" + esc(cm.text) + "</div>" : "") +
            "</div>";
     }
 
     h += "<div class='form-row'>" +
-           "<input type='text' id='replyInput_" + esc(th.id) + "' placeholder='Reply to thread...'>" +
-           "<input type='hidden' id='replySticker_" + esc(th.id) + "'>" +
-           "<button type='button' onclick=\"openStickerPicker('reply:" + esc(th.id) + "')\">+ Sticker</button>" +
+           "<input type='text' id='replyText_" + esc(th.id) + "' placeholder='Reply to thread...'>" +
+           "<input type='file' id='replyFile_" + esc(th.id) + "' accept='image/*,.gif,.apng,.webp,.avif,.svg'>" +
            "<button type='button' onclick=\"addThreadComment('" + esc(th.id) + "')\">Reply</button>" +
          "</div>" +
-         "<div id='replyStickerPreview_" + esc(th.id) + "' class='sticker-attach-preview'></div>" +
        "</div></article>";
   }
-  box.innerHTML = h || "<div class='box-panel'><div class='box-body muted'>No threads on this board yet.</div></div>";
+  box.innerHTML = h;
 }
 
 function toggleThreadLike(tid) {
-  if (!state.user) { showStatus("Login to like.", true); return; }
+  if (!state.user) { showStatus("Login to like threads.", true); return; }
   var th = state.threads[tid];
   if (!th) return;
-  var exists = Boolean(th.likes && th.likes[state.user.uid]);
-  dbWrite(exists ? "DELETE" : "PUT", "threads/" + tid + "/likes/" + state.user.uid, exists ? null : true, function() {
-    if (typeof fetchAllData === "function") fetchAllData();
-  });
-}
-
-function deleteThread(tid) {
-  dbWrite("DELETE", "threads/" + tid, null, function() {
-    if (typeof fetchAllData === "function") fetchAllData();
+  var liked = th.likes && th.likes[state.user.uid];
+  var method = liked ? "DELETE" : "PUT";
+  dbWrite(method, "threads/" + tid + "/likes/" + state.user.uid, liked ? null : true, function() {
+    if (!liked && th.uid && th.uid !== state.user.uid) {
+      pushNotification(th.uid, getDisplayUsername() + " liked your thread.", "boards", tid);
+    }
+    fetchAllData();
   });
 }
 
 function addThreadComment(tid) {
   if (!state.user) { showStatus("Login to reply.", true); return; }
-  var inp = document.getElementById("replyInput_" + tid);
-  var stInp = document.getElementById("replySticker_" + tid);
-  var txt = (inp ? inp.value : "").replace(/^\s+|\s+$/g, "");
-  var st = safeUrl(stInp ? stInp.value : "");
-  if (!txt && !st) return;
+  var th = state.threads[tid];
+  if (!th) return;
+  var txtEl = document.getElementById("replyText_" + tid);
+  var fileEl = document.getElementById("replyFile_" + tid);
+  var text = txtEl ? txtEl.value.trim() : "";
 
-  var cid = generateId("cm");
-  var now = new Date().getTime();
-  var cmObj = {
-    id: cid,
-    uid: state.user.uid,
-    author: getDisplayUsername(),
-    text: txt,
-    stickerUrl: st || "",
-    createdAt: now
-  };
-  dbWrite("PUT", "threads/" + tid + "/comments/" + cid, cmObj, function(err) {
-    if (!err) {
-      dbWrite("PUT", "threads/" + tid + "/bumpedAt", now, function() {
-        if (typeof fetchAllData === "function") fetchAllData();
-      });
-      var th = state.threads[tid];
-      if (th && th.uid && th.uid !== state.user.uid) {
-        pushNotification(th.uid, getDisplayUsername() + " replied to your thread.", "boards", tid);
+  function saveReply(imgUrl) {
+    if (!text && !imgUrl) {
+      showStatus("Enter reply text or attach an image.", true);
+      return;
+    }
+    var cid = generateId("cmt");
+    var now = new Date().getTime();
+    var cObj = {
+      id: cid,
+      uid: state.user.uid,
+      authorName: getDisplayUsername(),
+      text: text,
+      imageUrl: imgUrl || "",
+      createdAt: now,
+      likes: {}
+    };
+    dbWrite("PUT", "threads/" + tid + "/comments/" + cid, cObj, function(err) {
+      if (!err) {
+        if (txtEl) txtEl.value = "";
+        if (fileEl) fileEl.value = "";
+        dbWrite("PUT", "threads/" + tid + "/bumpedAt", now, null);
+        if (th.uid && th.uid !== state.user.uid) {
+          pushNotification(th.uid, getDisplayUsername() + " replied to your thread.", "boards", tid);
+        }
+        fetchAllData();
+      } else {
+        showStatus("Reply failed: " + err, true);
       }
+    });
+  }
+
+  if (fileEl && fileEl.files && fileEl.files[0]) {
+    uploadImageToImgbb(fileEl, function(err, url) {
+      if (!err && url) saveReply(url);
+      else showStatus(err || "Image upload failed", true);
+    }, { isSticker: false });
+  } else {
+    saveReply("");
+  }
+}
+
+function toggleCommentLike(tid, cid) {
+  if (!state.user) { showStatus("Login to like replies.", true); return; }
+  var th = state.threads[tid];
+  var cm = th && th.comments && th.comments[cid];
+  if (!cm) return;
+  var liked = cm.likes && cm.likes[state.user.uid];
+  dbWrite(liked ? "DELETE" : "PUT", "threads/" + tid + "/comments/" + cid + "/likes/" + state.user.uid, liked ? null : true, function() {
+    fetchAllData();
+  });
+}
+
+function deleteThread(tid) {
+  if (!confirm("Delete this thread?")) return;
+  dbWrite("DELETE", "threads/" + tid, null, function(err) {
+    if (!err) {
+      delete state.threads[tid];
+      renderAll();
+      showStatus("Thread deleted.", false);
+    } else {
+      showStatus("Delete error: " + err, true);
     }
   });
 }
 
-function toggleCommentLike(tid, cid) {
-  if (!state.user) { showStatus("Login to like.", true); return; }
-  var cm = state.threads[tid] && state.threads[tid].comments && state.threads[tid].comments[cid];
-  if (!cm) return;
-  var exists = Boolean(cm.likes && cm.likes[state.user.uid]);
-  dbWrite(exists ? "DELETE" : "PUT", "threads/" + tid + "/comments/" + cid + "/likes/" + state.user.uid, exists ? null : true, function() {
-    if (typeof fetchAllData === "function") fetchAllData();
-  });
-}
-
 function deleteThreadComment(tid, cid) {
-  dbWrite("DELETE", "threads/" + tid + "/comments/" + cid, null, function() {
-    if (typeof fetchAllData === "function") fetchAllData();
+  dbWrite("DELETE", "threads/" + tid + "/comments/" + cid, null, function(err) {
+    if (!err) {
+      if (state.threads[tid] && state.threads[tid].comments) delete state.threads[tid].comments[cid];
+      renderAll();
+    }
   });
 }
 
 /* ==========================================================================
-   PUBLIC PROFILES, DISCORD FAVORITE CARDS, SUBSCRIPTIONS & BLOCKS
+   WALL (STENA) & REPOSTS
+   ========================================================================== */
+function setWallFeedFilter(mode) {
+  state.wallFilter = mode || "all";
+  var allB = document.getElementById("wallFilterAllBtn");
+  var subB = document.getElementById("wallFilterSubBtn");
+  if (allB) allB.className = state.wallFilter === "all" ? "btn-active" : "";
+  if (subB) subB.className = state.wallFilter === "subs" ? "btn-active" : "";
+  renderGlobalWall();
+}
+
+function createWallPostRecord(targetUid, text, fileInput, videoInput, stickerInput, cb) {
+  if (!state.user) {
+    showStatus("Login to post on a wall.", true);
+    return;
+  }
+  var videoUrl = videoInput ? safeUrl(videoInput.value) : "";
+  var stickerUrl = stickerInput ? safeUrl(stickerInput.value) : "";
+
+  function commit(imgUrl) {
+    if (!text && !imgUrl && !videoUrl && !stickerUrl) {
+      showStatus("Write text or attach media/sticker.", true);
+      return;
+    }
+    var pid = generateId("wp");
+    var now = new Date().getTime();
+    var postObj = {
+      id: pid,
+      targetUid: targetUid,
+      authorUid: state.user.uid,
+      authorName: getDisplayUsername(),
+      text: text,
+      imageUrl: imgUrl || "",
+      videoUrl: videoUrl,
+      stickerUrl: stickerUrl,
+      createdAt: now,
+      likes: {}
+    };
+    dbWrite("PUT", "walls/" + targetUid + "/posts/" + pid, postObj, function(err) {
+      if (!err) {
+        if (targetUid !== state.user.uid) {
+          pushNotification(targetUid, getDisplayUsername() + " wrote on your wall.", "profile", targetUid);
+        }
+        if (cb) cb();
+      } else {
+        showStatus("Wall post failed: " + err, true);
+      }
+    });
+  }
+
+  if (fileInput && fileInput.files && fileInput.files[0]) {
+    uploadImageToImgbb(fileInput, function(err, url) {
+      if (!err && url) commit(url);
+      else showStatus(err || "Image upload failed", true);
+    }, { isSticker: false });
+  } else {
+    commit("");
+  }
+}
+
+function postToGlobalWall() {
+  if (!state.user) { showStatus("Login to post on your wall.", true); return; }
+  var txtEl = document.getElementById("globalWallText");
+  var fileEl = document.getElementById("globalWallFile");
+  var vidEl = document.getElementById("globalWallVideo");
+  var stEl = document.getElementById("globalWallSticker");
+  createWallPostRecord(state.user.uid, txtEl ? txtEl.value.trim() : "", fileEl, vidEl, stEl, function() {
+    if (txtEl) txtEl.value = "";
+    if (fileEl) fileEl.value = "";
+    if (vidEl) vidEl.value = "";
+    clearSelectedSticker("globalWall");
+    fetchAllData();
+    showStatus("Posted to wall!", false);
+  });
+}
+
+function repostToWall(encodedPayload) {
+  if (!state.user) { showStatus("Login to repost onto your wall.", true); return; }
+  var orig = null;
+  try { orig = JSON.parse(decodeURIComponent(encodedPayload)); } catch (e) {}
+  if (!orig) return;
+
+  var pid = generateId("wp");
+  var postObj = {
+    id: pid,
+    targetUid: state.user.uid,
+    authorUid: state.user.uid,
+    authorName: getDisplayUsername(),
+    text: "",
+    repostOf: orig,
+    createdAt: new Date().getTime(),
+    likes: {}
+  };
+  dbWrite("PUT", "walls/" + state.user.uid + "/posts/" + pid, postObj, function(err) {
+    if (!err) {
+      fetchAllData();
+      showStatus("Reposted to your wall!", false);
+    } else {
+      showStatus("Repost failed: " + err, true);
+    }
+  });
+}
+
+function renderWallPostCard(p) {
+  var likes = countMapKeys(p.likes);
+  var liked = state.user && p.likes && p.likes[state.user.uid];
+  var canDel = canModerateTarget(p.authorUid) || (state.user && state.user.uid === p.targetUid);
+  var targetUser = state.users[p.targetUid];
+  var targetLabel = (p.targetUid && p.targetUid !== p.authorUid && targetUser)
+    ? (" &rarr; <span class='post-author' onclick=\"openUserProfile('" + esc(p.targetUid) + "')\">" + esc(targetUser.displayName || targetUser.username) + "</span>")
+    : "";
+
+  var repostHtml = "";
+  if (p.repostOf) {
+    var ro = p.repostOf;
+    repostHtml = "<div class='repost-embed'>" +
+      "<div class='mini-title'>Reposted from " + esc(ro.authorName || "User") + (ro.subject ? (" — " + esc(ro.subject)) : "") + "</div>" +
+      (isValidImageSrc(ro.imageUrl) ? "<img class='post-media' src='" + esc(ro.imageUrl) + "' alt='' onclick=\"openZoomModal(this.src,'Repost','')\">" : "") +
+      (isValidImageSrc(ro.stickerUrl) ? "<img class='post-sticker' src='" + esc(ro.stickerUrl) + "' alt=''>" : "") +
+      (ro.videoUrl ? renderVideoOrAudioEmbed(ro.videoUrl) : "") +
+      (ro.text ? "<div class='post-body'>" + esc(ro.text) + "</div>" : "") +
+    "</div>";
+  }
+
+  return "<div class='wall-post-card'>" +
+    "<div class='post-header'>" +
+      "<div><span class='post-author' onclick=\"openUserProfile('" + esc(p.authorUid) + "')\">" + esc(p.authorName || "Anon") + "</span>" +
+      renderRoleBadgeHtml(p.authorUid) + targetLabel +
+      " <span class='muted'>" + formatTime(p.createdAt) + "</span></div>" +
+      "<div class='btn-row'>" +
+        "<button type='button' class='" + (liked ? "btn-active" : "") + "' onclick=\"toggleWallPostLike('" + esc(p.targetUid) + "','" + esc(p.id) + "')\">Like (" + likes + ")</button>" +
+        (canDel ? "<button type='button' class='btn-danger' onclick=\"deleteWallPost('" + esc(p.targetUid) + "','" + esc(p.id) + "')\">Delete</button>" : "") +
+      "</div>" +
+    "</div>" +
+    (isValidImageSrc(p.imageUrl) ? "<img class='post-media' src='" + esc(p.imageUrl) + "' alt='Wall Image' onclick=\"openZoomModal(this.src,'Wall Image','')\">" : "") +
+    (isValidImageSrc(p.stickerUrl) ? "<img class='post-sticker' src='" + esc(p.stickerUrl) + "' alt='Sticker'>" : "") +
+    (p.videoUrl ? renderVideoOrAudioEmbed(p.videoUrl) : "") +
+    (p.text ? "<div class='post-body'>" + esc(p.text) + "</div>" : "") +
+    repostHtml +
+  "</div>";
+}
+
+function renderGlobalWall() {
+  var box = document.getElementById("wallPostsContainer");
+  if (!box) return;
+  var mySubs = (state.user && state.subscriptions[state.user.uid]) || {};
+  var list = [];
+
+  for (var tUid in state.walls) {
+    if (!state.walls.hasOwnProperty(tUid) || !state.walls[tUid] || !state.walls[tUid].posts) continue;
+    var posts = state.walls[tUid].posts;
+    for (var pid in posts) {
+      if (!posts.hasOwnProperty(pid) || !posts[pid]) continue;
+      var p = posts[pid];
+      if (state.wallFilter === "subs" && state.user) {
+        if (p.authorUid !== state.user.uid && !mySubs[p.authorUid]) continue;
+      }
+      list.push(p);
+    }
+  }
+  list.sort(function(a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
+
+  if (!list.length) {
+    box.innerHTML = "<div class='box-panel'><div class='box-body muted'>No wall posts to show yet.</div></div>";
+    return;
+  }
+  var h = "";
+  for (var i = 0; i < list.length; i++) h += renderWallPostCard(list[i]);
+  box.innerHTML = h;
+}
+
+function toggleWallPostLike(targetUid, pid) {
+  if (!state.user) { showStatus("Login to like wall posts.", true); return; }
+  var post = state.walls[targetUid] && state.walls[targetUid].posts && state.walls[targetUid].posts[pid];
+  if (!post) return;
+  var liked = post.likes && post.likes[state.user.uid];
+  dbWrite(liked ? "DELETE" : "PUT", "walls/" + targetUid + "/posts/" + pid + "/likes/" + state.user.uid, liked ? null : true, function() {
+    fetchAllData();
+  });
+}
+
+function deleteWallPost(targetUid, pid) {
+  dbWrite("DELETE", "walls/" + targetUid + "/posts/" + pid, null, function(err) {
+    if (!err) {
+      if (state.walls[targetUid] && state.walls[targetUid].posts) delete state.walls[targetUid].posts[pid];
+      renderAll();
+      showStatus("Wall post deleted.", false);
+    }
+  });
+}
+
+/* ==========================================================================
+   PROFILES, CUSTOM FIELDS, FAVORITES, SUBSCRIPTIONS & BLOCKS
    ========================================================================== */
 function openMyProfile() {
-  if (!state.user) { showStatus("Login to view/edit your profile.", true); return; }
+  if (!state.user) {
+    showStatus("Login to view and edit your profile.", true);
+    return;
+  }
   state.viewedProfileUid = state.user.uid;
-  if (typeof switchView === "function") switchView("profile");
+  switchView("profile");
 }
 
 function openUserProfile(uid) {
   if (!uid) return;
   state.viewedProfileUid = uid;
-  if (typeof switchView === "function") switchView("profile");
+  switchView("profile");
 }
 
 function renderPublicProfile() {
   var uid = state.viewedProfileUid || (state.user && state.user.uid);
   if (!uid) {
-    var keys = Object.keys(state.users);
-    if (keys.length) uid = keys[0];
+    for (var k in state.users) {
+      if (state.users.hasOwnProperty(k)) { uid = k; break; }
+    }
   }
+  if (!uid) return;
   state.viewedProfileUid = uid;
-  var p = (uid && state.users[uid]) || { displayName: "Guest", username: "guest", avatar: DEFAULT_AVATAR_SVG };
-  var isOwn = Boolean(state.user && uid === state.user.uid);
 
-  document.getElementById("profHeaderTitle").textContent = (p.displayName || p.username || "User") + " (@" + (p.username || "user") + ")";
-  document.getElementById("profStatusBanner").textContent = p.status || "No status message.";
-  document.getElementById("profViewAvatar").src = isValidImageSrc(p.avatar) ? p.avatar : DEFAULT_AVATAR_SVG;
-  document.getElementById("profViewDisplayName").innerHTML = esc(p.displayName || p.username || "User") + renderRoleBadge(uid);
+  var u = state.users[uid] || { uid: uid, username: "User", displayName: "User", avatar: DEFAULT_AVATAR_SVG };
+  var isMe = Boolean(state.user && state.user.uid === uid);
+
+  var titleEl = document.getElementById("profHeaderTitle");
+  if (titleEl) titleEl.textContent = (u.displayName || u.username || "User") + " — Profile";
 
   var subCount = 0;
   for (var sUid in state.subscriptions) {
     if (state.subscriptions.hasOwnProperty(sUid) && state.subscriptions[sUid] && state.subscriptions[sUid][uid]) subCount++;
   }
-  document.getElementById("profSubStats").textContent = subCount + " subscribers";
+  var statsEl = document.getElementById("profSubStats");
+  if (statsEl) statsEl.textContent = "Subscribers: " + subCount;
 
+  var statusEl = document.getElementById("profStatusBanner");
+  if (statusEl) {
+    statusEl.style.display = u.status ? "block" : "none";
+    statusEl.textContent = u.status || "";
+  }
+
+  var avEl = document.getElementById("profViewAvatar");
+  if (avEl) avEl.src = isValidImageSrc(u.avatar) ? u.avatar : DEFAULT_AVATAR_SVG;
+
+  var nameEl = document.getElementById("profViewDisplayName");
+  if (nameEl) nameEl.innerHTML = esc(u.displayName || u.username || "User") + renderRoleBadgeHtml(uid);
+
+  function setTxt(id, val) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = val || "—";
+  }
+  setTxt("profViewPronouns", u.pronouns);
+  setTxt("profViewRelationship", u.relationship);
+  setTxt("profViewRegDate", u.regDate);
+  setTxt("profViewHometown", u.hometown);
+  setTxt("profViewPolitics", u.politics);
+  setTxt("profViewBirthDate", u.birthDate);
+  setTxt("profViewCity", u.city);
+  setTxt("profViewInterests", u.interests);
+  setTxt("profViewAbout", u.about);
+
+  var webEl = document.getElementById("profViewWebsite");
+  if (webEl) {
+    var safeW = safeUrl(u.website);
+    webEl.innerHTML = safeW ? ("<a href='" + esc(safeW) + "' target='_blank' rel='noopener'>" + esc(safeW) + "</a>") : esc(u.website || "—");
+  }
+
+  // Custom fields
+  var cfBox = document.getElementById("profViewCustomFields");
+  if (cfBox) {
+    var cfHtml = "";
+    if (u.customFields && u.customFields.length) {
+      cfHtml += "<table class='info-table'>";
+      for (var c = 0; c < u.customFields.length; c++) {
+        var cf = u.customFields[c];
+        if (cf && (cf.label || cf.value)) {
+          cfHtml += "<tr><th>" + esc(cf.label || "Option") + ":</th><td>" + esc(cf.value || "") + "</td></tr>";
+        }
+      }
+      cfHtml += "</table>";
+    }
+    cfBox.innerHTML = cfHtml;
+  }
+
+  // Favorite Cards
+  var favBox = document.getElementById("profFavoritesCards");
+  if (favBox) {
+    var favs = [
+      { type: "Favorite Film", title: u.favFilmTitle, img: u.favFilmImg },
+      { type: "Favorite TV-Show", title: u.favShowTitle, img: u.favShowImg },
+      { type: "Favorite Book", title: u.favBookTitle, img: u.favBookImg },
+      { type: "Favorite Game", title: u.favGameTitle, img: u.favGameImg }
+    ];
+    var fHtml = "";
+    for (var f = 0; f < favs.length; f++) {
+      if (!favs[f].title && !isValidImageSrc(favs[f].img)) continue;
+      var cover = isValidImageSrc(favs[f].img) ? favs[f].img : DEFAULT_SITE_LOGO;
+      fHtml += "<div class='fav-card' onclick=\"openZoomModal('" + esc(cover) + "','" + esc(favs[f].type) + "','" + esc(favs[f].title || "") + "')\">" +
+                 "<img src='" + esc(cover) + "' alt=''>" +
+                 "<div class='fav-card-type'>" + esc(favs[f].type) + "</div>" +
+                 "<div class='fav-card-title'>" + esc(favs[f].title || "Untitled") + "</div>" +
+               "</div>";
+    }
+    favBox.innerHTML = fHtml || "<span class='muted'>No favorites added yet.</span>";
+  }
+
+  // Action Buttons
   var actBox = document.getElementById("profActionButtons");
   if (actBox) {
-    if (!isOwn && state.user && uid) {
+    if (!isMe && state.user) {
       var isSub = Boolean(state.subscriptions[state.user.uid] && state.subscriptions[state.user.uid][uid]);
-      var isBlk = isUserBlockedByMe(uid);
+      var isBlk = Boolean(state.blocks[state.user.uid] && state.blocks[state.user.uid][uid]);
       actBox.innerHTML =
-        "<button type='button' onclick=\"toggleSubscribe('" + esc(uid) + "')\">" + (isSub ? "Unsubscribe" : "Subscribe") + "</button> " +
-        "<button type='button' class='btn-danger' onclick=\"toggleBlockUser('" + esc(uid) + "')\">" + (isBlk ? "Unblock" : "Block") + "</button> " +
-        "<button type='button' onclick=\"openDmWithUser('" + esc(uid) + "')\">Message</button>";
+        "<button type='button' class='" + (isSub ? "btn-active" : "btn-primary") + "' onclick=\"toggleSubscribeUser('" + esc(uid) + "')\">" + (isSub ? "Unsubscribe" : "Subscribe") + "</button>" +
+        "<button type='button' onclick=\"openDmWithUser('" + esc(uid) + "')\">Send Message</button>" +
+        "<button type='button' class='btn-danger' onclick=\"toggleBlockUser('" + esc(uid) + "')\">" + (isBlk ? "Unblock User" : "Block Wall") + "</button>";
     } else {
       actBox.innerHTML = "";
     }
   }
 
   var roleBar = document.getElementById("superiorAdminRoleBar");
-  if (roleBar) roleBar.style.display = (isSuperiorAdmin() && uid && !isOwn) ? "block" : "none";
+  if (roleBar) roleBar.style.display = (isSuperiorAdmin() && !isMe) ? "block" : "none";
 
-  function setText(id, val) { var el = document.getElementById(id); if (el) el.textContent = val || "—"; }
-  setText("profViewPronouns", p.pronouns);
-  setText("profViewRelationship", p.relationship);
-  setText("profViewRegDate", p.regDate || formatTime(p.createdAt).split(" ")[0]);
-  setText("profViewHometown", p.hometown);
-  setText("profViewPolitics", p.politics);
-  setText("profViewBirthDate", p.birthDate);
-  setText("profViewCity", p.city);
-  setText("profViewInterests", p.interests);
-  setText("profViewAbout", p.about);
+  // Profile Editor (only for own profile)
+  var edBox = document.getElementById("myProfileEditor");
+  if (edBox) {
+    edBox.style.display = isMe ? "block" : "none";
+    if (isMe) {
+      function setVal(id, v) { var el = document.getElementById(id); if (el) el.value = v || ""; }
+      setVal("editProfStatus", u.status);
+      setVal("editProfDisplayName", u.displayName || u.username);
+      setVal("editProfAvatarUrl", u.avatar);
+      setVal("editProfPronouns", u.pronouns);
+      setVal("editProfRelationship", u.relationship);
+      setVal("editProfHometown", u.hometown);
+      setVal("editProfPolitics", u.politics);
+      setVal("editProfBirthDate", u.birthDate);
+      setVal("editProfWebsite", u.website);
+      setVal("editProfCity", u.city);
+      setVal("editProfInterests", u.interests);
+      setVal("editProfAbout", u.about);
+      setVal("editFavFilmTitle", u.favFilmTitle);
+      setVal("editFavFilmImg", u.favFilmImg);
+      setVal("editFavShowTitle", u.favShowTitle);
+      setVal("editFavShowImg", u.favShowImg);
+      setVal("editFavBookTitle", u.favBookTitle);
+      setVal("editFavBookImg", u.favBookImg);
+      setVal("editFavGameTitle", u.favGameTitle);
+      setVal("editFavGameImg", u.favGameImg);
 
-  var webEl = document.getElementById("profViewWebsite");
-  if (webEl) {
-    var wUrl = safeUrl(p.website);
-    webEl.innerHTML = wUrl ? "<a href='" + esc(wUrl) + "' target='_blank' rel='noopener'>" + esc(wUrl) + "</a>" : esc(p.website || "—");
-  }
-
-  var custBox = document.getElementById("profViewCustomFields");
-  if (custBox) {
-    var ch = "";
-    if (p.customFields && p.customFields.length) {
-      ch += "<table class='info-table'>";
-      for (var c = 0; c < p.customFields.length; c++) {
-        ch += "<tr><th>" + esc(p.customFields[c].label) + ":</th><td>" + esc(p.customFields[c].value) + "</td></tr>";
-      }
-      ch += "</table>";
-    }
-    custBox.innerHTML = ch;
-  }
-
-  var favBox = document.getElementById("profFavoritesCards");
-  if (favBox) {
-    var favs = [
-      { type: "Favorite Film", title: p.favFilmTitle, img: p.favFilmImg },
-      { type: "Favorite TV-Show", title: p.favShowTitle, img: p.favShowImg },
-      { type: "Favorite Book", title: p.favBookTitle, img: p.favBookImg },
-      { type: "Favorite Game", title: p.favGameTitle, img: p.favGameImg }
-    ];
-    var fh = "";
-    for (var f = 0; f < favs.length; f++) {
-      if (favs[f].title || favs[f].img) {
-        var cardImg = isValidImageSrc(favs[f].img) ? favs[f].img : DEFAULT_AVATAR_SVG;
-        fh += "<div class='fav-card' onclick=\"openZoomModal('" + esc(cardImg) + "','" + esc(favs[f].type) + "','" + esc(favs[f].title || "") + "')\">" +
-                "<img src='" + esc(cardImg) + "' alt='card'>" +
-                "<div class='fav-card-type'>" + esc(favs[f].type) + "</div>" +
-                "<div class='fav-card-title'>" + esc(favs[f].title || "Untitled") + "</div>" +
-              "</div>";
-      }
-    }
-    favBox.innerHTML = fh || "<span class='muted'>No favorite cards added yet.</span>";
-  }
-
-  var ed = document.getElementById("myProfileEditor");
-  if (ed) {
-    ed.style.display = isOwn ? "block" : "none";
-    if (isOwn) {
-      document.getElementById("editProfStatus").value = p.status || "";
-      document.getElementById("editProfDisplayName").value = p.displayName || "";
-      document.getElementById("editProfAvatarUrl").value = p.avatar || "";
-      document.getElementById("editProfPronouns").value = p.pronouns || "";
-      document.getElementById("editProfRelationship").value = p.relationship || "";
-      document.getElementById("editProfHometown").value = p.hometown || "";
-      document.getElementById("editProfPolitics").value = p.politics || "";
-      document.getElementById("editProfBirthDate").value = p.birthDate || "";
-      document.getElementById("editProfWebsite").value = p.website || "";
-      document.getElementById("editProfCity").value = p.city || "";
-      document.getElementById("editProfInterests").value = p.interests || "";
-      document.getElementById("editProfAbout").value = p.about || "";
-      document.getElementById("editFavFilmTitle").value = p.favFilmTitle || "";
-      document.getElementById("editFavFilmImg").value = p.favFilmImg || "";
-      document.getElementById("editFavShowTitle").value = p.favShowTitle || "";
-      document.getElementById("editFavShowImg").value = p.favShowImg || "";
-      document.getElementById("editFavBookTitle").value = p.favBookTitle || "";
-      document.getElementById("editFavBookImg").value = p.favBookImg || "";
-      document.getElementById("editFavGameTitle").value = p.favGameTitle || "";
-      document.getElementById("editFavGameImg").value = p.favGameImg || "";
-
-      var ce = document.getElementById("customFieldsEditor");
-      ce.innerHTML = "";
-      if (p.customFields) {
-        for (var k = 0; k < p.customFields.length; k++) {
-          addCustomProfileFieldRow(p.customFields[k].label, p.customFields[k].value);
+      var cfEd = document.getElementById("customFieldsEditor");
+      if (cfEd) {
+        cfEd.innerHTML = "";
+        var listCf = u.customFields || [];
+        for (var idx = 0; idx < listCf.length; idx++) {
+          addCustomProfileFieldRow(listCf[idx].label, listCf[idx].value);
         }
       }
     }
   }
 
-  document.getElementById("profileWallTitle").textContent = (p.displayName || p.username || "User") + "'s Wall (Stena)";
-  renderProfileWall(uid);
+  // Profile Wall
+  var wPostsBox = document.getElementById("profileWallPosts");
+  if (wPostsBox) {
+    var wMap = (state.walls[uid] && state.walls[uid].posts) || {};
+    var wList = [];
+    for (var wpId in wMap) {
+      if (wMap.hasOwnProperty(wpId) && wMap[wpId]) wList.push(wMap[wpId]);
+    }
+    wList.sort(function(a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
+    var wh = "";
+    for (var wi = 0; wi < wList.length; wi++) wh += renderWallPostCard(wList[wi]);
+    wPostsBox.innerHTML = wh || "<div class='muted' style='margin-top:6px;'>No posts on this wall yet.</div>";
+  }
 }
 
 function addCustomProfileFieldRow(labelVal, valueVal) {
@@ -512,288 +869,144 @@ function addCustomProfileFieldRow(labelVal, valueVal) {
   var row = document.createElement("div");
   row.className = "form-row custom-field-row";
   row.innerHTML =
-    "<input type='text' class='cf-label' placeholder='Option Name' value='" + esc(labelVal || "") + "'>" +
+    "<input type='text' class='cf-label' placeholder='Option name' value='" + esc(labelVal || "") + "'>" +
     "<input type='text' class='cf-value' placeholder='Value' value='" + esc(valueVal || "") + "'>" +
-    "<button type='button' class='btn-danger' onclick='this.parentNode.parentNode.removeChild(this.parentNode)'>x</button>";
+    "<button type='button' class='btn-danger' onclick='this.parentNode.parentNode.removeChild(this.parentNode)'>Remove</button>";
   box.appendChild(row);
 }
 
 function saveMyProfile() {
   if (!state.user) return;
+  var uid = state.user.uid;
   var fEl = document.getElementById("editProfAvatarFile");
 
   function commitProfile(avatarUrl) {
+    function getV(id) { var el = document.getElementById(id); return el ? el.value.trim() : ""; }
+    var customFields = [];
     var rows = document.querySelectorAll("#customFieldsEditor .custom-field-row");
-    var customArr = [];
     for (var i = 0; i < rows.length; i++) {
-      var l = rows[i].querySelector(".cf-label").value.replace(/^\s+|\s+$/g, "");
-      var v = rows[i].querySelector(".cf-value").value.replace(/^\s+|\s+$/g, "");
-      if (l && v) customArr.push({ label: l, value: v });
+      var l = rows[i].querySelector(".cf-label").value.trim();
+      var v = rows[i].querySelector(".cf-value").value.trim();
+      if (l || v) customFields.push({ label: l, value: v });
     }
 
-    var cur = state.profile || {};
+    var base = state.profile || state.users[uid] || {};
     var updated = {
-      uid: state.user.uid,
-      username: state.user.username,
-      email: state.user.email,
-      role: getUserRole(state.user.uid),
-      regDate: cur.regDate || formatTime(new Date().getTime()).split(" ")[0],
-      createdAt: cur.createdAt || new Date().getTime(),
-      status: document.getElementById("editProfStatus").value,
-      displayName: document.getElementById("editProfDisplayName").value || state.user.username,
-      avatar: avatarUrl || safeUrl(document.getElementById("editProfAvatarUrl").value) || DEFAULT_AVATAR_SVG,
-      pronouns: document.getElementById("editProfPronouns").value,
-      relationship: document.getElementById("editProfRelationship").value,
-      hometown: document.getElementById("editProfHometown").value,
-      politics: document.getElementById("editProfPolitics").value,
-      birthDate: document.getElementById("editProfBirthDate").value,
-      website: document.getElementById("editProfWebsite").value,
-      city: document.getElementById("editProfCity").value,
-      interests: document.getElementById("editProfInterests").value,
-      about: document.getElementById("editProfAbout").value,
-      favFilmTitle: document.getElementById("editFavFilmTitle").value,
-      favFilmImg: safeUrl(document.getElementById("editFavFilmImg").value),
-      favShowTitle: document.getElementById("editFavShowTitle").value,
-      favShowImg: safeUrl(document.getElementById("editFavShowImg").value),
-      favBookTitle: document.getElementById("editFavBookTitle").value,
-      favBookImg: safeUrl(document.getElementById("editFavBookImg").value),
-      favGameTitle: document.getElementById("editFavGameTitle").value,
-      favGameImg: safeUrl(document.getElementById("editFavGameImg").value),
-      customFields: customArr
+      uid: uid,
+      email: state.user.email || base.email || "",
+      username: base.username || getV("editProfDisplayName") || "user",
+      displayName: getV("editProfDisplayName") || base.username || "User",
+      avatar: avatarUrl || safeUrl(getV("editProfAvatarUrl")) || base.avatar || DEFAULT_AVATAR_SVG,
+      role: base.role || getUserRole(uid),
+      regDate: base.regDate || formatTime(new Date().getTime()),
+      status: getV("editProfStatus"),
+      pronouns: getV("editProfPronouns"),
+      relationship: getV("editProfRelationship"),
+      hometown: getV("editProfHometown"),
+      politics: getV("editProfPolitics"),
+      birthDate: getV("editProfBirthDate"),
+      website: getV("editProfWebsite"),
+      city: getV("editProfCity"),
+      interests: getV("editProfInterests"),
+      about: getV("editProfAbout"),
+      favFilmTitle: getV("editFavFilmTitle"),
+      favFilmImg: safeUrl(getV("editFavFilmImg")),
+      favShowTitle: getV("editFavShowTitle"),
+      favShowImg: safeUrl(getV("editFavShowImg")),
+      favBookTitle: getV("editFavBookTitle"),
+      favBookImg: safeUrl(getV("editFavBookImg")),
+      favGameTitle: getV("editFavGameTitle"),
+      favGameImg: safeUrl(getV("editFavGameImg")),
+      customFields: customFields
     };
 
-    dbWrite("PUT", "users/" + state.user.uid, updated, function(err) {
+    dbWrite("PUT", "users/" + uid, updated, function(err) {
       if (!err) {
         state.profile = updated;
-        state.users[state.user.uid] = updated;
+        state.users[uid] = updated;
         updateAuthUi();
         renderPublicProfile();
         showStatus("Profile saved!", false);
-      } else showStatus(err, true);
+      } else {
+        showStatus("Save error: " + err, true);
+      }
     });
   }
 
   if (fEl && fEl.files && fEl.files[0]) {
     uploadImageToImgbb(fEl, function(err, url) {
-      if (!err && url) { fEl.value = ""; commitProfile(url); }
-      else showStatus(err || "Avatar upload failed", true);
-    });
+      if (!err && url) {
+        fEl.value = "";
+        commitProfile(url);
+      } else {
+        showStatus(err || "Avatar upload failed", true);
+      }
+    }, { isSticker: true });
   } else {
     commitProfile("");
   }
 }
 
-function toggleSubscribe(targetUid) {
-  if (!state.user || !targetUid || targetUid === state.user.uid) return;
-  var exists = Boolean(state.subscriptions[state.user.uid] && state.subscriptions[state.user.uid][targetUid]);
-  dbWrite(exists ? "DELETE" : "PUT", "subscriptions/" + state.user.uid + "/" + targetUid, exists ? null : true, function() {
-    if (!exists) pushNotification(targetUid, getDisplayUsername() + " subscribed to you!", "profile", state.user.uid);
-    if (typeof fetchAllData === "function") fetchAllData();
+function postToUserWall() {
+  var uid = state.viewedProfileUid || (state.user && state.user.uid);
+  if (!uid) return;
+  var txtEl = document.getElementById("profileWallText");
+  var fileEl = document.getElementById("profileWallFile");
+  var vidEl = document.getElementById("profileWallVideo");
+  var stEl = document.getElementById("profileWallSticker");
+  createWallPostRecord(uid, txtEl ? txtEl.value.trim() : "", fileEl, vidEl, stEl, function() {
+    if (txtEl) txtEl.value = "";
+    if (fileEl) fileEl.value = "";
+    if (vidEl) vidEl.value = "";
+    clearSelectedSticker("profileWall");
+    fetchAllData();
+    showStatus("Posted on wall!", false);
+  });
+}
+
+function toggleSubscribeUser(targetUid) {
+  if (!state.user) return;
+  var myUid = state.user.uid;
+  var isSub = Boolean(state.subscriptions[myUid] && state.subscriptions[myUid][targetUid]);
+  dbWrite(isSub ? "DELETE" : "PUT", "subscriptions/" + myUid + "/" + targetUid, isSub ? null : true, function() {
+    if (!isSub) pushNotification(targetUid, getDisplayUsername() + " subscribed to you!", "profile", myUid);
+    fetchAllData();
   });
 }
 
 function toggleBlockUser(targetUid) {
-  if (!state.user || !targetUid || targetUid === state.user.uid) return;
-  var exists = isUserBlockedByMe(targetUid);
-  dbWrite(exists ? "DELETE" : "PUT", "blocks/" + state.user.uid + "/" + targetUid, exists ? null : true, function() {
-    if (typeof fetchAllData === "function") fetchAllData();
+  if (!state.user) return;
+  var myUid = state.user.uid;
+  var isBlk = Boolean(state.blocks[myUid] && state.blocks[myUid][targetUid]);
+  dbWrite(isBlk ? "DELETE" : "PUT", "blocks/" + myUid + "/" + targetUid, isBlk ? null : true, function() {
+    fetchAllData();
+    showStatus(isBlk ? "User unblocked." : "User blocked from writing on your wall.", false);
   });
 }
 
-/* ==========================================================================
-   WALL ("STENA") & REPOSTS
-   ========================================================================== */
-function setWallFeedFilter(mode) {
-  state.wallFeedFilter = mode;
-  document.getElementById("wallFilterAllBtn").className = (mode === "all") ? "btn-active" : "";
-  document.getElementById("wallFilterSubBtn").className = (mode === "subs") ? "btn-active" : "";
-  renderGlobalWall();
-}
-
-function createWallEntry(targetUid, textId, fileId, videoId, stickerTarget) {
-  if (!state.user) { showStatus("Login required.", true); return; }
-  if (isMeBlockedByUser(targetUid)) { showStatus("You are blocked from posting on this wall.", true); return; }
-
-  var txt = (document.getElementById(textId).value || "").replace(/^\s+|\s+$/g, "");
-  var vid = safeUrl(document.getElementById(videoId).value);
-  var st = safeUrl(document.getElementById(stickerTarget + "Sticker") ? document.getElementById(stickerTarget + "Sticker").value : "");
-  var fEl = document.getElementById(fileId);
-
-  function saveWall(imgUrl) {
-    if (!txt && !imgUrl && !vid && !st) { showStatus("Wall post cannot be empty.", true); return; }
-    var pid = generateId("wp");
-    var postObj = {
-      id: pid,
-      targetUid: targetUid,
-      authorUid: state.user.uid,
-      authorName: getDisplayUsername(),
-      text: txt,
-      imageUrl: imgUrl || "",
-      videoUrl: vid || "",
-      stickerUrl: st || "",
-      createdAt: new Date().getTime()
-    };
-    dbWrite("PUT", "walls/" + targetUid + "/posts/" + pid, postObj, function(err) {
-      if (!err) {
-        document.getElementById(textId).value = "";
-        document.getElementById(videoId).value = "";
-        if (fEl) fEl.value = "";
-        clearAttachedSticker(stickerTarget);
-        if (targetUid !== state.user.uid) {
-          pushNotification(targetUid, getDisplayUsername() + " wrote on your wall!", "profile", targetUid);
-        }
-        if (typeof fetchAllData === "function") fetchAllData();
-        showStatus("Posted to wall!", false);
-      } else showStatus(err, true);
-    });
-  }
-
-  if (fEl && fEl.files && fEl.files[0]) {
-    uploadImageToImgbb(fEl, function(err, url) {
-      if (!err && url) saveWall(url);
-      else showStatus(err || "Image upload failed", true);
-    });
-  } else {
-    saveWall("");
-  }
-}
-
-function postToUserWall() {
-  var target = state.viewedProfileUid || (state.user && state.user.uid);
-  if (!target) return;
-  createWallEntry(target, "profileWallText", "profileWallFile", "profileWallVideo", "profileWall");
-}
-
-function postToGlobalWall() {
-  if (!state.user) { showStatus("Login required.", true); return; }
-  createWallEntry(state.user.uid, "globalWallText", "globalWallFile", "globalWallVideo", "globalWall");
-}
-
-function repostToMyWall(sourceType, targetUid, pid) {
-  if (!state.user) { showStatus("Login to repost.", true); return; }
-  var src = null;
-  if (sourceType === "thread") {
-    var th = state.threads[pid];
-    if (th) src = { author: th.author, text: (th.subject ? th.subject + ": " : "") + th.text, imageUrl: th.imageUrl, videoUrl: th.videoUrl, stickerUrl: th.stickerUrl };
-  } else {
-    var wp = state.walls[targetUid] && state.walls[targetUid].posts && state.walls[targetUid].posts[pid];
-    if (wp) src = { author: wp.authorName, text: wp.text, imageUrl: wp.imageUrl, videoUrl: wp.videoUrl, stickerUrl: wp.stickerUrl };
-  }
-  if (!src) return;
-
-  var newPid = generateId("rp");
-  var repObj = {
-    id: newPid,
-    targetUid: state.user.uid,
-    authorUid: state.user.uid,
-    authorName: getDisplayUsername(),
-    text: "Reposted from " + (src.author || "User"),
-    repost: src,
-    createdAt: new Date().getTime()
-  };
-  dbWrite("PUT", "walls/" + state.user.uid + "/posts/" + newPid, repObj, function(err) {
+function assignUserRole(roleName) {
+  if (!isSuperiorAdmin() || !state.viewedProfileUid) return;
+  dbWrite("PUT", "users/" + state.viewedProfileUid + "/role", roleName, function(err) {
     if (!err) {
-      if (typeof fetchAllData === "function") fetchAllData();
-      showStatus("Reposted to your wall!", false);
+      fetchAllData();
+      showStatus("Role set to " + roleName.toUpperCase(), false);
     }
-  });
-}
-
-function renderWallPostCard(p) {
-  var likes = countMapKeys(p.likes);
-  var liked = Boolean(state.user && p.likes && p.likes[state.user.uid]);
-  var canDel = Boolean(state.user && (p.authorUid === state.user.uid || p.targetUid === state.user.uid || canModerateTargetUser(p.authorUid)));
-  var ownerUser = state.users[p.targetUid];
-  var targetLabel = (p.targetUid && p.targetUid !== p.authorUid && ownerUser) ? (" &rarr; " + esc(ownerUser.displayName || ownerUser.username)) : "";
-
-  var h = "<div class='wall-post-card'>" +
-            "<div class='post-header'>" +
-              "<span><span class='post-author' onclick=\"openUserProfile('" + esc(p.authorUid) + "')\">" + esc(p.authorName || "User") + "</span>" + renderRoleBadge(p.authorUid) + targetLabel + " <span class='muted'>" + formatTime(p.createdAt) + "</span></span>" +
-              "<span>" +
-                "<button type='button' onclick=\"toggleWallPostLike('" + esc(p.targetUid) + "','" + esc(p.id) + "')\">" + (liked ? "Liked" : "Like") + " (" + likes + ")</button> " +
-                "<button type='button' onclick=\"repostToMyWall('wall','" + esc(p.targetUid) + "','" + esc(p.id) + "')\">Repost</button> " +
-                (canDel ? "<button type='button' class='btn-danger' onclick=\"deleteWallPost('" + esc(p.targetUid) + "','" + esc(p.id) + "')\">Delete</button>" : "") +
-              "</span>" +
-            "</div>" +
-            "<div class='post-body'>" + esc(p.text) + "</div>" +
-            renderMediaHtml(p.imageUrl, p.videoUrl, p.stickerUrl);
-
-  if (p.repost) {
-    h += "<div class='repost-embed'>" +
-           "<div class='mini-title'>Reposted from " + esc(p.repost.author || "User") + ":</div>" +
-           "<div class='post-body'>" + esc(p.repost.text || "") + "</div>" +
-           renderMediaHtml(p.repost.imageUrl, p.repost.videoUrl, p.repost.stickerUrl) +
-         "</div>";
-  }
-  h += "</div>";
-  return h;
-}
-
-function renderProfileWall(targetUid) {
-  var box = document.getElementById("profileWallPosts");
-  if (!box) return;
-  var postsMap = (state.walls[targetUid] && state.walls[targetUid].posts) || {};
-  var list = [];
-  for (var pid in postsMap) {
-    if (postsMap.hasOwnProperty(pid) && postsMap[pid] && !isUserBlockedByMe(postsMap[pid].authorUid)) list.push(postsMap[pid]);
-  }
-  list.sort(function(a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
-  var h = "";
-  for (var i = 0; i < list.length; i++) h += renderWallPostCard(list[i]);
-  box.innerHTML = h || "<div class='muted' style='margin-top:6px;'>No wall posts yet.</div>";
-}
-
-function renderGlobalWall() {
-  var box = document.getElementById("wallPostsContainer");
-  if (!box) return;
-  var list = [];
-  var mySubs = (state.user && state.subscriptions[state.user.uid]) || {};
-  for (var tUid in state.walls) {
-    if (!state.walls.hasOwnProperty(tUid) || !state.walls[tUid] || !state.walls[tUid].posts) continue;
-    var pMap = state.walls[tUid].posts;
-    for (var pid in pMap) {
-      if (pMap.hasOwnProperty(pid) && pMap[pid]) {
-        var p = pMap[pid];
-        if (isUserBlockedByMe(p.authorUid)) continue;
-        if (state.wallFeedFilter === "subs" && state.user && p.authorUid !== state.user.uid && !mySubs[p.authorUid]) continue;
-        list.push(p);
-      }
-    }
-  }
-  list.sort(function(a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
-  var h = "";
-  for (var i = 0; i < list.length; i++) h += renderWallPostCard(list[i]);
-  box.innerHTML = h || "<div class='box-panel'><div class='box-body muted'>No wall posts found.</div></div>";
-}
-
-function toggleWallPostLike(targetUid, pid) {
-  if (!state.user) { showStatus("Login to like.", true); return; }
-  var p = state.walls[targetUid] && state.walls[targetUid].posts && state.walls[targetUid].posts[pid];
-  if (!p) return;
-  var exists = Boolean(p.likes && p.likes[state.user.uid]);
-  dbWrite(exists ? "DELETE" : "PUT", "walls/" + targetUid + "/posts/" + pid + "/likes/" + state.user.uid, exists ? null : true, function() {
-    if (typeof fetchAllData === "function") fetchAllData();
-  });
-}
-
-function deleteWallPost(targetUid, pid) {
-  dbWrite("DELETE", "walls/" + targetUid + "/posts/" + pid, null, function() {
-    if (typeof fetchAllData === "function") fetchAllData();
   });
 }
 
 /* ==========================================================================
-   MEMBERS DIRECTORY & PREFERENCE SEARCH
+   MEMBERS DIRECTORY
    ========================================================================== */
 function renderMembersList() {
-  var box = document.getElementById("membersDirectoryGrid");
-  if (!box) return;
-  var fName = (document.getElementById("memberFilterName").value || "").toLowerCase();
-  var fPron = (document.getElementById("memberFilterPronouns").value || "").toLowerCase();
-  var fCity = (document.getElementById("memberFilterCity").value || "").toLowerCase();
-  var fRel = (document.getElementById("memberFilterRelation").value || "").toLowerCase();
-  var fPol = (document.getElementById("memberFilterPolitics").value || "").toLowerCase();
-  var fInt = (document.getElementById("memberFilterInterest").value || "").toLowerCase();
+  var grid = document.getElementById("membersDirectoryGrid");
+  if (!grid) return;
+  function val(id) { var el = document.getElementById(id); return el ? el.value.trim().toLowerCase() : ""; }
+  var fName = val("memberFilterName");
+  var fPron = val("memberFilterPronouns");
+  var fCity = val("memberFilterCity");
+  var fRel = val("memberFilterRelation");
+  var fPol = val("memberFilterPolitics");
+  var fInt = val("memberFilterInterest");
 
   var h = "";
   for (var uid in state.users) {
@@ -801,7 +1014,7 @@ function renderMembersList() {
     var u = state.users[uid];
     var nameStr = ((u.displayName || "") + " " + (u.username || "")).toLowerCase();
     var cityStr = ((u.city || "") + " " + (u.hometown || "")).toLowerCase();
-    var intStr = ((u.interests || "") + " " + (u.favFilmTitle || "") + " " + (u.favShowTitle || "") + " " + (u.favBookTitle || "") + " " + (u.favGameTitle || "")).toLowerCase();
+    var intStr = ((u.interests || "") + " " + (u.favFilmTitle || "") + " " + (u.favGameTitle || "") + " " + (u.favBookTitle || "")).toLowerCase();
 
     if (fName && nameStr.indexOf(fName) === -1) continue;
     if (fPron && String(u.pronouns || "").toLowerCase().indexOf(fPron) === -1) continue;
@@ -813,43 +1026,47 @@ function renderMembersList() {
     var av = isValidImageSrc(u.avatar) ? u.avatar : DEFAULT_AVATAR_SVG;
     h += "<div class='member-card'>" +
            "<div style='display:flex;gap:8px;align-items:center;'>" +
-             "<img src='" + esc(av) + "' style='width:48px;height:48px;object-fit:cover;border:1px solid #800000;'>" +
+             "<img src='" + esc(av) + "' style='width:46px;height:46px;object-fit:cover;border:1px solid #800000;'>" +
              "<div>" +
-               "<a href='javascript:void(0)' onclick=\"openUserProfile('" + esc(uid) + "')\"><b>" + esc(u.displayName || u.username) + "</b></a>" + renderRoleBadge(uid) + "<br>" +
-               "<span class='muted'>Pronouns: " + esc(u.pronouns || "—") + " • City: " + esc(u.city || u.hometown || "—") + "</span>" +
+               "<a href='#' onclick=\"openUserProfile('" + esc(uid) + "');return false;\"><b>" + esc(u.displayName || u.username) + "</b></a>" +
+               renderRoleBadgeHtml(uid) +
+               "<div class='muted'>" + esc([u.pronouns, u.city, u.relationship].filter(Boolean).join(" • ") || "Member") + "</div>" +
              "</div>" +
            "</div>" +
-           "<div class='muted' style='margin-top:4px;'>Interests: " + esc(u.interests || "—") + "</div>" +
          "</div>";
   }
-  box.innerHTML = h || "<div class='muted'>No members match those filters.</div>";
+  grid.innerHTML = h || "<span class='muted'>No members match those filters.</span>";
 }
 
 /* ==========================================================================
-   GROUPS, DIRECT MESSAGES & PUBLIC STICKERS ARCHIVE
+   GROUPS
    ========================================================================== */
 function createGroup() {
   if (!state.user) { showStatus("Login to create a group.", true); return; }
-  var name = (document.getElementById("groupNameInput").value || "").replace(/^\s+|\s+$/g, "");
-  var desc = (document.getElementById("groupDescInput").value || "").replace(/^\s+|\s+$/g, "");
+  var nEl = document.getElementById("groupNameInput");
+  var dEl = document.getElementById("groupDescInput");
+  var name = nEl ? nEl.value.trim() : "";
+  var desc = dEl ? dEl.value.trim() : "";
   if (!name) { showStatus("Enter a group name.", true); return; }
+
   var gid = generateId("grp");
-  var members = {};
-  members[state.user.uid] = true;
-  var obj = {
+  var gObj = {
     id: gid,
     name: name,
     desc: desc,
     ownerUid: state.user.uid,
-    members: members,
-    createdAt: new Date().getTime()
+    ownerName: getDisplayUsername(),
+    members: {},
+    messages: {}
   };
-  dbWrite("PUT", "groups/" + gid, obj, function(err) {
+  gObj.members[state.user.uid] = true;
+  dbWrite("PUT", "groups/" + gid, gObj, function(err) {
     if (!err) {
-      document.getElementById("groupNameInput").value = "";
-      document.getElementById("groupDescInput").value = "";
+      if (nEl) nEl.value = "";
+      if (dEl) dEl.value = "";
       state.activeGroupId = gid;
-      if (typeof fetchAllData === "function") fetchAllData();
+      fetchAllData();
+      showStatus("Group created!", false);
     }
   });
 }
@@ -862,12 +1079,12 @@ function renderGroupsList() {
     if (!state.groups.hasOwnProperty(gid) || !state.groups[gid]) continue;
     var g = state.groups[gid];
     h += "<div class='group-card'>" +
-           "<b>" + esc(g.name) + "</b> (" + countMapKeys(g.members) + " members)<br>" +
+           "<b>" + esc(g.name) + "</b> <span class='muted'>(" + countMapKeys(g.members) + " members)</span><br>" +
            "<span class='muted'>" + esc(g.desc || "") + "</span><br>" +
-           "<button type='button' style='margin-top:4px;' onclick=\"openGroup('" + esc(gid) + "')\">Open Chat</button>" +
+           "<button type='button' style='margin-top:4px;' onclick=\"openGroup('" + esc(gid) + "')\">Open Group</button>" +
          "</div>";
   }
-  box.innerHTML = h || "<span class='muted'>No groups yet.</span>";
+  box.innerHTML = h || "<span class='muted'>No groups created yet.</span>";
 }
 
 function openGroup(gid) {
@@ -876,12 +1093,12 @@ function openGroup(gid) {
 }
 
 function toggleJoinActiveGroup() {
-  if (!state.user || !state.activeGroupId) return;
+  if (!state.user || !state.activeGroupId) { showStatus("Login first.", true); return; }
   var g = state.groups[state.activeGroupId];
   if (!g) return;
-  var isMem = Boolean(g.members && g.members[state.user.uid]);
-  dbWrite(isMem ? "DELETE" : "PUT", "groups/" + state.activeGroupId + "/members/" + state.user.uid, isMem ? null : true, function() {
-    if (typeof fetchAllData === "function") fetchAllData();
+  var isMem = g.members && g.members[state.user.uid];
+  dbWrite(isMem ? "DELETE" : "PUT", "groups/" + g.id + "/members/" + state.user.uid, isMem ? null : true, function() {
+    fetchAllData();
   });
 }
 
@@ -889,29 +1106,37 @@ function renderActiveGroup() {
   var wrap = document.getElementById("activeGroupView");
   if (!wrap) return;
   var g = state.activeGroupId && state.groups[state.activeGroupId];
-  if (!g) { wrap.style.display = "none"; return; }
+  if (!g) {
+    wrap.style.display = "none";
+    return;
+  }
   wrap.style.display = "block";
-  document.getElementById("activeGroupTitle").textContent = "Group: " + g.name;
-  var isMem = Boolean(state.user && g.members && g.members[state.user.uid]);
-  document.getElementById("groupJoinLeaveBtn").textContent = isMem ? "Leave Group" : "Join Group";
+  var tEl = document.getElementById("activeGroupTitle");
+  if (tEl) tEl.textContent = g.name + " (" + countMapKeys(g.members) + " members)";
+
+  var btn = document.getElementById("groupJoinLeaveBtn");
+  var isMem = state.user && g.members && g.members[state.user.uid];
+  if (btn) btn.textContent = isMem ? "Leave Group" : "Join Group";
 
   var feed = document.getElementById("groupMessagesList");
-  var list = [];
+  if (!feed) return;
+  var msgs = [];
   if (g.messages) {
     for (var mid in g.messages) {
-      if (g.messages.hasOwnProperty(mid) && g.messages[mid] && !isUserBlockedByMe(g.messages[mid].authorUid)) list.push(g.messages[mid]);
+      if (g.messages.hasOwnProperty(mid) && g.messages[mid]) msgs.push(g.messages[mid]);
     }
   }
-  list.sort(function(a, b) { return (a.createdAt || 0) - (b.createdAt || 0); });
+  msgs.sort(function(a, b) { return (a.createdAt || 0) - (b.createdAt || 0); });
+
   var h = "";
-  for (var i = 0; i < list.length; i++) {
-    var m = list[i];
-    var canDel = Boolean(state.user && (m.authorUid === state.user.uid || g.ownerUid === state.user.uid || isStaffUser()));
+  for (var i = 0; i < msgs.length; i++) {
+    var m = msgs[i];
     h += "<div class='chat-msg'>" +
-           "<b>" + esc(m.authorName || "User") + "</b> <span class='muted'>" + formatTime(m.createdAt) + "</span> " +
-           (canDel ? "<button type='button' class='btn-danger' onclick=\"deleteGroupMessage('" + esc(g.id) + "','" + esc(m.id) + "')\">x</button>" : "") +
-           "<div>" + esc(m.text || "") + "</div>" +
-           renderMediaHtml(m.imageUrl, m.videoUrl, m.stickerUrl) +
+           "<b>" + esc(m.authorName || "User") + "</b> <span class='muted'>" + formatTime(m.createdAt) + "</span>: " +
+           esc(m.text || "") +
+           (isValidImageSrc(m.imageUrl) ? "<img class='post-media' src='" + esc(m.imageUrl) + "' alt='' onclick=\"openZoomModal(this.src,'Group Image','')\">" : "") +
+           (isValidImageSrc(m.stickerUrl) ? "<img class='post-sticker' src='" + esc(m.stickerUrl) + "' alt=''>" : "") +
+           (m.videoUrl ? renderVideoOrAudioEmbed(m.videoUrl) : "") +
          "</div>";
   }
   feed.innerHTML = h || "<span class='muted'>No messages yet.</span>";
@@ -919,57 +1144,65 @@ function renderActiveGroup() {
 }
 
 function sendGroupMessage() {
-  if (!state.user || !state.activeGroupId) { showStatus("Login and select a group.", true); return; }
-  var txt = (document.getElementById("groupMsgInput").value || "").replace(/^\s+|\s+$/g, "");
-  var vid = safeUrl(document.getElementById("groupVideoUrl").value);
-  var st = safeUrl(document.getElementById("groupStickerUrl").value);
-  var fEl = document.getElementById("groupImgFile");
+  if (!state.user || !state.activeGroupId) { showStatus("Login and open a group first.", true); return; }
+  var txtEl = document.getElementById("groupMsgInput");
+  var fileEl = document.getElementById("groupImgFile");
+  var vidEl = document.getElementById("groupVideoUrl");
+  var stEl = document.getElementById("groupStickerUrl");
+  var text = txtEl ? txtEl.value.trim() : "";
+  var videoUrl = vidEl ? safeUrl(vidEl.value) : "";
+  var stickerUrl = stEl ? safeUrl(stEl.value) : "";
 
-  function saveMsg(imgUrl) {
-    if (!txt && !imgUrl && !vid && !st) return;
+  function commit(imgUrl) {
+    if (!text && !imgUrl && !videoUrl && !stickerUrl) return;
     var mid = generateId("gm");
-    var msgObj = {
+    var mObj = {
       id: mid,
       authorUid: state.user.uid,
       authorName: getDisplayUsername(),
-      text: txt,
+      text: text,
       imageUrl: imgUrl || "",
-      videoUrl: vid || "",
-      stickerUrl: st || "",
+      videoUrl: videoUrl,
+      stickerUrl: stickerUrl,
       createdAt: new Date().getTime()
     };
-    dbWrite("PUT", "groups/" + state.activeGroupId + "/messages/" + mid, msgObj, function(err) {
+    dbWrite("PUT", "groups/" + state.activeGroupId + "/messages/" + mid, mObj, function(err) {
       if (!err) {
-        document.getElementById("groupMsgInput").value = "";
-        document.getElementById("groupVideoUrl").value = "";
-        if (fEl) fEl.value = "";
-        clearAttachedSticker("group");
-        if (typeof fetchAllData === "function") fetchAllData();
+        if (txtEl) txtEl.value = "";
+        if (fileEl) fileEl.value = "";
+        if (vidEl) vidEl.value = "";
+        clearSelectedSticker("group");
+        fetchAllData();
       }
     });
   }
 
-  if (fEl && fEl.files && fEl.files[0]) {
-    uploadImageToImgbb(fEl, function(err, url) { if (!err && url) saveMsg(url); });
-  } else saveMsg("");
+  if (fileEl && fileEl.files && fileEl.files[0]) {
+    uploadImageToImgbb(fileEl, function(err, url) {
+      if (!err && url) commit(url);
+      else showStatus(err || "Upload failed", true);
+    }, { isSticker: false });
+  } else {
+    commit("");
+  }
 }
 
-function deleteGroupMessage(gid, mid) {
-  dbWrite("DELETE", "groups/" + gid + "/messages/" + mid, null, function() {
-    if (typeof fetchAllData === "function") fetchAllData();
-  });
-}
-
+/* ==========================================================================
+   DIRECT MESSAGES (DMS)
+   ========================================================================== */
 function getDmConvKey(uid1, uid2) {
   return uid1 < uid2 ? (uid1 + "__" + uid2) : (uid2 + "__" + uid1);
 }
 
 function startDmWithUsername() {
-  var targetName = (document.getElementById("dmNewTargetInput").value || "").toLowerCase().replace(/[^a-z0-9._-]/g, "");
-  if (!targetName) return;
+  var inp = document.getElementById("dmNewTargetInput");
+  var query = inp ? inp.value.trim().toLowerCase() : "";
+  if (!query) return;
   for (var uid in state.users) {
-    if (state.users.hasOwnProperty(uid) && state.users[uid] && String(state.users[uid].username || "").toLowerCase() === targetName) {
-      document.getElementById("dmNewTargetInput").value = "";
+    if (!state.users.hasOwnProperty(uid) || !state.users[uid]) continue;
+    var u = state.users[uid];
+    if (String(u.username || "").toLowerCase() === query || String(u.displayName || "").toLowerCase() === query) {
+      if (inp) inp.value = "";
       openDmWithUser(uid);
       return;
     }
@@ -977,52 +1210,56 @@ function startDmWithUsername() {
   showStatus("User not found.", true);
 }
 
-function openDmWithUser(uid) {
-  if (!state.user) { showStatus("Login to use DMs.", true); return; }
-  state.activeDmUid = uid;
-  if (typeof switchView === "function") switchView("dms");
+function openDmWithUser(targetUid) {
+  if (!state.user) { showStatus("Login to send direct messages.", true); return; }
+  state.activeDmUid = targetUid;
+  switchView("dms");
 }
 
 function renderDmList() {
-  var listBox = document.getElementById("dmThreadsList");
-  var msgBox = document.getElementById("dmMessagesList");
-  var hdr = document.getElementById("dmActiveHeader");
-  if (!listBox || !msgBox) return;
+  var side = document.getElementById("dmThreadsList");
+  var feed = document.getElementById("dmMessagesList");
+  var head = document.getElementById("dmActiveHeader");
+  if (!side || !feed) return;
 
   if (!state.user) {
-    listBox.innerHTML = "<div class='muted' style='padding:6px;'>Login to view DMs.</div>";
+    side.innerHTML = "<div class='muted' style='padding:6px;'>Login to view DMs.</div>";
+    feed.innerHTML = "";
     return;
   }
 
+  var myUid = state.user.uid;
   var partners = {};
-  if (state.activeDmUid) partners[state.activeDmUid] = true;
-  for (var cKey in state.dms) {
-    if (state.dms.hasOwnProperty(cKey) && cKey.indexOf(state.user.uid) !== -1) {
-      var parts = cKey.split("__");
-      var other = parts[0] === state.user.uid ? parts[1] : parts[0];
-      if (other) partners[other] = true;
-    }
+  if (state.activeDmUid && state.activeDmUid !== myUid) partners[state.activeDmUid] = true;
+
+  for (var convKey in state.dms) {
+    if (!state.dms.hasOwnProperty(convKey)) continue;
+    var parts = convKey.split("__");
+    if (parts[0] === myUid && parts[1]) partners[parts[1]] = true;
+    if (parts[1] === myUid && parts[0]) partners[parts[0]] = true;
   }
 
-  var lh = "";
+  var sh = "";
   for (var pUid in partners) {
     if (!partners.hasOwnProperty(pUid)) continue;
-    var u = state.users[pUid];
-    var label = u ? (u.displayName || u.username) : pUid;
+    var pu = state.users[pUid] || { displayName: pUid };
     var act = (pUid === state.activeDmUid) ? " active-dm" : "";
-    lh += "<div class='dm-thread-item" + act + "' onclick=\"openDmWithUser('" + esc(pUid) + "')\">" + esc(label) + "</div>";
+    sh += "<div class='dm-thread-item" + act + "' onclick=\"openDmWithUser('" + esc(pUid) + "')\">" +
+            esc(pu.displayName || pu.username || pUid) +
+          "</div>";
   }
-  listBox.innerHTML = lh || "<div class='muted' style='padding:6px;'>No conversations yet.</div>";
+  side.innerHTML = sh || "<div class='muted' style='padding:6px;'>No conversations yet.</div>";
 
   if (!state.activeDmUid) {
-    if (hdr) hdr.textContent = "Select a user";
-    msgBox.innerHTML = "";
+    if (head) head.textContent = "Select a user";
+    feed.innerHTML = "";
     return;
   }
 
-  var targetUser = state.users[state.activeDmUid];
-  if (hdr) hdr.textContent = "Chat with " + (targetUser ? (targetUser.displayName || targetUser.username) : state.activeDmUid);
-  var key = getDmConvKey(state.user.uid, state.activeDmUid);
+  var targetUser = state.users[state.activeDmUid] || { displayName: state.activeDmUid };
+  if (head) head.textContent = "Chat with " + (targetUser.displayName || targetUser.username || state.activeDmUid);
+
+  var key = getDmConvKey(myUid, state.activeDmUid);
   var msgsMap = (state.dms[key] && state.dms[key].messages) || {};
   var list = [];
   for (var mid in msgsMap) {
@@ -1033,128 +1270,168 @@ function renderDmList() {
   var mh = "";
   for (var i = 0; i < list.length; i++) {
     var m = list[i];
-    var canDel = Boolean(m.fromUid === state.user.uid || isSuperiorAdmin());
     mh += "<div class='chat-msg'>" +
-            "<b>" + esc(m.fromName || "User") + "</b> <span class='muted'>" + formatTime(m.createdAt) + "</span> " +
-            (canDel ? "<button type='button' class='btn-danger' onclick=\"deleteDmMessage('" + esc(key) + "','" + esc(m.id) + "')\">x</button>" : "") +
-            "<div>" + esc(m.text || "") + "</div>" +
-            renderMediaHtml(m.imageUrl, m.videoUrl, m.stickerUrl) +
+            "<b>" + esc(m.fromName || "User") + "</b> <span class='muted'>" + formatTime(m.createdAt) + "</span>: " +
+            esc(m.text || "") +
+            (isValidImageSrc(m.imageUrl) ? "<img class='post-media' src='" + esc(m.imageUrl) + "' alt='' onclick=\"openZoomModal(this.src,'DM Image','')\">" : "") +
+            (isValidImageSrc(m.stickerUrl) ? "<img class='post-sticker' src='" + esc(m.stickerUrl) + "' alt=''>" : "") +
+            (m.videoUrl ? renderVideoOrAudioEmbed(m.videoUrl) : "") +
           "</div>";
   }
-  msgBox.innerHTML = mh || "<span class='muted'>Say hello!</span>";
-  msgBox.scrollTop = msgBox.scrollHeight;
+  feed.innerHTML = mh || "<span class='muted'>Say hello!</span>";
+  feed.scrollTop = feed.scrollHeight;
 }
 
 function sendDmMessage() {
-  if (!state.user || !state.activeDmUid) { showStatus("Select a user first.", true); return; }
-  if (isMeBlockedByUser(state.activeDmUid)) { showStatus("This user has blocked you.", true); return; }
+  if (!state.user || !state.activeDmUid) { showStatus("Select a user to message.", true); return; }
+  var txtEl = document.getElementById("dmMsgInput");
+  var fileEl = document.getElementById("dmImgFile");
+  var vidEl = document.getElementById("dmVideoUrl");
+  var stEl = document.getElementById("dmStickerUrl");
+  var text = txtEl ? txtEl.value.trim() : "";
+  var videoUrl = vidEl ? safeUrl(vidEl.value) : "";
+  var stickerUrl = stEl ? safeUrl(stEl.value) : "";
 
-  var txt = (document.getElementById("dmMsgInput").value || "").replace(/^\s+|\s+$/g, "");
-  var vid = safeUrl(document.getElementById("dmVideoUrl").value);
-  var st = safeUrl(document.getElementById("dmStickerUrl").value);
-  var fEl = document.getElementById("dmImgFile");
-
-  function saveDm(imgUrl) {
-    if (!txt && !imgUrl && !vid && !st) return;
+  function commit(imgUrl) {
+    if (!text && !imgUrl && !videoUrl && !stickerUrl) return;
     var key = getDmConvKey(state.user.uid, state.activeDmUid);
     var mid = generateId("dm");
-    var obj = {
+    var mObj = {
       id: mid,
       fromUid: state.user.uid,
       fromName: getDisplayUsername(),
-      text: txt,
+      toUid: state.activeDmUid,
+      text: text,
       imageUrl: imgUrl || "",
-      videoUrl: vid || "",
-      stickerUrl: st || "",
+      videoUrl: videoUrl,
+      stickerUrl: stickerUrl,
       createdAt: new Date().getTime()
     };
-    dbWrite("PUT", "dms/" + key + "/messages/" + mid, obj, function(err) {
+    dbWrite("PUT", "dms/" + key + "/messages/" + mid, mObj, function(err) {
       if (!err) {
-        document.getElementById("dmMsgInput").value = "";
-        document.getElementById("dmVideoUrl").value = "";
-        if (fEl) fEl.value = "";
-        clearAttachedSticker("dm");
+        if (txtEl) txtEl.value = "";
+        if (fileEl) fileEl.value = "";
+        if (vidEl) vidEl.value = "";
+        clearSelectedSticker("dm");
         pushNotification(state.activeDmUid, "New DM from " + getDisplayUsername(), "dms", state.user.uid);
-        if (typeof fetchAllData === "function") fetchAllData();
+        fetchAllData();
       }
     });
   }
 
-  if (fEl && fEl.files && fEl.files[0]) {
-    uploadImageToImgbb(fEl, function(err, url) { if (!err && url) saveDm(url); });
-  } else saveDm("");
-}
-
-function deleteDmMessage(convKey, mid) {
-  dbWrite("DELETE", "dms/" + convKey + "/messages/" + mid, null, function() {
-    if (typeof fetchAllData === "function") fetchAllData();
-  });
+  if (fileEl && fileEl.files && fileEl.files[0]) {
+    uploadImageToImgbb(fileEl, function(err, url) {
+      if (!err && url) commit(url);
+      else showStatus(err || "Upload failed", true);
+    }, { isSticker: false });
+  } else {
+    commit("");
+  }
 }
 
 /* ==========================================================================
-   PUBLIC STICKERS ARCHIVE & STICKER PICKER
+   PUBLIC STICKERS & STICKER PICKER
    ========================================================================== */
 function uploadPublicSticker() {
   if (!state.user) { showStatus("Login to upload stickers.", true); return; }
-  var name = (document.getElementById("stickerNameInput").value || "").replace(/^\s+|\s+$/g, "") || "Sticker";
-  var fEl = document.getElementById("stickerFileInput");
-  if (!fEl || !fEl.files || !fEl.files[0]) { showStatus("Choose a sticker image/GIF.", true); return; }
-
-  uploadImageToImgbb(fEl, function(err, url) {
-    if (err || !url) { showStatus(err || "Sticker upload failed", true); return; }
-    var stId = generateId("st");
-    var obj = {
-      id: stId,
-      name: name,
-      url: url,
-      uploadedByUid: state.user.uid,
-      uploadedByName: getDisplayUsername(),
-      createdAt: new Date().getTime()
-    };
-    dbWrite("PUT", "stickers/" + stId, obj, function(wErr) {
-      if (!wErr) {
-        document.getElementById("stickerNameInput").value = "";
-        fEl.value = "";
-        if (typeof fetchAllData === "function") fetchAllData();
-        showStatus("Sticker added to public archive!", false);
-      }
-    });
+  var nameEl = document.getElementById("stickerNameInput");
+  var fileEl = document.getElementById("stickerFileInput");
+  var name = nameEl ? nameEl.value.trim() : "Sticker";
+  if (!fileEl || !fileEl.files || !fileEl.files[0]) {
+    showStatus("Select a sticker image file.", true);
+    return;
+  }
+  uploadImageToImgbb(fileEl, function(err, url) {
+    if (!err && url) {
+      var stId = generateId("st");
+      var stObj = {
+        id: stId,
+        name: name || "Sticker",
+        url: url,
+        uploadedByUid: state.user.uid,
+        uploadedByName: getDisplayUsername(),
+        createdAt: new Date().getTime()
+      };
+      dbWrite("PUT", "stickers/" + stId, stObj, function(wErr) {
+        if (!wErr) {
+          if (nameEl) nameEl.value = "";
+          fileEl.value = "";
+          fetchAllData();
+          showStatus("Sticker added to public archive!", false);
+        }
+      });
+    } else {
+      showStatus(err || "Sticker upload failed", true);
+    }
   }, { isSticker: true });
 }
 
 function renderStickersArchive() {
-  var box = document.getElementById("stickersArchiveGrid");
-  if (!box) return;
+  var grid = document.getElementById("stickersArchiveGrid");
+  if (!grid) return;
   var h = "";
-  for (var stId in state.stickers) {
-    if (!state.stickers.hasOwnProperty(stId) || !state.stickers[stId]) continue;
-    var s = state.stickers[stId];
-    if (!isValidImageSrc(s.url)) continue;
-    h += "<div class='sticker-card' onclick=\"openZoomModal('" + esc(s.url) + "','" + esc(s.name) + "','Uploaded by " + esc(s.uploadedByName || "User") + "')\">" +
-           "<img src='" + esc(s.url) + "' alt='sticker'>" +
-           "<span>" + esc(s.name) + "</span>" +
+  for (var id in state.stickers) {
+    if (!state.stickers.hasOwnProperty(id) || !state.stickers[id]) continue;
+    var s = state.stickers[id];
+    h += "<div class='sticker-card' onclick=\"openZoomModal('" + esc(s.url) + "','" + esc(s.name || "Sticker") + "','By " + esc(s.uploadedByName || "User") + "')\">" +
+           "<img src='" + esc(s.url) + "' alt=''>" +
+           "<span>" + esc(s.name || "Sticker") + "</span>" +
          "</div>";
   }
-  box.innerHTML = h || "<span class='muted'>No stickers in archive yet.</span>";
+  grid.innerHTML = h || "<span class='muted'>No stickers uploaded yet.</span>";
 }
 
-function openStickerPicker(target) {
-  state.stickerPickerTarget = target;
+function openStickerPicker(targetContext) {
+  state.stickerPickerTarget = targetContext;
   var modal = document.getElementById("stickerPickerModal");
   var grid = document.getElementById("stickerPickerGrid");
   if (!modal || !grid) return;
+
   var h = "";
-  for (var stId in state.stickers) {
-    if (!state.stickers.hasOwnProperty(stId) || !state.stickers[stId]) continue;
-    var s = state.stickers[stId];
-    if (!isValidImageSrc(s.url)) continue;
+  for (var id in state.stickers) {
+    if (!state.stickers.hasOwnProperty(id) || !state.stickers[id]) continue;
+    var s = state.stickers[id];
     h += "<div class='sticker-card' onclick=\"selectStickerForTarget('" + esc(s.url) + "')\">" +
-           "<img src='" + esc(s.url) + "' alt='sticker'>" +
-           "<span>" + esc(s.name) + "</span>" +
+           "<img src='" + esc(s.url) + "' alt=''>" +
+           "<span>" + esc(s.name || "Sticker") + "</span>" +
          "</div>";
   }
-  grid.innerHTML = h || "<span class='muted'>No stickers uploaded yet. Visit [Stickers] tab to add one!</span>";
+  grid.innerHTML = h || "<span class='muted'>No stickers yet. Upload one in [Stickers]!</span>";
   modal.style.display = "block";
+}
+
+function selectStickerForTarget(url) {
+  var map = {
+    thread: ["threadStickerUrl", "threadStickerPreview"],
+    globalWall: ["globalWallSticker", "globalWallStickerPreview"],
+    profileWall: ["profileWallSticker", "profileWallStickerPreview"],
+    group: ["groupStickerUrl", "groupStickerPreview"],
+    dm: ["dmStickerUrl", "dmStickerPreview"]
+  };
+  var pair = map[state.stickerPickerTarget];
+  if (pair) {
+    var inp = document.getElementById(pair[0]);
+    var prev = document.getElementById(pair[1]);
+    if (inp) inp.value = url;
+    if (prev) prev.innerHTML = "<img src='" + esc(url) + "' alt='Sticker'> <button type='button' onclick=\"clearSelectedSticker('" + esc(state.stickerPickerTarget) + "')\">Remove</button>";
+  }
+  closeStickerPicker();
+}
+
+function clearSelectedSticker(targetContext) {
+  var map = {
+    thread: ["threadStickerUrl", "threadStickerPreview"],
+    globalWall: ["globalWallSticker", "globalWallStickerPreview"],
+    profileWall: ["profileWallSticker", "profileWallStickerPreview"],
+    group: ["groupStickerUrl", "groupStickerPreview"],
+    dm: ["dmStickerUrl", "dmStickerPreview"]
+  };
+  var pair = map[targetContext];
+  if (!pair) return;
+  var inp = document.getElementById(pair[0]);
+  var prev = document.getElementById(pair[1]);
+  if (inp) inp.value = "";
+  if (prev) prev.innerHTML = "";
 }
 
 function closeStickerPicker() {
@@ -1162,71 +1439,135 @@ function closeStickerPicker() {
   if (modal) modal.style.display = "none";
 }
 
-function selectStickerForTarget(url) {
-  var t = state.stickerPickerTarget || "";
-  if (t.indexOf("reply:") === 0) {
-    var tid = t.split(":")[1];
-    var inp = document.getElementById("replySticker_" + tid);
-    var prev = document.getElementById("replyStickerPreview_" + tid);
-    if (inp) inp.value = url;
-    if (prev) prev.innerHTML = "<img src='" + esc(url) + "'> <button type='button' onclick=\"clearAttachedSticker('" + esc(t) + "')\">x</button>";
-  } else {
-    var map = {
-      thread: ["threadStickerUrl", "threadStickerPreview"],
-      profileWall: ["profileWallSticker", "profileWallStickerPreview"],
-      globalWall: ["globalWallSticker", "globalWallStickerPreview"],
-      group: ["groupStickerUrl", "groupStickerPreview"],
-      dm: ["dmStickerUrl", "dmStickerPreview"]
-    };
-    if (map[t]) {
-      var iEl = document.getElementById(map[t][0]);
-      var pEl = document.getElementById(map[t][1]);
-      if (iEl) iEl.value = url;
-      if (pEl) pEl.innerHTML = "<img src='" + esc(url) + "'> <button type='button' onclick=\"clearAttachedSticker('" + esc(t) + "')\">x</button>";
-    }
-  }
-  closeStickerPicker();
+/* ==========================================================================
+   MUSIC RADIO PLAYER
+   ========================================================================== */
+function initMusicPlayer() {
+  var audio = document.getElementById("audioPlayerEl");
+  var box = document.getElementById("musicWidgetBox");
+  var playBtn = document.getElementById("musicPlayBtn");
+  if (!audio) return;
+
+  audio.addEventListener("play", function() {
+    if (box) box.className = "side-box music-widget is-playing";
+    if (playBtn) playBtn.textContent = "Pause";
+  });
+  audio.addEventListener("pause", function() {
+    if (box) box.className = "side-box music-widget";
+    if (playBtn) playBtn.textContent = "Play";
+  });
+  audio.addEventListener("ended", function() {
+    nextMusicTrack();
+  });
 }
 
-function clearAttachedSticker(t) {
-  if (!t) return;
-  if (t.indexOf("reply:") === 0) {
-    var tid = t.split(":")[1];
-    var inp = document.getElementById("replySticker_" + tid);
-    var prev = document.getElementById("replyStickerPreview_" + tid);
-    if (inp) inp.value = "";
-    if (prev) prev.innerHTML = "";
+function rebuildMusicPlaylist() {
+  var list = [];
+  for (var id in state.music) {
+    if (state.music.hasOwnProperty(id) && state.music[id]) list.push(state.music[id]);
+  }
+  list.sort(function(a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
+  state.musicPlaylist = list;
+
+  var box = document.getElementById("musicPlaylist");
+  if (!box) return;
+  var h = "";
+  for (var i = 0; i < list.length; i++) {
+    var tr = list[i];
+    var act = (i === state.currentTrackIndex) ? " active-track" : "";
+    h += "<div class='music-track-item" + act + "' onclick='playMusicTrack(" + i + ")'>" +
+           (i + 1) + ". " + esc(tr.title || "Track") + " <span class='muted'>(" + esc(tr.by || "Anon") + ")</span>" +
+         "</div>";
+  }
+  box.innerHTML = h || "<span class='muted'>No tracks uploaded yet.</span>";
+}
+
+function playMusicTrack(idx) {
+  var tr = state.musicPlaylist[idx];
+  var audio = document.getElementById("audioPlayerEl");
+  var np = document.getElementById("musicNowPlaying");
+  if (!tr || !audio) return;
+  state.currentTrackIndex = idx;
+  audio.src = tr.url;
+  if (np) np.textContent = tr.title || "Playing Track";
+  audio.play();
+  rebuildMusicPlaylist();
+}
+
+function toggleMusicPlay() {
+  var audio = document.getElementById("audioPlayerEl");
+  if (!audio) return;
+  if (!audio.src && state.musicPlaylist.length) {
+    playMusicTrack(0);
     return;
   }
-  var map = {
-    thread: ["threadStickerUrl", "threadStickerPreview"],
-    profileWall: ["profileWallSticker", "profileWallStickerPreview"],
-    globalWall: ["globalWallSticker", "globalWallStickerPreview"],
-    group: ["groupStickerUrl", "groupStickerPreview"],
-    dm: ["dmStickerUrl", "dmStickerPreview"]
-  };
-  if (map[t]) {
-    var iEl = document.getElementById(map[t][0]);
-    var pEl = document.getElementById(map[t][1]);
-    if (iEl) iEl.value = "";
-    if (pEl) pEl.innerHTML = "";
+  if (audio.paused) audio.play();
+  else audio.pause();
+}
+
+function prevMusicTrack() {
+  if (!state.musicPlaylist.length) return;
+  var next = (state.currentTrackIndex - 1 + state.musicPlaylist.length) % state.musicPlaylist.length;
+  playMusicTrack(next);
+}
+
+function nextMusicTrack() {
+  if (!state.musicPlaylist.length) return;
+  var next = (state.currentTrackIndex + 1) % state.musicPlaylist.length;
+  playMusicTrack(next);
+}
+
+function uploadMusicTrack() {
+  if (!state.user) { showStatus("Login to upload music.", true); return; }
+  var titleEl = document.getElementById("musicTitleInput");
+  var fileEl = document.getElementById("musicFileInput");
+  if (!fileEl || !fileEl.files || !fileEl.files[0]) {
+    showStatus("Select an audio file first.", true);
+    return;
   }
+  var title = (titleEl && titleEl.value.trim()) || fileEl.files[0].name.replace(/\.[^.]+$/, "");
+  uploadAudioToHost(fileEl, function(err, dataUrl) {
+    if (err || !dataUrl) {
+      showStatus(err || "Audio upload failed", true);
+      return;
+    }
+    var tid = generateId("trk");
+    var trObj = {
+      id: tid,
+      title: title,
+      url: dataUrl,
+      uid: state.user.uid,
+      by: getDisplayUsername(),
+      createdAt: new Date().getTime()
+    };
+    dbWrite("PUT", "music/" + tid, trObj, function(wErr) {
+      if (!wErr) {
+        if (titleEl) titleEl.value = "";
+        fileEl.value = "";
+        fetchAllData();
+        showStatus("Track uploaded to radio!", false);
+      } else {
+        showStatus("Music save error: " + wErr, true);
+      }
+    });
+  });
 }
 
 /* ==========================================================================
    NOTIFICATIONS
    ========================================================================== */
 function pushNotification(targetUid, text, linkView, linkId) {
-  if (!targetUid || (state.user && targetUid === state.user.uid)) return;
-  var nid = generateId("nt");
-  dbWrite("PUT", "notifications/" + targetUid + "/" + nid, {
+  if (!targetUid) return;
+  var nid = generateId("ntf");
+  var nObj = {
     id: nid,
     text: text,
     linkView: linkView || "boards",
     linkId: linkId || "",
     read: false,
     createdAt: new Date().getTime()
-  }, null);
+  };
+  dbWrite("PUT", "notifications/" + targetUid + "/" + nid, nObj, null);
 }
 
 function updateNotifBadge() {
@@ -1236,13 +1577,17 @@ function updateNotifBadge() {
     badge.style.display = "none";
     return;
   }
-  var unread = 0;
   var map = state.notifications[state.user.uid];
-  for (var nid in map) {
-    if (map.hasOwnProperty(nid) && map[nid] && !map[nid].read) unread++;
+  var unread = 0;
+  for (var id in map) {
+    if (map.hasOwnProperty(id) && map[id] && !map[id].read) unread++;
   }
-  badge.style.display = unread > 0 ? "inline-block" : "none";
-  badge.textContent = unread;
+  if (unread > 0) {
+    badge.style.display = "inline";
+    badge.textContent = String(unread);
+  } else {
+    badge.style.display = "none";
+  }
 }
 
 function renderNotifications() {
@@ -1254,30 +1599,32 @@ function renderNotifications() {
   }
   var map = state.notifications[state.user.uid] || {};
   var list = [];
-  for (var nid in map) {
-    if (map.hasOwnProperty(nid) && map[nid]) list.push(map[nid]);
+  for (var id in map) {
+    if (map.hasOwnProperty(id) && map[id]) list.push(map[id]);
   }
   list.sort(function(a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
+
   var h = "";
   for (var i = 0; i < list.length; i++) {
     var n = list[i];
-    h += "<div class='comment-item' style='" + (n.read ? "opacity:0.7;" : "border-color:#800000;font-weight:bold;") + "'>" +
-           esc(n.text) + " <span class='muted'>(" + formatTime(n.createdAt) + ")</span>" +
+    h += "<div class='chat-msg' style='" + (n.read ? "" : "font-weight:bold;") + "'>" +
+           esc(n.text) + " <span class='muted'>" + formatTime(n.createdAt) + "</span>" +
          "</div>";
   }
-  box.innerHTML = h || "<span class='muted'>No notifications.</span>";
+  box.innerHTML = h || "<span class='muted'>No notifications yet.</span>";
 }
 
 function markAllNotificationsRead() {
   if (!state.user || !state.notifications[state.user.uid]) return;
   var map = state.notifications[state.user.uid];
   var patch = {};
-  for (var nid in map) {
-    if (map.hasOwnProperty(nid) && map[nid] && !map[nid].read) {
-      patch[nid + "/read"] = true;
+  for (var id in map) {
+    if (map.hasOwnProperty(id) && map[id] && !map[id].read) {
+      map[id].read = true;
+      patch[id + "/read"] = true;
     }
   }
-  dbWrite("PATCH", "notifications/" + state.user.uid, patch, function() {
-    if (typeof fetchAllData === "function") fetchAllData();
-  });
+  updateNotifBadge();
+  renderNotifications();
+  dbWrite("PATCH", "notifications/" + state.user.uid, patch, null);
 }
